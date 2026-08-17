@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-meeting-assistant.local/contracts/worker-envelope.schema.json",
+  "title": "Worker request envelope",
+  "type": "object",
+  "required": ["protocolVersion", "requestId", "type", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": { "const": "1.0" },
+    "requestId": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "minLength": 1 },
+    "payload": { "type": "object" }
+  }
+}
+

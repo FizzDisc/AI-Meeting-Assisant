@@ -1,0 +1,13 @@
+[project]
+name = "ai-meeting-assistant-worker"
+version = "0.1.0"
+description = "Local AI worker boundary for AI Meeting Assistant"
+requires-python = ">=3.11,<3.13"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

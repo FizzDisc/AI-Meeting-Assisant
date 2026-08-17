@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>AiMeetingAssistant</AssemblyName>
+    <RootNamespace>AiMeetingAssistant.Desktop</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AiMeetingAssistant.Core\AiMeetingAssistant.Core.csproj" />
+    <ProjectReference Include="..\AiMeetingAssistant.Contracts\AiMeetingAssistant.Contracts.csproj" />
+  </ItemGroup>
+</Project>
+
