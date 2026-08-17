@@ -256,7 +256,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
 
                 var hresult = _captureClient!.GetNextPacketSize(out var packetFrames);
                 if (hresult < 0)
-                    throw new InvalidOperationException($"Failed to query capture packet size (HRESULT: 0x{hresult:X8})");
+                    throw new InvalidOperationException(WasapiError.Describe("Failed to query capture packet size", hresult));
 
                 while (packetFrames > 0 && !cancellationToken.IsCancellationRequested && _isCapturing)
                 {
@@ -266,7 +266,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
 
                     hresult = _captureClient.GetBuffer(out pData, out numFrames, out bufferFlags, out _, out _);
                     if (hresult < 0)
-                        throw new InvalidOperationException($"Failed to get capture buffer (HRESULT: 0x{hresult:X8})");
+                        throw new InvalidOperationException(WasapiError.Describe("Failed to get capture buffer", hresult));
 
                     try
                     {
@@ -310,12 +310,12 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
                         // Always release the buffer
                         hresult = _captureClient.ReleaseBuffer(numFrames);
                         if (hresult < 0)
-                            throw new InvalidOperationException($"Failed to release capture buffer (HRESULT: 0x{hresult:X8})");
+                            throw new InvalidOperationException(WasapiError.Describe("Failed to release capture buffer", hresult));
                     }
 
                     hresult = _captureClient.GetNextPacketSize(out packetFrames);
                     if (hresult < 0)
-                        throw new InvalidOperationException($"Failed to query capture packet size (HRESULT: 0x{hresult:X8})");
+                        throw new InvalidOperationException(WasapiError.Describe("Failed to query capture packet size", hresult));
                 }
             }
         }

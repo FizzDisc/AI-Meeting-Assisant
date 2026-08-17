@@ -1,4 +1,5 @@
 using AiMeetingAssistant.Core.Capture;
+using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Windows.Capture;
 
 var failures = 0;
@@ -119,6 +120,110 @@ try
             }
         }
 
+        var rapidProviders = new List<FakeAudioProvider>();
+        var rapidCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        {
+            var provider = new FakeAudioProvider();
+            rapidProviders.Add(provider);
+            return provider;
+        });
+        for (var cycle = 0; cycle < 10; cycle++)
+        {
+            await rapidCoordinator.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+            await rapidCoordinator.StopAsync();
+        }
+        if (rapidProviders.Count != 20 || rapidProviders.Any(p => p.StartCount != 1 || p.StopCount != 1 || p.DisposeCount != 1))
+        {
+            Console.Error.WriteLine("FAIL Rapid dual start/stop cycles leaked or duplicated lifecycle calls.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine("PASS Ten rapid dual start/stop cycles clean up exactly once.");
+        }
+
+        var faultProviders = new List<FakeAudioProvider>();
+        var faultCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        {
+            var provider = new FakeAudioProvider();
+            faultProviders.Add(provider);
+            return provider;
+        });
+        var faultSession = new RecordingSession(faultCoordinator);
+        await faultSession.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+        faultProviders[0].RaiseFault("device invalidated");
+        faultProviders[1].RaiseFault("device invalidated again");
+        await WaitForState(faultSession, RecordingSessionState.Failed);
+        if (faultProviders.Any(p => p.StopCount != 1 || p.DisposeCount != 1))
+        {
+            Console.Error.WriteLine("FAIL Runtime device faults did not clean up both streams exactly once.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine("PASS Simultaneous runtime faults fail the session and clean up both streams once.");
+        }
+
+        var stopFailureProviders = new List<FakeAudioProvider>();
+        var stopFailureCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        {
+            var provider = new FakeAudioProvider(failOnStop: stopFailureProviders.Count == 1);
+            stopFailureProviders.Add(provider);
+            return provider;
+        });
+        await stopFailureCoordinator.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+        try
+        {
+            await stopFailureCoordinator.StopAsync();
+            Console.Error.WriteLine("FAIL Stop failure should have propagated.");
+            failures++;
+        }
+        catch (IOException)
+        {
+            if (stopFailureProviders.Any(p => p.DisposeCount != 1))
+            {
+                Console.Error.WriteLine("FAIL Stop failure prevented disposal of one or more streams.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine("PASS Stop failure still disposes both streams.");
+            }
+        }
+
+        var shutdownProviders = new List<FakeAudioProvider>();
+        var shutdownCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        {
+            var provider = new FakeAudioProvider();
+            shutdownProviders.Add(provider);
+            return provider;
+        });
+        var shutdownSession = new RecordingSession(shutdownCoordinator);
+        await shutdownSession.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+        await shutdownSession.ShutdownAsync();
+        await shutdownSession.ShutdownAsync();
+        if (shutdownProviders.Any(p => p.StopCount != 1 || p.DisposeCount != 1))
+        {
+            Console.Error.WriteLine("FAIL Repeated window-style shutdown did not clean up exactly once.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine("PASS Repeated window-style shutdown cleans up both streams exactly once.");
+        }
+
+        var invalidatedMessage = WasapiError.Describe("Capture failed", WasapiError.DeviceInvalidated);
+        if (!invalidatedMessage.Contains("disconnected", StringComparison.OrdinalIgnoreCase) ||
+            !invalidatedMessage.Contains("Refresh devices", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("FAIL Device-invalidated error is not actionable.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine("PASS Device-invalidated HRESULT produces actionable recovery guidance.");
+        }
+
         static string GetTimestamp(string path)
         {
             var name = Path.GetFileNameWithoutExtension(path);
@@ -154,7 +259,14 @@ catch (Exception ex)
 
 return failures == 0 ? 0 : 1;
 
-file sealed class FakeAudioProvider(bool failOnStart = false) : IAudioCaptureProvider
+static async Task WaitForState(RecordingSession session, RecordingSessionState expected)
+{
+    var timeout = DateTime.UtcNow.AddSeconds(2);
+    while (session.State != expected && DateTime.UtcNow < timeout) await Task.Delay(10);
+    if (session.State != expected) throw new InvalidOperationException($"Expected {expected}, got {session.State}.");
+}
+
+file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = false) : IAudioCaptureProvider
 {
 #pragma warning disable CS0067
     public event EventHandler<AudioCaptureStartedEventArgs>? CaptureStarted;
@@ -179,7 +291,13 @@ file sealed class FakeAudioProvider(bool failOnStart = false) : IAudioCapturePro
     {
         if (IsCapturing) StopCount++;
         IsCapturing = false;
+        if (failOnStop) throw new IOException("Simulated stop failure.");
         return Task.CompletedTask;
+    }
+
+    public void RaiseFault(string message)
+    {
+        if (IsCapturing) CaptureFaulted?.Invoke(this, new(message));
     }
 
     public ValueTask DisposeAsync()

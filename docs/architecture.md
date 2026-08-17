@@ -77,6 +77,12 @@ The Windows adapter (WasapiAudioCapture) is internal to the capture layer; the C
 
 The selected Windows render endpoint uses the same PCM conversion and WAV writer as microphone capture, but initializes `IAudioClient` with both `AUDCLNT_STREAMFLAGS_LOOPBACK` and event-callback flags. Sprint 1.4.2 starts loopback first and microphone second, writes separate files with one shared timestamp and rolls both providers back if either start fails. Stop, capture fault and window shutdown converge on the same serialized cleanup path.
 
+### Capture robustness (Sprint 1.4.3)
+
+Runtime failure in either audio provider fails the whole `RecordingSession`; the coordinator then stops and disposes both providers exactly once. Cleanup continues for the second stream even if stopping the first throws. Repeated shutdown is idempotent. Known WASAPI HRESULTs for device invalidation, exclusive use and access denial are translated into recovery guidance. Loopback silence is materialized in the WAV timeline even when the endpoint emits no packets.
+
+Live microphone handover is intentionally a future segmented-capture feature: keep system audio running, finalize the old microphone WAV and start a new microphone segment with its session-clock offset. This avoids mixing devices with different channel counts or sample formats inside one WAV.
+
 ## Privacy and quality guardrails
 
 - Show an unambiguous recording indicator and require consent confirmation.

@@ -20,7 +20,8 @@
 5. **AMA-105: Screen/window** — Use Windows Graphics Capture with source selection and privacy-safe preview.
 6. **AMA-106: Session workspace** — Create an atomic, resumable manifest and validate free disk space.
 7. **AMA-107: Controls and consent** — Wire start/stop, elapsed time, clear status, consent and failure recovery into the shell. **UI TODO:** redesign the record/stop control; the growing stack of button label, timer and two meters is functional but visually awkward.
-8. **AMA-108: Smoke-test matrix** — Teams, USB/Bluetooth devices, switching, sleep and long recordings.
+8. **AMA-108: Smoke-test matrix** — **Sprint 1.4.3 complete.** Automated coverage includes rapid dual start/stop, simultaneous stream faults, partial start rollback, stop failure, repeated shutdown, silent-loopback timeline preservation and actionable device-invalidated errors. Manual validation passed rapid cycles, close-during-recording and silent-loopback duration; physical USB unplug was not tested. Teams, Bluetooth switching, sleep and long recordings remain broader matrix items.
+9. **AMA-109: Live microphone handover** — Allow changing the microphone during an active meeting when a headset battery dies or the user moves to another device. Finalize the old microphone segment, start a new segment at a recorded session-clock offset, keep system audio running and expose the handover in the future session manifest. Do not append incompatible device formats into one WAV file.
 
 ## Sprint 2 — local transcription
 

@@ -1119,3 +1119,25 @@ Automatisch: 22/22 Core und 7/7 Windows smoke PASS.
 UI-TODO: Record/Stop-Steuerung visuell neu gestalten.
 
 Sprint 1.4.2 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-17 23:46 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.4.3 abgeschlossen
+Status: DONE
+
+Nachricht:
+Robustheits-Sprint bestanden: schnelle Start/Stop-Zyklen, parallele Faults,
+Teilstart-Rollback, Stop-Fehler, wiederholter Shutdown, stille Loopback-Zeitachse
+und lesbare Geräteverlust-Hinweise sind automatisiert abgedeckt.
+
+Manuell bestanden: schnelle Zyklen, Fenster waehrend Aufnahme schliessen und
+stiller Systemaudio-Start. Physisches USB-Unplug wurde nicht getestet.
+Letztes Paar: Mikrofon 10,885 s, Systemaudio 11,041 s, beide abspielbar.
+
+Neues Backlog-Item AMA-109: Mikrofon waehrend einer laufenden Aufnahme als
+segmentierten Handover wechseln, z. B. wenn ein Headset leer ist.
+
+Sprint 1.4.3 ist abgeschlossen. Commit und Push bleiben bei Kevin.
