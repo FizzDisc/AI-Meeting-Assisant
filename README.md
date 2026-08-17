@@ -35,7 +35,15 @@ dotnet restore .\AI-Meeting-Assistant.sln
 dotnet run --project .\src\AiMeetingAssistant.Desktop
 ```
 
-The red record button is intentionally disabled in Sprint 0. It becomes active when the capture coordinator is implemented in Sprint 1.
+The record control currently exercises the Sprint 1.1 state machine using a clearly labelled simulation. No screen or audio is captured or saved yet.
+
+## Verify Sprint 1.1
+
+```powershell
+dotnet build .\AI-Meeting-Assistant.sln
+dotnet run --project .\tests\AiMeetingAssistant.Core.Tests
+dotnet run --project .\src\AiMeetingAssistant.Desktop
+```
 
 ## Exercise the worker protocol
 
@@ -46,4 +54,3 @@ The red record button is intentionally disabled in Sprint 0. It becomes active w
 Expected output is one JSON response on stdout. Logs must go to stderr so the protocol stream remains machine-readable.
 
 See [architecture](docs/architecture.md), [Sprint backlog](docs/backlog.md), and [ADR-001](docs/decisions/001-platform-and-process-boundary.md).
-

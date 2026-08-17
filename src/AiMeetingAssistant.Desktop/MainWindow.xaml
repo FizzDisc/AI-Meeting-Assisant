@@ -11,11 +11,11 @@
         <Grid>
             <StackPanel>
                 <TextBlock Text="AI MEETING ASSISTANT" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
-                <TextBlock Text="Ready for your next meeting" FontSize="30" FontWeight="SemiBold" Margin="0,7,0,0"/>
+                <TextBlock Text="{Binding StateLabel}" FontSize="30" FontWeight="SemiBold" Margin="0,7,0,0"/>
                 <TextBlock Text="Capture, transcribe and turn conversations into clear outcomes." Foreground="{StaticResource MutedBrush}" FontSize="15" Margin="0,8,0,0"/>
             </StackPanel>
             <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#18352E" CornerRadius="12" Padding="14,8">
-                <TextBlock Text="SPRINT 0 · SHELL" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
+                <TextBlock Text="SPRINT 1.1 · STATE MACHINE" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
             </Border>
         </Grid>
         <Grid Grid.Row="2">
@@ -25,13 +25,33 @@
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <StackPanel>
                         <TextBlock Text="New recording" FontSize="20" FontWeight="SemiBold"/>
-                        <TextBlock Text="Sources will become selectable when capture lands in Sprint 1." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0"/>
+                        <TextBlock Text="State-flow simulation only — no screen or audio is saved yet." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" VerticalAlignment="Center">
-                        <Button Width="126" Height="126" IsEnabled="False" ToolTip="Capture is planned for Sprint 1" HorizontalAlignment="Center" BorderThickness="0" Background="Transparent">
-                            <Grid><Ellipse Fill="#3A2327"/><Ellipse Width="72" Height="72" Fill="{StaticResource RecordBrush}"/><Rectangle Width="22" Height="22" RadiusX="4" RadiusY="4" Fill="White" Opacity="0.9"/></Grid>
+                        <Button Width="126" Height="126" Command="{Binding ToggleRecordingCommand}" ToolTip="Start or stop the recording-state simulation" HorizontalAlignment="Center" BorderThickness="0" Background="Transparent">
+                            <Grid>
+                                <Ellipse Fill="#3A2327"/>
+                                <Ellipse Width="72" Height="72" Fill="{StaticResource RecordBrush}"/>
+                                <Ellipse Width="26" Height="26" Fill="White" Opacity="0.9">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers><DataTrigger Binding="{Binding IsRecording}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <Rectangle Width="24" Height="24" RadiusX="4" RadiusY="4" Fill="White" Opacity="0.9">
+                                    <Rectangle.Style>
+                                        <Style TargetType="Rectangle">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers><DataTrigger Binding="{Binding IsRecording}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                        </Style>
+                                    </Rectangle.Style>
+                                </Rectangle>
+                            </Grid>
                         </Button>
-                        <TextBlock Text="Recording becomes available in Sprint 1" HorizontalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="0,14,0,0"/>
+                        <TextBlock Text="{Binding RecordingButtonLabel}" HorizontalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="0,14,0,0"/>
+                        <TextBlock Text="{Binding ErrorMessage}" HorizontalAlignment="Center" Foreground="{StaticResource RecordBrush}" Margin="0,8,0,0"/>
                     </StackPanel>
                     <UniformGrid Grid.Row="2" Columns="3">
                         <Border Background="{StaticResource RaisedBrush}" CornerRadius="10" Padding="14" Margin="0,0,8,0"><StackPanel><TextBlock Text="SCREEN" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBlock Text="Not selected" Margin="0,6,0,0"/></StackPanel></Border>
@@ -59,7 +79,6 @@
                 </StackPanel></Border>
             </StackPanel>
         </Grid>
-        <Grid Grid.Row="4"><TextBlock Text="Local processing · No recording active" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Architecture and backlog ready" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+        <Grid Grid.Row="4"><TextBlock Text="Simulation only · No media is being captured" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 1.1 · State transitions active" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
     </Grid>
 </Window>
-

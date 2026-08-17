@@ -8,12 +8,12 @@
 - [x] Versioned .NET/Python contract and worker health-check skeleton
 - [x] Architecture, privacy guardrails and technology decision recorded
 - [x] Ordered implementation backlog
-- [ ] Build on a machine with the .NET 8 SDK (locally blocked: runtime only)
-- [ ] Interactive UI smoke test after SDK installation
+- [x] Build on a machine with the .NET 8 SDK
+- [x] Interactive UI smoke test after SDK installation
 
 ## Sprint 1 — trustworthy capture foundation
 
-1. **AMA-101: Capture state machine** — Idle → preparing → recording → stopping → completed/failed, with guarded transitions and tests.
+1. **AMA-101: Capture state machine** — **Done in Sprint 1.1.** Idle → preparing → recording → stopping → completed/failed, with guarded transitions and tests. The UI currently drives a clearly labelled no-media simulation.
 2. **AMA-102: Select sources** — Enumerate screens/windows, render endpoints and microphones; remember user choices.
 3. **AMA-103: System audio** — Record a selected WASAPI loopback endpoint with timestamps and device-loss handling.
 4. **AMA-104: Microphone** — Record the selected input independently and display a live level meter.
@@ -56,4 +56,3 @@
 - Recording consent language and regional compliance
 - Default retention and deletion guarantees
 - Installer, updates, Python and model distribution
-
