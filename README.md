@@ -17,6 +17,7 @@ src/
   AiMeetingAssistant.Desktop/   WPF application and presentation layer
   AiMeetingAssistant.Core/      Use-case and capture abstractions
   AiMeetingAssistant.Contracts/ Versioned worker messages
+  AiMeetingAssistant.Windows/   Windows display and Core Audio adapters
 worker/                          Python AI worker skeleton
 contracts/                       Language-neutral JSON Schema
 docs/                            Architecture, decisions and backlog
@@ -42,6 +43,7 @@ The record control currently exercises the Sprint 1.1 state machine using a clea
 ```powershell
 dotnet build .\AI-Meeting-Assistant.sln
 dotnet run --project .\tests\AiMeetingAssistant.Core.Tests
+dotnet run --project .\tests\AiMeetingAssistant.Windows.SmokeTests
 dotnet run --project .\src\AiMeetingAssistant.Desktop
 ```
 

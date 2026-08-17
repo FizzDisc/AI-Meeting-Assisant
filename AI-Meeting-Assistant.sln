@@ -12,6 +12,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EBF62D0C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AiMeetingAssistant.Core.Tests", "tests\AiMeetingAssistant.Core.Tests\AiMeetingAssistant.Core.Tests.csproj", "{1034C3A8-42B8-4F6A-A151-077A8A273B27}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{55E42211-B362-4F59-A89A-C11D9579BA40}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AiMeetingAssistant.Windows", "src\AiMeetingAssistant.Windows\AiMeetingAssistant.Windows.csproj", "{344B18E8-D9CB-4F89-81A2-FC98048C7804}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AiMeetingAssistant.Windows.SmokeTests", "tests\AiMeetingAssistant.Windows.SmokeTests\AiMeetingAssistant.Windows.SmokeTests.csproj", "{B5A26906-3590-41E8-8F5E-3270C96C8172}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,8 +40,18 @@ Global
 		{1034C3A8-42B8-4F6A-A151-077A8A273B27}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1034C3A8-42B8-4F6A-A151-077A8A273B27}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1034C3A8-42B8-4F6A-A151-077A8A273B27}.Release|Any CPU.Build.0 = Release|Any CPU
+		{344B18E8-D9CB-4F89-81A2-FC98048C7804}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{344B18E8-D9CB-4F89-81A2-FC98048C7804}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{344B18E8-D9CB-4F89-81A2-FC98048C7804}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{344B18E8-D9CB-4F89-81A2-FC98048C7804}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B5A26906-3590-41E8-8F5E-3270C96C8172}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B5A26906-3590-41E8-8F5E-3270C96C8172}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5A26906-3590-41E8-8F5E-3270C96C8172}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B5A26906-3590-41E8-8F5E-3270C96C8172}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1034C3A8-42B8-4F6A-A151-077A8A273B27} = {EBF62D0C-8AF8-415E-A393-17D5711CE16B}
+		{344B18E8-D9CB-4F89-81A2-FC98048C7804} = {55E42211-B362-4F59-A89A-C11D9579BA40}
+		{B5A26906-3590-41E8-8F5E-3270C96C8172} = {EBF62D0C-8AF8-415E-A393-17D5711CE16B}
 	EndGlobalSection
 EndGlobal

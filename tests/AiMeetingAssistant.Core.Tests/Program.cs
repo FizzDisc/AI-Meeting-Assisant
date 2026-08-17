@@ -101,9 +101,6 @@ file sealed class FakeCaptureCoordinator(bool failOnStart = false) : ICaptureCoo
 {
     private bool _isRunning;
 
-    public Task<IReadOnlyList<CaptureSource>> DiscoverSourcesAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<CaptureSource>>([]);
-
     public Task StartAsync(CapturePlan plan, CancellationToken cancellationToken = default)
     {
         if (failOnStart)
@@ -126,4 +123,3 @@ file sealed class FakeCaptureCoordinator(bool failOnStart = false) : ICaptureCoo
         return Task.CompletedTask;
     }
 }
-

@@ -8,6 +8,6 @@
   <ItemGroup>
     <ProjectReference Include="..\AiMeetingAssistant.Core\AiMeetingAssistant.Core.csproj" />
     <ProjectReference Include="..\AiMeetingAssistant.Contracts\AiMeetingAssistant.Contracts.csproj" />
+    <ProjectReference Include="..\AiMeetingAssistant.Windows\AiMeetingAssistant.Windows.csproj" />
   </ItemGroup>
 </Project>
-

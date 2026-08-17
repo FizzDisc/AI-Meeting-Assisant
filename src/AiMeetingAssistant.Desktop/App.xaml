@@ -19,6 +19,76 @@
             <Setter Property="CornerRadius" Value="16" />
             <Setter Property="Padding" Value="22" />
         </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#F4F6F8" />
+            <Setter Property="Foreground" Value="#111827" />
+            <Setter Property="BorderBrush" Value="#AAB4C0" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding DisplayName}" Foreground="#111827" />
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="#111827" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#DCE8F5" />
+                    <Setter Property="Foreground" Value="#111827" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#C7DDF4" />
+                    <Setter Property="Foreground" Value="#111827" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="Button" x:Key="SecondaryButtonStyle">
+            <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="#3B4B60" />
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#2A394C" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#60758E" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#111821" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#18202B" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#283545" />
+                                <Setter Property="Foreground" Value="#667587" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Application.Resources>
 </Application>
-
