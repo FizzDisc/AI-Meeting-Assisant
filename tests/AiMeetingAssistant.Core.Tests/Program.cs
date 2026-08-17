@@ -24,6 +24,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("fault and stop race completes without deadlock", FaultAndStopRaceCompletes)
     ,("shutdown after failed capture is idempotent", ShutdownAfterFailureIsIdempotent)
     ,("system audio filename is unique and correctly prefixed", SystemAudioFilenameIsUnique)
+    ,("audio timeline fills missing silent frames", AudioTimelineFillsMissingFrames)
 };
 
 var failures = 0;
@@ -367,6 +368,14 @@ static Task SystemAudioFilenameIsUnique()
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
+}
+
+static Task AudioTimelineFillsMissingFrames()
+{
+    Equal(38400L, AudioTimeline.GetTargetFrameBeforePacket(currentFrame: 0, elapsedFrames: 48000, packetFrames: 9600));
+    Equal(38400L, AudioTimeline.GetMissingFrames(currentFrame: 0, targetFrame: 38400));
+    Equal(0L, AudioTimeline.GetMissingFrames(currentFrame: 48000, targetFrame: 38400));
+    return Task.CompletedTask;
 }
 
 static async Task IgnoreInvalidTransition(Task task)

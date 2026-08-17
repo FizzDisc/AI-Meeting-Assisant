@@ -1097,3 +1097,25 @@ Manuell: Hardware-Smoke inklusive Timer PASS.
 WAV: 48 kHz, 16 Bit, Stereo, 14,76 Sekunden, abspielbar.
 
 Sprint 1.4.1 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-17 23:38 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.4.2 abgeschlossen
+Status: DONE
+
+Nachricht:
+Mikrofon und Systemaudio werden parallel in getrennte WAV-Dateien mit
+gemeinsamem Session-Zeitstempel aufgenommen. Zwei Live-Pegel und ein Timer
+funktionieren. Teilstartfehler rollen beide Streams zurueck.
+
+Ein im ersten Hardwaretest entdeckter Loopback-Zeitachsenfehler wurde durch
+Silence-Filling behoben. Finales Paar: Mikrofon 13,471 s, Systemaudio 13,613 s,
+Differenz 142 ms. Beide Dateien sind abspielbar.
+
+Automatisch: 22/22 Core und 7/7 Windows smoke PASS.
+UI-TODO: Record/Stop-Steuerung visuell neu gestalten.
+
+Sprint 1.4.2 ist abgeschlossen. Commit und Push bleiben bei Kevin.

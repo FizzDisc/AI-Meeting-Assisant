@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using AiMeetingAssistant.Core.Capture;
 
 namespace AiMeetingAssistant.Windows.Capture;
@@ -21,6 +22,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
     private uint _bufferFrameCount;
     private Pcm16WavWriter? _wavWriter;
     private long _framePosition;
+    private readonly Stopwatch _captureClock = new();
     private bool _isCapturing;
     private bool _disposed;
     private Task? _captureThread;
@@ -53,6 +55,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
             // where the IMMDevice was obtained. The long-running buffer loop moves to a
             // worker thread only after all COM interfaces are initialized.
             InitializeCapture();
+            _captureClock.Restart();
             _isCapturing = true;
 
             _cancellationSource = new CancellationTokenSource();
@@ -91,6 +94,9 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
                 // Expected when cancellation is requested
             }
         }
+
+        _captureClock.Stop();
+        FillSilenceUntil((long)(_captureClock.Elapsed.TotalSeconds * _waveFormat.SampleRate));
 
         try
         {
@@ -264,6 +270,9 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
 
                     try
                     {
+                        var elapsedFrames = (long)(_captureClock.Elapsed.TotalSeconds * _waveFormat.SampleRate);
+                        FillSilenceUntil(AudioTimeline.GetTargetFrameBeforePacket(_framePosition, elapsedFrames, numFrames));
+
                         // Handle SILENT flag — don't dereference null pointer
                         if ((bufferFlags & AudioClientBufferFlags.Silent) == 0 && pData != IntPtr.Zero)
                         {
@@ -323,6 +332,21 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
         return AudioFormatConverter.ConvertToPcm16(sourceBuffer, _sampleFormat, sampleCount);
     }
 
+    private void FillSilenceUntil(long targetFramePosition)
+    {
+        var missingFrames = AudioTimeline.GetMissingFrames(_framePosition, targetFramePosition);
+        if (missingFrames == 0 || _wavWriter is null) return;
+
+        var framesPerChunk = Math.Max(1, (int)_waveFormat.SampleRate);
+        while (missingFrames > 0)
+        {
+            var frames = (int)Math.Min(missingFrames, framesPerChunk);
+            _wavWriter.Write(new byte[checked(frames * _waveFormat.Channels * 2)]);
+            _framePosition += frames;
+            missingFrames -= frames;
+        }
+    }
+
     private void InitializeWavFile()
     {
         try
@@ -379,6 +403,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
     private void CleanupResources()
     {
         _isCapturing = false;
+        _captureClock.Stop();
 
         _cancellationSource?.Cancel();
         _cancellationSource?.Dispose();

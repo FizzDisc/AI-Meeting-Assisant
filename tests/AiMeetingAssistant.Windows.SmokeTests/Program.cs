@@ -67,6 +67,65 @@ try
             Console.WriteLine("PASS Loopback capture enables loopback and event-callback flags.");
         }
 
+        var created = new List<(string Path, WasapiCaptureMode Mode, FakeAudioProvider Provider)>();
+        var dualDir = Path.Combine(Path.GetTempPath(), $"aima_dual_{Guid.NewGuid():N}");
+        var dualCoordinator = new RealCaptureCoordinator(dualDir, (_, path, mode) =>
+        {
+            var provider = new FakeAudioProvider();
+            created.Add((path, mode, provider));
+            return provider;
+        });
+        await dualCoordinator.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+        await dualCoordinator.StopAsync();
+        if (created.Count != 2 || created.Select(x => x.Mode).Distinct().Count() != 2 ||
+            created.Any(x => x.Provider.StartCount != 1 || x.Provider.StopCount != 1 || x.Provider.DisposeCount != 1))
+        {
+            Console.Error.WriteLine("FAIL Dual capture did not start and clean up both streams exactly once.");
+            failures++;
+        }
+        else if (GetTimestamp(created[0].Path) != GetTimestamp(created[1].Path))
+        {
+            Console.Error.WriteLine("FAIL Dual capture filenames do not share a session timestamp.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine("PASS Dual capture uses both modes, a shared timestamp and exactly-once cleanup.");
+        }
+
+        var partialProviders = new List<FakeAudioProvider>();
+        var partialCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        {
+            var provider = new FakeAudioProvider(failOnStart: partialProviders.Count == 1);
+            partialProviders.Add(provider);
+            return provider;
+        });
+        try
+        {
+            await partialCoordinator.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+            Console.Error.WriteLine("FAIL Partial start should have thrown.");
+            failures++;
+        }
+        catch (InvalidOperationException)
+        {
+            if (partialProviders.Count != 2 || partialProviders.Any(p => p.DisposeCount != 1) || partialProviders[0].StopCount != 1)
+            {
+                Console.Error.WriteLine("FAIL Partial start did not roll back both providers exactly once.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine("PASS Microphone start failure rolls back both streams.");
+            }
+        }
+
+        static string GetTimestamp(string path)
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            var prefixLength = name.StartsWith("system_audio_", StringComparison.Ordinal) ? "system_audio_".Length : "microphone_".Length;
+            return name.Substring(prefixLength, 19);
+        }
+
         // Test 3: RealCaptureCoordinator initialization (not actual capture, just constructor)
         var testDir = Path.Combine(Path.GetTempPath(), "aima_smoke_test");
         Directory.CreateDirectory(testDir);
@@ -94,3 +153,39 @@ catch (Exception ex)
 }
 
 return failures == 0 ? 0 : 1;
+
+file sealed class FakeAudioProvider(bool failOnStart = false) : IAudioCaptureProvider
+{
+#pragma warning disable CS0067
+    public event EventHandler<AudioCaptureStartedEventArgs>? CaptureStarted;
+    public event EventHandler<AudioFrameCapturedEventArgs>? FrameCaptured;
+    public event EventHandler<AudioCaptureFaultEventArgs>? CaptureFaulted;
+#pragma warning restore CS0067
+
+    public int StartCount { get; private set; }
+    public int StopCount { get; private set; }
+    public int DisposeCount { get; private set; }
+    public bool IsCapturing { get; private set; }
+
+    public Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        StartCount++;
+        if (failOnStart) throw new InvalidOperationException("Simulated provider start failure.");
+        IsCapturing = true;
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsCapturing) StopCount++;
+        IsCapturing = false;
+        return Task.CompletedTask;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        DisposeCount++;
+        IsCapturing = false;
+        return ValueTask.CompletedTask;
+    }
+}

@@ -24,6 +24,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string? _errorMessage;
     private bool _isDiscoveringSources;
     private double _systemAudioLevel;
+    private double _microphoneLevel;
     private string? _statusMessage;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator)
@@ -59,9 +60,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         RecordingSessionState.Idle when IsDiscoveringSources => "Discovering Windows devices...",
         RecordingSessionState.Idle => "Ready",
-        RecordingSessionState.Preparing => "Preparing system audio...",
-        RecordingSessionState.Recording => "Recording system audio",
-        RecordingSessionState.Stopping => "Stopping system audio...",
+        RecordingSessionState.Preparing => "Preparing audio streams...",
+        RecordingSessionState.Recording => "Recording microphone and system audio",
+        RecordingSessionState.Stopping => "Stopping audio streams...",
         RecordingSessionState.Completed => "Recording completed",
         RecordingSessionState.Failed => "Recording failed",
         _ => State.ToString()
@@ -135,6 +136,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         get => _systemAudioLevel;
         private set { _systemAudioLevel = value; OnPropertyChanged(); }
+    }
+
+    public double MicrophoneLevel
+    {
+        get => _microphoneLevel;
+        private set { _microphoneLevel = value; OnPropertyChanged(); }
     }
 
     public string? StatusMessage
@@ -223,6 +230,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 realCoordinator.SystemAudioLevelChanged += OnSystemAudioLevelChanged;
                 realCoordinator.SystemAudioFaulted += OnSystemAudioFaulted;
+                realCoordinator.MicrophoneLevelChanged += OnMicrophoneLevelChanged;
+                realCoordinator.MicrophoneFaulted += OnMicrophoneFaulted;
             }
 
             var plan = new CapturePlan(SelectedScreen.Id, SelectedSystemAudio.Id, SelectedMicrophone.Id);
@@ -249,14 +258,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         // Convert RMS dB to a 0-100 scale for UI display
         // Typical range: -80dB to 0dB
-        double normalizedLevel = Math.Max(0, Math.Min(100, (eventArgs.Level.RmsDb + 80) / 0.8));
-        SystemAudioLevel = normalizedLevel;
+        SystemAudioLevel = NormalizeLevel(eventArgs.Level.RmsDb);
     }
 
     private void OnSystemAudioFaulted(object? sender, AudioCaptureFaultEventArgs eventArgs)
     {
         ErrorMessage = $"System audio error: {eventArgs.ErrorMessage}";
     }
+
+    private void OnMicrophoneLevelChanged(object? sender, AudioFrameCapturedEventArgs eventArgs)
+    {
+        MicrophoneLevel = NormalizeLevel(eventArgs.Level.RmsDb);
+    }
+
+    private void OnMicrophoneFaulted(object? sender, AudioCaptureFaultEventArgs eventArgs)
+    {
+        ErrorMessage = $"Microphone error: {eventArgs.ErrorMessage}";
+    }
+
+    private static double NormalizeLevel(double rmsDb) => Math.Max(0, Math.Min(100, (rmsDb + 80) / 0.8));
 
     private void OnRecordingStateChanged(object? sender, RecordingStateChangedEventArgs eventArgs)
     {
@@ -302,6 +322,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _recordingStopwatch.Stop();
             OnPropertyChanged(nameof(RecordingElapsedLabel));
             SystemAudioLevel = 0;
+            MicrophoneLevel = 0;
             StatusMessage = eventArgs.ErrorMessage ?? (eventArgs.CurrentState == RecordingSessionState.Completed ? "Recording saved to artifacts/captures/" : "Recording failed");
 
             // Unregister from level updates
@@ -309,6 +330,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 realCoordinator.SystemAudioLevelChanged -= OnSystemAudioLevelChanged;
                 realCoordinator.SystemAudioFaulted -= OnSystemAudioFaulted;
+                realCoordinator.MicrophoneLevelChanged -= OnMicrophoneLevelChanged;
+                realCoordinator.MicrophoneFaulted -= OnMicrophoneFaulted;
             }
         }
         else if (eventArgs.CurrentState == RecordingSessionState.Recording)

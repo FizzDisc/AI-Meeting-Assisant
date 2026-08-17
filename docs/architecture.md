@@ -75,7 +75,7 @@ The Windows adapter (WasapiAudioCapture) is internal to the capture layer; the C
 
 ### System audio loopback (Sprint 1.4.1)
 
-The selected Windows render endpoint uses the same PCM conversion and WAV writer as microphone capture, but initializes `IAudioClient` with both `AUDCLNT_STREAMFLAGS_LOOPBACK` and event-callback flags. Sprint 1.4.1 deliberately records only this stream and writes `artifacts/captures/system_audio_{timestamp}.wav`. Starting microphone and loopback together is deferred to Sprint 1.4.2 so the endpoint path can be validated independently first.
+The selected Windows render endpoint uses the same PCM conversion and WAV writer as microphone capture, but initializes `IAudioClient` with both `AUDCLNT_STREAMFLAGS_LOOPBACK` and event-callback flags. Sprint 1.4.2 starts loopback first and microphone second, writes separate files with one shared timestamp and rolls both providers back if either start fails. Stop, capture fault and window shutdown converge on the same serialized cleanup path.
 
 ## Privacy and quality guardrails
 
