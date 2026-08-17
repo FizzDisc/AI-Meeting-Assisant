@@ -16,7 +16,7 @@
 1. **AMA-101: Capture state machine** — **Done in Sprint 1.1.** Idle → preparing → recording → stopping → completed/failed, with guarded transitions and tests. The UI currently drives a clearly labelled no-media simulation.
 2. **AMA-102: Select sources** — **Done in Sprint 1.2.** Enumerate active displays, Windows render endpoints and microphone endpoints; identify Windows defaults, refresh on demand and preserve a still-available selection. Persisting choices across app restarts is deferred until settings storage exists.
 3. **AMA-103: System audio** — Record a selected WASAPI loopback endpoint with timestamps and device-loss handling.
-4. **AMA-104: Microphone** — Record the selected input independently and display a live level meter.
+4. **AMA-104: Microphone** — **Done in Sprint 1.3.** Record the selected input independently via WASAPI `IAudioClient`, display a live RMS level meter and save finalized PCM16 WAV files under `artifacts/captures/`. Automated validation covers state transitions, format conversion, WAV production, fault/stop races and idempotent cleanup (20/20 Core tests plus 3/3 Windows smoke checks). Manual hardware validation passed with an Intel microphone array: 48 kHz, 16-bit, four-channel WAV, 8.35 seconds, playable output.
 5. **AMA-105: Screen/window** — Use Windows Graphics Capture with source selection and privacy-safe preview.
 6. **AMA-106: Session workspace** — Create an atomic, resumable manifest and validate free disk space.
 7. **AMA-107: Controls and consent** — Wire start/stop, elapsed time, clear status, consent and failure recovery into the shell.

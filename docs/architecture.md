@@ -53,13 +53,25 @@ Writes should use temporary files followed by atomic rename. The manifest record
 
 ## Capture direction for Sprint 1
 
-- Screen: Windows Graphics Capture
-- System/Teams audio: WASAPI loopback for the selected render endpoint
-- Microphone: WASAPI capture from the selected input endpoint
-- Synchronization: one monotonic session clock, retaining timestamps per stream
+- Screen: Windows Graphics Capture (Sprint 1.5)
+- System/Teams audio: WASAPI loopback for the selected render endpoint (Sprint 1.4)
+- Microphone: WASAPI capture from the selected input endpoint (Sprint 1.3, in progress)
+- Synchronization: one monotonic session clock, retaining timestamps per stream (Sprint 1.6)
 - Capture streams separately first; compose previews or exports later
 
 This avoids dependence on Teams internals and supports other meeting applications. Device changes, sleep, unplugging and exclusive-mode conflicts become recoverable recording events.
+
+### Microphone capture (Sprint 1.3)
+
+The application captures the selected microphone via WASAPI IAudioClient in shared mode:
+1. Activate IAudioCapture interface from the chosen IMMDevice
+2. Negotiate a PCM wave format (typically 16-bit, 44.1kHz or 48kHz)
+3. Read audio frames via event-driven circular buffer (no polling)
+4. Calculate live level (RMS dB) per buffer for UI feedback
+5. Write raw PCM frames to a WAV file under `artifacts/captures/{timestamp}.wav`
+6. On device loss, permission denial, or exclusive-mode conflict, report error to state machine
+
+The Windows adapter (WasapiAudioCapture) is internal to the capture layer; the Core layer knows only about IAudioCaptureProvider events (FrameCaptured, LevelChanged, Failed).
 
 ## Privacy and quality guardrails
 

@@ -23,6 +23,9 @@ public sealed class RecordingSession(ICaptureCoordinator captureCoordinator)
 
             try
             {
+                // Register for async capture errors during recording
+                captureCoordinator.CaptureFailed += OnCaptureFailed;
+
                 await captureCoordinator.StartAsync(plan, cancellationToken);
                 TransitionTo(RecordingSessionState.Recording);
             }
@@ -30,6 +33,7 @@ public sealed class RecordingSession(ICaptureCoordinator captureCoordinator)
             {
                 LastError = exception.Message;
                 TransitionTo(RecordingSessionState.Failed, LastError);
+                captureCoordinator.CaptureFailed -= OnCaptureFailed;
                 throw;
             }
         }
@@ -58,6 +62,25 @@ public sealed class RecordingSession(ICaptureCoordinator captureCoordinator)
                 TransitionTo(RecordingSessionState.Failed, LastError);
                 throw;
             }
+            finally
+            {
+                // Unregister from async capture errors
+                captureCoordinator.CaptureFailed -= OnCaptureFailed;
+            }
+        }
+        finally
+        {
+            _transitionLock.Release();
+        }
+    }
+
+    public async Task ShutdownAsync(CancellationToken cancellationToken = default)
+    {
+        await _transitionLock.WaitAsync(cancellationToken);
+        try
+        {
+            captureCoordinator.CaptureFailed -= OnCaptureFailed;
+            await captureCoordinator.StopAsync(cancellationToken);
         }
         finally
         {
@@ -78,5 +101,35 @@ public sealed class RecordingSession(ICaptureCoordinator captureCoordinator)
         var previousState = State;
         State = newState;
         StateChanged?.Invoke(this, new(previousState, newState, errorMessage));
+    }
+
+    private void OnCaptureFailed(object? sender, CaptureErrorEventArgs e)
+    {
+        _ = Task.Run(() => HandleCaptureFailedAsync(e));
+    }
+
+    private async Task HandleCaptureFailedAsync(CaptureErrorEventArgs e)
+    {
+        await _transitionLock.WaitAsync();
+        try
+        {
+            if (State is not (RecordingSessionState.Recording or RecordingSessionState.Stopping)) return;
+
+            LastError = e.ErrorMessage;
+            captureCoordinator.CaptureFailed -= OnCaptureFailed;
+            try
+            {
+                await captureCoordinator.StopAsync();
+            }
+            catch (Exception cleanupError)
+            {
+                LastError = $"{e.ErrorMessage} Cleanup failed: {cleanupError.Message}";
+            }
+            TransitionTo(RecordingSessionState.Failed, LastError);
+        }
+        finally
+        {
+            _transitionLock.Release();
+        }
     }
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Threading;
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
 
@@ -9,6 +10,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly ICaptureSourceDiscovery _sourceDiscovery;
     private readonly RecordingSession _recordingSession;
+    private readonly ICaptureCoordinator _captureCoordinator;
+    private Dispatcher? _uiDispatcher;
     private IReadOnlyList<CaptureSource> _screenSources = [];
     private IReadOnlyList<CaptureSource> _systemAudioSources = [];
     private IReadOnlyList<CaptureSource> _microphoneSources = [];
@@ -17,10 +20,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private CaptureSource? _selectedMicrophone;
     private string? _errorMessage;
     private bool _isDiscoveringSources;
+    private double _microphoneLevel;
+    private string? _statusMessage;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator)
     {
         _sourceDiscovery = sourceDiscovery;
+        _captureCoordinator = captureCoordinator;
         _recordingSession = new(captureCoordinator);
         ToggleRecordingCommand = new AsyncRelayCommand(ToggleRecordingAsync, CanToggleRecording);
         RefreshSourcesCommand = new AsyncRelayCommand(RefreshSourcesAsync, () => CanChangeSources);
@@ -45,15 +51,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         RecordingSessionState.Idle when IsDiscoveringSources => "Discovering Windows devices...",
         RecordingSessionState.Idle => "Ready",
-        RecordingSessionState.Preparing => "Preparing simulation...",
-        RecordingSessionState.Recording => "Recording simulation active",
-        RecordingSessionState.Stopping => "Stopping simulation...",
-        RecordingSessionState.Completed => "Simulation completed",
-        RecordingSessionState.Failed => "Simulation failed",
+        RecordingSessionState.Preparing => "Preparing microphone...",
+        RecordingSessionState.Recording => "Recording microphone",
+        RecordingSessionState.Stopping => "Stopping microphone...",
+        RecordingSessionState.Completed => "Recording completed",
+        RecordingSessionState.Failed => "Recording failed",
         _ => State.ToString()
     };
 
-    public string RecordingButtonLabel => IsRecording ? "Stop simulation" : "Start simulation";
+    public string RecordingButtonLabel => IsRecording ? "Stop recording" : "Start recording";
 
     public string SourceSummary => IsDiscoveringSources
         ? "Scanning Windows devices..."
@@ -115,6 +121,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set { _errorMessage = value; OnPropertyChanged(); }
     }
 
+    public double MicrophoneLevel
+    {
+        get => _microphoneLevel;
+        private set { _microphoneLevel = value; OnPropertyChanged(); }
+    }
+
+    public string? StatusMessage
+    {
+        get => _statusMessage;
+        private set { _statusMessage = value; OnPropertyChanged(); }
+    }
+
     public IReadOnlyList<PipelineStep> PipelineSteps { get; } =
     [
         new("Discover capture sources", "Sprint 1.2"),
@@ -124,7 +142,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         new("Synchronized session", "Sprint 1.6")
     ];
 
+    public Dispatcher? UIDispatcher
+    {
+        get => _uiDispatcher;
+        set => _uiDispatcher = value;
+    }
+
     public Task InitializeAsync() => RefreshSourcesAsync();
+
+    public async Task ShutdownAsync()
+    {
+        try
+        {
+            await _recordingSession.ShutdownAsync();
+        }
+        catch
+        {
+            // Ignore shutdown errors
+        }
+    }
 
     private async Task RefreshSourcesAsync()
     {
@@ -170,22 +206,88 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 throw new InvalidOperationException("Select one display, output, and microphone first.");
             }
 
+            // Register for live level updates if using RealCaptureCoordinator (Sprint 1.3+)
+            if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.RealCaptureCoordinator realCoordinator)
+            {
+                realCoordinator.MicrophoneLevelChanged += OnMicrophoneLevelChanged;
+                realCoordinator.MicrophoneFaulted += OnMicrophoneFaulted;
+            }
+
             var plan = new CapturePlan(SelectedScreen.Id, SelectedSystemAudio.Id, SelectedMicrophone.Id);
             await _recordingSession.StartAsync(plan);
         }
         catch (Exception exception)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = FormatExceptionChain(exception);
         }
     }
 
+    private static string FormatExceptionChain(Exception exception)
+    {
+        var messages = new List<string>();
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (!messages.Contains(current.Message, StringComparer.Ordinal))
+                messages.Add(current.Message);
+        }
+        return string.Join(" → ", messages);
+    }
+
+    private void OnMicrophoneLevelChanged(object? sender, AudioFrameCapturedEventArgs eventArgs)
+    {
+        // Convert RMS dB to a 0-100 scale for UI display
+        // Typical range: -80dB to 0dB
+        double normalizedLevel = Math.Max(0, Math.Min(100, (eventArgs.Level.RmsDb + 80) / 0.8));
+        MicrophoneLevel = normalizedLevel;
+    }
+
+    private void OnMicrophoneFaulted(object? sender, AudioCaptureFaultEventArgs eventArgs)
+    {
+        ErrorMessage = $"Microphone error: {eventArgs.ErrorMessage}";
+    }
+
     private void OnRecordingStateChanged(object? sender, RecordingStateChangedEventArgs eventArgs)
+    {
+        // Marshal entire callback to UI thread to ensure thread safety for command updates
+        var dispatcher = _uiDispatcher ?? Dispatcher.CurrentDispatcher;
+        if (dispatcher.CheckAccess())
+        {
+            // Already on UI thread
+            HandleRecordingStateChanged(eventArgs);
+        }
+        else
+        {
+            // Marshal to UI thread
+            dispatcher.BeginInvoke(() => HandleRecordingStateChanged(eventArgs));
+        }
+    }
+
+    private void HandleRecordingStateChanged(RecordingStateChangedEventArgs eventArgs)
     {
         OnPropertyChanged(nameof(State));
         OnPropertyChanged(nameof(IsRecording));
         OnPropertyChanged(nameof(CanChangeSources));
         OnPropertyChanged(nameof(StateLabel));
         OnPropertyChanged(nameof(RecordingButtonLabel));
+
+        // Reset level when recording stops
+        if (eventArgs.CurrentState is RecordingSessionState.Completed or RecordingSessionState.Failed)
+        {
+            MicrophoneLevel = 0;
+            StatusMessage = eventArgs.ErrorMessage ?? (eventArgs.CurrentState == RecordingSessionState.Completed ? "Recording saved to artifacts/captures/" : "Recording failed");
+
+            // Unregister from level updates
+            if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.RealCaptureCoordinator realCoordinator)
+            {
+                realCoordinator.MicrophoneLevelChanged -= OnMicrophoneLevelChanged;
+                realCoordinator.MicrophoneFaulted -= OnMicrophoneFaulted;
+            }
+        }
+        else if (eventArgs.CurrentState == RecordingSessionState.Recording)
+        {
+            StatusMessage = "Recording in progress...";
+        }
+
         RaiseCommandStates();
     }
 
@@ -198,8 +300,26 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private static CaptureSource? PreserveSelection(CaptureSource? current, IReadOnlyList<CaptureSource> sources) =>
         sources.FirstOrDefault(source => source.Id == current?.Id) ?? sources.FirstOrDefault();
 
-    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new(propertyName));
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        if (PropertyChanged == null)
+            return;
+
+        var dispatcher = _uiDispatcher ?? Dispatcher.CurrentDispatcher;
+        if (dispatcher.CheckAccess())
+        {
+            // Already on UI thread
+            PropertyChanged.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+        else
+        {
+            // Marshal to UI thread
+            dispatcher.BeginInvoke(() =>
+            {
+                PropertyChanged.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            });
+        }
+    }
 }
 
 public sealed record PipelineStep(string Name, string Phase);
