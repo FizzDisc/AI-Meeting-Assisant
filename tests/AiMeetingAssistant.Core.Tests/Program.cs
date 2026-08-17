@@ -23,6 +23,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("capture fault cleans up exactly once", CaptureFaultCleansUpExactlyOnce)
     ,("fault and stop race completes without deadlock", FaultAndStopRaceCompletes)
     ,("shutdown after failed capture is idempotent", ShutdownAfterFailureIsIdempotent)
+    ,("system audio filename is unique and correctly prefixed", SystemAudioFilenameIsUnique)
 };
 
 var failures = 0;
@@ -347,6 +348,25 @@ static async Task ShutdownAfterFailureIsIdempotent()
     await session.ShutdownAsync();
     Equal(3, coordinator.StopCallCount);
     Equal(1, coordinator.StopCount);
+}
+
+static Task SystemAudioFilenameIsUnique()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_naming_{Guid.NewGuid():N}");
+    try
+    {
+        var timestamp = new DateTime(2026, 8, 17, 12, 34, 56, 789);
+        var first = CaptureFileNaming.CreateUniqueWavPath(directory, "system_audio", timestamp);
+        Equal("system_audio_20260817_123456_789.wav", Path.GetFileName(first));
+        File.WriteAllBytes(first, []);
+        var second = CaptureFileNaming.CreateUniqueWavPath(directory, "system_audio", timestamp);
+        Equal("system_audio_20260817_123456_789_01.wav", Path.GetFileName(second));
+        return Task.CompletedTask;
+    }
+    finally
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
 }
 
 static async Task IgnoreInvalidTransition(Task task)

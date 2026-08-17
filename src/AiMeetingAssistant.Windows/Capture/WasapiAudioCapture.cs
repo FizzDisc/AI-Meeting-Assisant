@@ -11,6 +11,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
 {
     private IMMDevice? _device;
     private readonly string _outputPath;
+    private readonly WasapiCaptureMode _mode;
     private IAudioClient? _audioClient;
     private IAudioCaptureClient? _captureClient;
     private IntPtr _captureEventHandle = IntPtr.Zero;
@@ -31,10 +32,11 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
 
     public bool IsCapturing => _isCapturing;
 
-    public WasapiAudioCapture(IMMDevice device, string outputPath)
+    public WasapiAudioCapture(IMMDevice device, string outputPath, WasapiCaptureMode mode)
     {
         _device = device ?? throw new ArgumentNullException(nameof(device));
         _outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
+        _mode = mode;
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -176,7 +178,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
 
                 hresult = _audioClient.Initialize(
                     AudioClientShareMode.Shared,
-                    AudioClientStreamFlags.EventCallback,
+                    (AudioClientStreamFlags)WasapiCaptureConfiguration.GetStreamFlags(_mode),
                     10000000, // 1 second buffer duration in 100ns units
                     0,        // Periodicity (ignored for shared mode)
                     _nativeFormatPtr,
@@ -222,7 +224,8 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
         catch (Exception ex)
         {
             CleanupResources();
-            throw new InvalidOperationException("Microphone capture initialization failed", ex);
+            var source = _mode == WasapiCaptureMode.Loopback ? "System audio" : "Microphone";
+            throw new InvalidOperationException($"{source} capture initialization failed", ex);
         }
     }
 
@@ -245,21 +248,19 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
                 if (waitResult != WaitResult.Object0)
                     throw new InvalidOperationException($"WaitForSingleObject failed (result: {waitResult})");
 
-                // Read available frames from the buffer
-                while (!cancellationToken.IsCancellationRequested && _isCapturing)
+                var hresult = _captureClient!.GetNextPacketSize(out var packetFrames);
+                if (hresult < 0)
+                    throw new InvalidOperationException($"Failed to query capture packet size (HRESULT: 0x{hresult:X8})");
+
+                while (packetFrames > 0 && !cancellationToken.IsCancellationRequested && _isCapturing)
                 {
                     IntPtr pData = IntPtr.Zero;
                     uint numFrames = 0;
                     AudioClientBufferFlags bufferFlags = AudioClientBufferFlags.None;
 
-                    var hresult = _captureClient!.GetBuffer(out pData, out numFrames, out bufferFlags, out _, out _);
+                    hresult = _captureClient.GetBuffer(out pData, out numFrames, out bufferFlags, out _, out _);
                     if (hresult < 0)
                         throw new InvalidOperationException($"Failed to get capture buffer (HRESULT: 0x{hresult:X8})");
-
-                    if (numFrames == 0)
-                    {
-                        break;
-                    }
 
                     try
                     {
@@ -302,6 +303,10 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
                         if (hresult < 0)
                             throw new InvalidOperationException($"Failed to release capture buffer (HRESULT: 0x{hresult:X8})");
                     }
+
+                    hresult = _captureClient.GetNextPacketSize(out packetFrames);
+                    if (hresult < 0)
+                        throw new InvalidOperationException($"Failed to query capture packet size (HRESULT: 0x{hresult:X8})");
                 }
             }
         }

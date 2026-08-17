@@ -11,6 +11,7 @@ internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider
 {
     private readonly string _deviceId;
     private readonly string _outputPath;
+    private readonly WasapiCaptureMode _mode;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private WasapiAudioCapture? _capture;
 
@@ -20,24 +21,24 @@ internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider
 
     public bool IsCapturing => _capture?.IsCapturing ?? false;
 
-    public WasapiAudioCaptureProvider(string deviceId, string outputPath)
+    public WasapiAudioCaptureProvider(string deviceId, string outputPath, WasapiCaptureMode mode = WasapiCaptureMode.Input)
     {
         _deviceId = deviceId ?? throw new ArgumentNullException(nameof(deviceId));
         _outputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
+        _mode = mode;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            // Extract native Windows device ID from "microphone:..." format
             var nativeDeviceId = ExtractNativeDeviceId(_deviceId);
 
             var device = GetDeviceById(nativeDeviceId);
             if (device == null)
-                throw new InvalidOperationException($"Microphone device not found: {_deviceId}");
+                throw new InvalidOperationException($"Audio endpoint not found: {_deviceId}");
 
-            _capture = new(device, _outputPath);
+            _capture = new(device, _outputPath, _mode);
             _capture.CaptureStarted += OnCaptureCaptureStarted;
             _capture.FrameCaptured += OnCaptureFrameCaptured;
             _capture.CaptureFaulted += OnCaptureCaptureFaulted;
@@ -47,15 +48,18 @@ internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider
         catch (Exception ex)
         {
             await CleanupAsync().ConfigureAwait(false);
-            throw new InvalidOperationException("Failed to start microphone capture", ex);
+            var source = _mode == WasapiCaptureMode.Loopback ? "system audio" : "microphone";
+            throw new InvalidOperationException($"Failed to start {source} capture", ex);
         }
     }
 
     private static string ExtractNativeDeviceId(string sourceId)
     {
-        // Remove "microphone:" prefix if present
-        if (sourceId.StartsWith("microphone:"))
-            return sourceId.Substring("microphone:".Length);
+        foreach (var prefix in new[] { "microphone:", "system-audio:" })
+        {
+            if (sourceId.StartsWith(prefix, StringComparison.Ordinal))
+                return sourceId[prefix.Length..];
+        }
 
         return sourceId;
     }

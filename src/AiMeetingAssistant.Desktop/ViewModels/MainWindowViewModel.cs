@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
 using AiMeetingAssistant.Core.Capture;
@@ -11,6 +12,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ICaptureSourceDiscovery _sourceDiscovery;
     private readonly RecordingSession _recordingSession;
     private readonly ICaptureCoordinator _captureCoordinator;
+    private readonly Stopwatch _recordingStopwatch = new();
+    private readonly DispatcherTimer _recordingTimer;
     private Dispatcher? _uiDispatcher;
     private IReadOnlyList<CaptureSource> _screenSources = [];
     private IReadOnlyList<CaptureSource> _systemAudioSources = [];
@@ -20,7 +23,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private CaptureSource? _selectedMicrophone;
     private string? _errorMessage;
     private bool _isDiscoveringSources;
-    private double _microphoneLevel;
+    private double _systemAudioLevel;
     private string? _statusMessage;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator)
@@ -28,6 +31,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
         _recordingSession = new(captureCoordinator);
+        _recordingTimer = new(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _recordingTimer.Tick += OnRecordingTimerTick;
         ToggleRecordingCommand = new AsyncRelayCommand(ToggleRecordingAsync, CanToggleRecording);
         RefreshSourcesCommand = new AsyncRelayCommand(RefreshSourcesAsync, () => CanChangeSources);
         _recordingSession.StateChanged += OnRecordingStateChanged;
@@ -51,15 +59,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         RecordingSessionState.Idle when IsDiscoveringSources => "Discovering Windows devices...",
         RecordingSessionState.Idle => "Ready",
-        RecordingSessionState.Preparing => "Preparing microphone...",
-        RecordingSessionState.Recording => "Recording microphone",
-        RecordingSessionState.Stopping => "Stopping microphone...",
+        RecordingSessionState.Preparing => "Preparing system audio...",
+        RecordingSessionState.Recording => "Recording system audio",
+        RecordingSessionState.Stopping => "Stopping system audio...",
         RecordingSessionState.Completed => "Recording completed",
         RecordingSessionState.Failed => "Recording failed",
         _ => State.ToString()
     };
 
     public string RecordingButtonLabel => IsRecording ? "Stop recording" : "Start recording";
+
+    public string RecordingElapsedLabel => _recordingStopwatch.Elapsed.ToString(@"hh\:mm\:ss");
 
     public string SourceSummary => IsDiscoveringSources
         ? "Scanning Windows devices..."
@@ -121,10 +131,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set { _errorMessage = value; OnPropertyChanged(); }
     }
 
-    public double MicrophoneLevel
+    public double SystemAudioLevel
     {
-        get => _microphoneLevel;
-        private set { _microphoneLevel = value; OnPropertyChanged(); }
+        get => _systemAudioLevel;
+        private set { _systemAudioLevel = value; OnPropertyChanged(); }
     }
 
     public string? StatusMessage
@@ -152,6 +162,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public async Task ShutdownAsync()
     {
+        _recordingTimer.Stop();
+        _recordingStopwatch.Stop();
         try
         {
             await _recordingSession.ShutdownAsync();
@@ -209,8 +221,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             // Register for live level updates if using RealCaptureCoordinator (Sprint 1.3+)
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.RealCaptureCoordinator realCoordinator)
             {
-                realCoordinator.MicrophoneLevelChanged += OnMicrophoneLevelChanged;
-                realCoordinator.MicrophoneFaulted += OnMicrophoneFaulted;
+                realCoordinator.SystemAudioLevelChanged += OnSystemAudioLevelChanged;
+                realCoordinator.SystemAudioFaulted += OnSystemAudioFaulted;
             }
 
             var plan = new CapturePlan(SelectedScreen.Id, SelectedSystemAudio.Id, SelectedMicrophone.Id);
@@ -233,17 +245,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         return string.Join(" → ", messages);
     }
 
-    private void OnMicrophoneLevelChanged(object? sender, AudioFrameCapturedEventArgs eventArgs)
+    private void OnSystemAudioLevelChanged(object? sender, AudioFrameCapturedEventArgs eventArgs)
     {
         // Convert RMS dB to a 0-100 scale for UI display
         // Typical range: -80dB to 0dB
         double normalizedLevel = Math.Max(0, Math.Min(100, (eventArgs.Level.RmsDb + 80) / 0.8));
-        MicrophoneLevel = normalizedLevel;
+        SystemAudioLevel = normalizedLevel;
     }
 
-    private void OnMicrophoneFaulted(object? sender, AudioCaptureFaultEventArgs eventArgs)
+    private void OnSystemAudioFaulted(object? sender, AudioCaptureFaultEventArgs eventArgs)
     {
-        ErrorMessage = $"Microphone error: {eventArgs.ErrorMessage}";
+        ErrorMessage = $"System audio error: {eventArgs.ErrorMessage}";
     }
 
     private void OnRecordingStateChanged(object? sender, RecordingStateChangedEventArgs eventArgs)
@@ -270,17 +282,33 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(StateLabel));
         OnPropertyChanged(nameof(RecordingButtonLabel));
 
+        if (eventArgs.CurrentState == RecordingSessionState.Preparing)
+        {
+            _recordingTimer.Stop();
+            _recordingStopwatch.Reset();
+            OnPropertyChanged(nameof(RecordingElapsedLabel));
+        }
+        else if (eventArgs.CurrentState == RecordingSessionState.Recording)
+        {
+            _recordingStopwatch.Start();
+            _recordingTimer.Start();
+            OnPropertyChanged(nameof(RecordingElapsedLabel));
+        }
+
         // Reset level when recording stops
         if (eventArgs.CurrentState is RecordingSessionState.Completed or RecordingSessionState.Failed)
         {
-            MicrophoneLevel = 0;
+            _recordingTimer.Stop();
+            _recordingStopwatch.Stop();
+            OnPropertyChanged(nameof(RecordingElapsedLabel));
+            SystemAudioLevel = 0;
             StatusMessage = eventArgs.ErrorMessage ?? (eventArgs.CurrentState == RecordingSessionState.Completed ? "Recording saved to artifacts/captures/" : "Recording failed");
 
             // Unregister from level updates
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.RealCaptureCoordinator realCoordinator)
             {
-                realCoordinator.MicrophoneLevelChanged -= OnMicrophoneLevelChanged;
-                realCoordinator.MicrophoneFaulted -= OnMicrophoneFaulted;
+                realCoordinator.SystemAudioLevelChanged -= OnSystemAudioLevelChanged;
+                realCoordinator.SystemAudioFaulted -= OnSystemAudioFaulted;
             }
         }
         else if (eventArgs.CurrentState == RecordingSessionState.Recording)
@@ -290,6 +318,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         RaiseCommandStates();
     }
+
+    private void OnRecordingTimerTick(object? sender, EventArgs eventArgs) =>
+        OnPropertyChanged(nameof(RecordingElapsedLabel));
 
     private void RaiseCommandStates()
     {

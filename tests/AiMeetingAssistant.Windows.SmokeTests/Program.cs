@@ -44,6 +44,29 @@ try
     {
         Console.WriteLine($"PASS Found {microphones.Length} microphone(s).");
 
+        var outputs = sources.Where(s => s.Kind == CaptureSourceKind.SystemAudio).ToArray();
+        if (outputs.Length == 0)
+        {
+            Console.Error.WriteLine("FAIL No system audio output found for Sprint 1.4.1.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine($"PASS Found {outputs.Length} loopback source(s).");
+        }
+
+        var loopbackFlags = WasapiCaptureConfiguration.GetStreamFlags(WasapiCaptureMode.Loopback);
+        if ((loopbackFlags & WasapiCaptureConfiguration.LoopbackFlag) == 0 ||
+            (loopbackFlags & WasapiCaptureConfiguration.EventCallbackFlag) == 0)
+        {
+            Console.Error.WriteLine("FAIL Loopback capture flags are incomplete.");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine("PASS Loopback capture enables loopback and event-callback flags.");
+        }
+
         // Test 3: RealCaptureCoordinator initialization (not actual capture, just constructor)
         var testDir = Path.Combine(Path.GetTempPath(), "aima_smoke_test");
         Directory.CreateDirectory(testDir);
@@ -71,4 +94,3 @@ catch (Exception ex)
 }
 
 return failures == 0 ? 0 : 1;
-

@@ -139,3 +139,18 @@ internal static class WasapiConstants
     public const uint WAVE_FORMAT_IEEE_FLOAT = 3;
     public static readonly Guid IID_IAudioCaptureClient = new("C8ADBD64-E71E-48A0-A4DE-185C395CD317");
 }
+
+public enum WasapiCaptureMode
+{
+    Input,
+    Loopback
+}
+
+public static class WasapiCaptureConfiguration
+{
+    public const uint EventCallbackFlag = 0x00040000;
+    public const uint LoopbackFlag = 0x00020000;
+
+    public static uint GetStreamFlags(WasapiCaptureMode mode) =>
+        EventCallbackFlag | (mode == WasapiCaptureMode.Loopback ? LoopbackFlag : 0u);
+}

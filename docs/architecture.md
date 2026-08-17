@@ -55,7 +55,7 @@ Writes should use temporary files followed by atomic rename. The manifest record
 
 - Screen: Windows Graphics Capture (Sprint 1.5)
 - System/Teams audio: WASAPI loopback for the selected render endpoint (Sprint 1.4)
-- Microphone: WASAPI capture from the selected input endpoint (Sprint 1.3, in progress)
+- Microphone: WASAPI capture from the selected input endpoint (Sprint 1.3, complete)
 - Synchronization: one monotonic session clock, retaining timestamps per stream (Sprint 1.6)
 - Capture streams separately first; compose previews or exports later
 
@@ -73,6 +73,10 @@ The application captures the selected microphone via WASAPI IAudioClient in shar
 
 The Windows adapter (WasapiAudioCapture) is internal to the capture layer; the Core layer knows only about IAudioCaptureProvider events (FrameCaptured, LevelChanged, Failed).
 
+### System audio loopback (Sprint 1.4.1)
+
+The selected Windows render endpoint uses the same PCM conversion and WAV writer as microphone capture, but initializes `IAudioClient` with both `AUDCLNT_STREAMFLAGS_LOOPBACK` and event-callback flags. Sprint 1.4.1 deliberately records only this stream and writes `artifacts/captures/system_audio_{timestamp}.wav`. Starting microphone and loopback together is deferred to Sprint 1.4.2 so the endpoint path can be validated independently first.
+
 ## Privacy and quality guardrails
 
 - Show an unambiguous recording indicator and require consent confirmation.
@@ -81,4 +85,3 @@ The Windows adapter (WasapiAudioCapture) is internal to the capture layer; the C
 - Define retention, deletion and export before saving production recordings.
 - Unit-test state transitions and protocol mapping; hardware-smoke-test capture adapters.
 - Use a sanitized golden media fixture for transcription/diarization regression tests.
-

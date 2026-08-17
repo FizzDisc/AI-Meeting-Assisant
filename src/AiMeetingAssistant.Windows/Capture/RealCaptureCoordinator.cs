@@ -3,18 +3,17 @@ using AiMeetingAssistant.Core.Capture;
 namespace AiMeetingAssistant.Windows.Capture;
 
 /// <summary>
-/// Real capture coordinator that manages microphone and (later) system audio and screen capture.
-/// For Sprint 1.3, only microphone is implemented.
+/// Sprint 1.4.1 coordinator: captures one selected render endpoint via WASAPI loopback.
 /// </summary>
 public sealed class RealCaptureCoordinator : ICaptureCoordinator
 {
     private readonly string _captureBaseDirectory;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
-    private IAudioCaptureProvider? _microphoneCapture;
+    private IAudioCaptureProvider? _systemAudioCapture;
     private bool _isCapturing;
 
-    public event EventHandler<AudioFrameCapturedEventArgs>? MicrophoneLevelChanged;
-    public event EventHandler<AudioCaptureFaultEventArgs>? MicrophoneFaulted;
+    public event EventHandler<AudioFrameCapturedEventArgs>? SystemAudioLevelChanged;
+    public event EventHandler<AudioCaptureFaultEventArgs>? SystemAudioFaulted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
 
     public RealCaptureCoordinator(string captureBaseDirectory = "artifacts/captures")
@@ -27,37 +26,23 @@ public sealed class RealCaptureCoordinator : ICaptureCoordinator
         await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (_isCapturing || _microphoneCapture is not null)
+            if (_isCapturing || _systemAudioCapture is not null)
                 throw new InvalidOperationException("Capture session is already active.");
 
-        if (string.IsNullOrEmpty(plan.MicrophoneSourceId))
-            throw new ArgumentException("Microphone source ID is required for Sprint 1.3");
+            if (string.IsNullOrEmpty(plan.SystemAudioSourceId))
+                throw new ArgumentException("System audio source ID is required for Sprint 1.4.1");
 
             // Ensure capture directory exists
             if (!Directory.Exists(_captureBaseDirectory))
                 Directory.CreateDirectory(_captureBaseDirectory);
 
-            // Generate output filename with timestamp
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
-            var outputPath = Path.Combine(_captureBaseDirectory, $"microphone_{timestamp}.wav");
+            var outputPath = CaptureFileNaming.CreateUniqueWavPath(_captureBaseDirectory, "system_audio", DateTime.Now);
 
-            // Ensure unique filename
-            int counter = 0;
-            while (File.Exists(outputPath) && counter < 100)
-            {
-                counter++;
-                outputPath = Path.Combine(_captureBaseDirectory, $"microphone_{timestamp}_{counter:D2}.wav");
-            }
+            _systemAudioCapture = new WasapiAudioCaptureProvider(plan.SystemAudioSourceId, outputPath, WasapiCaptureMode.Loopback);
+            _systemAudioCapture.FrameCaptured += OnSystemAudioFrameCaptured;
+            _systemAudioCapture.CaptureFaulted += OnSystemAudioCaptureFaulted;
 
-            if (File.Exists(outputPath))
-                throw new InvalidOperationException("Unable to generate unique microphone output filename");
-
-            // Start microphone capture
-            _microphoneCapture = new WasapiAudioCaptureProvider(plan.MicrophoneSourceId, outputPath);
-            _microphoneCapture.FrameCaptured += OnMicrophoneFrameCaptured;
-            _microphoneCapture.CaptureFaulted += OnMicrophoneCaptureFaulted;
-
-            await _microphoneCapture.StartAsync(cancellationToken).ConfigureAwait(false);
+            await _systemAudioCapture.StartAsync(cancellationToken).ConfigureAwait(false);
 
             _isCapturing = true;
         }
@@ -85,29 +70,28 @@ public sealed class RealCaptureCoordinator : ICaptureCoordinator
         }
     }
 
-    private void OnMicrophoneFrameCaptured(object? sender, AudioFrameCapturedEventArgs e)
+    private void OnSystemAudioFrameCaptured(object? sender, AudioFrameCapturedEventArgs e)
     {
-        MicrophoneLevelChanged?.Invoke(this, e);
+        SystemAudioLevelChanged?.Invoke(this, e);
     }
 
-    private void OnMicrophoneCaptureFaulted(object? sender, AudioCaptureFaultEventArgs e)
+    private void OnSystemAudioCaptureFaulted(object? sender, AudioCaptureFaultEventArgs e)
     {
-        // Forward to both internal listeners and public CaptureFailed event
-        MicrophoneFaulted?.Invoke(this, e);
+        SystemAudioFaulted?.Invoke(this, e);
         CaptureFailed?.Invoke(this, new(e.ErrorMessage, e.InnerException));
     }
 
     private async Task CleanupCoreAsync(bool stopFirst, CancellationToken cancellationToken)
     {
-        var capture = _microphoneCapture;
-        _microphoneCapture = null;
+        var capture = _systemAudioCapture;
+        _systemAudioCapture = null;
         _isCapturing = false;
         if (capture != null)
         {
             try
             {
-                capture.FrameCaptured -= OnMicrophoneFrameCaptured;
-                capture.CaptureFaulted -= OnMicrophoneCaptureFaulted;
+                capture.FrameCaptured -= OnSystemAudioFrameCaptured;
+                capture.CaptureFaulted -= OnSystemAudioCaptureFaulted;
                 if (stopFirst && capture.IsCapturing)
                     await capture.StopAsync(cancellationToken).ConfigureAwait(false);
             }

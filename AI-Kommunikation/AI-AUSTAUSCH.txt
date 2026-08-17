@@ -1078,3 +1078,22 @@ Core: 20/20 PASS.
 Windows smoke: 3/3 PASS.
 
 AMA-104 ist abgeschlossen. Commit und Push bleiben wie vereinbart bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-17 23:25 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.4.1 abgeschlossen
+Status: DONE
+
+Nachricht:
+WASAPI-Systemaudio-Loopback fuer einen ausgewaehlten Render-Endpunkt ist
+implementiert. Live-Pegel, Aufnahmetimer, eindeutige system_audio-WAV-Namen,
+Stop und Finalisierung funktionieren.
+
+Automatisch: 21/21 Core und 5/5 Windows smoke PASS.
+Manuell: Hardware-Smoke inklusive Timer PASS.
+WAV: 48 kHz, 16 Bit, Stereo, 14,76 Sekunden, abspielbar.
+
+Sprint 1.4.1 ist abgeschlossen. Commit und Push bleiben bei Kevin.
