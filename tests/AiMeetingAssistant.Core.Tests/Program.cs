@@ -1,5 +1,6 @@
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
+using AiMeetingAssistant.Core.Transcripts;
 using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
@@ -34,6 +35,8 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("interrupted session recovery preserves artifacts", InterruptedSessionRecoveryPreservesArtifacts)
     ,("capture storage guard enforces required capacity", CaptureStorageGuardEnforcesCapacity)
     ,("audio timeline fills missing silent frames", AudioTimelineFillsMissingFrames)
+    ,("transcript parser validates and orders source segments", TranscriptParserValidatesAndOrders)
+    ,("transcript Markdown and JSON exports are atomic", TranscriptExportsAreAtomic)
 };
 
 var failures = 0;
@@ -547,6 +550,60 @@ static async Task CaptureFaultStateTransition()
 }
 
 static CapturePlan TestPlan() => new("screen", "system", "microphone");
+
+static Task TranscriptParserValidatesAndOrders()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_transcript_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var path = Path.Combine(directory, "transcript.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(new
+        {
+            schemaVersion = 2,
+            createdAtUtc = DateTimeOffset.UtcNow,
+            language = "de",
+            device = "cpu",
+            computeType = "int8",
+            segments = new[]
+            {
+                new { start = 2.0, end = 3.0, text = "remote", source = "system_audio" },
+                new { start = 0.5, end = 1.5, text = "local", source = "microphone" }
+            }
+        }));
+        var document = TranscriptDocumentStore.Load(path);
+        Equal(2, document.Segments.Count);
+        Equal("microphone", document.Segments[0].Source);
+        Equal("00:00.500", TranscriptDocumentStore.FormatTimestamp(document.Segments[0].Start));
+        Equal("System audio", TranscriptDocumentStore.FormatSource(document.Segments[1].Source));
+        return Task.CompletedTask;
+    }
+    finally { Directory.Delete(directory, true); }
+}
+
+static Task TranscriptExportsAreAtomic()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_export_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var document = new TranscriptDocument(2, DateTimeOffset.UtcNow, "de",
+            new Dictionary<string, string?> { ["microphone"] = "de" }, "cpu", "int8", 2,
+            "automatic", "CPU fallback", [new(1.25, 2.5, "Hallo Welt", "microphone")]);
+        var markdownPath = Path.Combine(directory, "transcript.md");
+        var jsonPath = Path.Combine(directory, "transcript-export.json");
+        TranscriptDocumentStore.ExportMarkdownAtomic(markdownPath, document);
+        TranscriptDocumentStore.ExportJsonAtomic(jsonPath, document);
+        var markdown = File.ReadAllText(markdownPath);
+        if (!markdown.Contains("00:01.250") || !markdown.Contains("Microphone") || !markdown.Contains("Hallo Welt"))
+            throw new InvalidOperationException("Markdown export is missing timestamp, source or text.");
+        Equal(1, TranscriptDocumentStore.Load(jsonPath).Segments.Count);
+        if (Directory.GetFiles(directory, "*.tmp").Length != 0)
+            throw new InvalidOperationException("Atomic transcript export left temporary files behind.");
+        return Task.CompletedTask;
+    }
+    finally { Directory.Delete(directory, true); }
+}
 
 static void Equal<T>(T expected, T actual)
 {

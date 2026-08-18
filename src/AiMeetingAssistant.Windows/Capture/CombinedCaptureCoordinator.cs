@@ -39,6 +39,16 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     public CaptureAlignmentManifest? LastAlignment { get; private set; }
     public string? LastCompletedSessionDirectory { get; private set; }
     public CaptureRecoveryReport RecoverInterruptedSessions() => CaptureSessionRecovery.RecoverInterrupted(_baseDirectory);
+    public string? FindLatestTranscript()
+    {
+        if (!Directory.Exists(_baseDirectory)) return null;
+        return Directory.EnumerateDirectories(_baseDirectory, "session_*", SearchOption.TopDirectoryOnly)
+            .Select(directory => new { Directory = directory, Transcript = Path.Combine(directory, "processing", "transcript.json") })
+            .Where(item => File.Exists(item.Transcript))
+            .OrderByDescending(item => File.GetLastWriteTimeUtc(item.Transcript))
+            .Select(item => item.Transcript)
+            .FirstOrDefault();
+    }
 
     public async Task StartAsync(CapturePlan plan, CancellationToken cancellationToken = default)
     {

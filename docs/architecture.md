@@ -38,6 +38,8 @@ Sprint 2.4 adds deterministic hardware profiles. `automatic` selects CUDA/float1
 
 Sprint 2.5 connects this pipeline to the WPF shell. The capture coordinator exposes only the latest successfully finalized session. With an explicitly discovered local model, the UI enables a deliberate transcription action, polls job phases/progress, exposes the resulting artifact path and forwards cancellation to the isolated inference process. Transcription does not start automatically after recording, and failed/interrupted sessions are not selected. Development model discovery is temporary until persisted Model Manager selection exists.
 
+Sprint 2.6 adds a Core-owned transcript document boundary for schema 1/2 validation, chronological ordering, source/timestamp formatting and atomic Markdown/JSON exports. WPF presents the validated segments in a separate transcript window with non-destructive microphone/system-audio filters. The newest local transcript is rediscovered after application restart, so viewing does not require a new recording. Export destinations use the native save dialog and remain fully local.
+
 ## Layering
 
 ```text

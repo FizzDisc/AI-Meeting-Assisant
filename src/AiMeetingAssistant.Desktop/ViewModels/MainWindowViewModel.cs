@@ -200,8 +200,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string? TranscriptPath
     {
         get => _transcriptPath;
-        private set { _transcriptPath = value; OnPropertyChanged(); }
+        private set { _transcriptPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasTranscript)); }
     }
+
+    public bool HasTranscript => TranscriptPath is not null && File.Exists(TranscriptPath);
 
     public IReadOnlyList<PipelineStep> PipelineSteps { get; } =
     [
@@ -222,7 +224,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         CaptureRecoveryReport? recovery = null;
         if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
+        {
             recovery = combined.RecoverInterruptedSessions();
+            TranscriptPath = combined.FindLatestTranscript();
+            if (TranscriptPath is not null)
+            {
+                _latestSessionDirectory = Directory.GetParent(Path.GetDirectoryName(TranscriptPath)!)?.FullName;
+                TranscriptionStatusMessage = "Existing local transcript ready to open.";
+            }
+        }
         await RefreshSourcesAsync();
         if (recovery?.RecoveredSessions > 0) StatusMessage = $"Recovered {recovery.RecoveredSessions} interrupted recording(s).";
         if (recovery?.Issues.Count > 0) ErrorMessage = $"Session recovery found {recovery.Issues.Count} issue(s): {recovery.Issues[0]}";

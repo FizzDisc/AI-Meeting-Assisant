@@ -34,6 +34,20 @@ public partial class MainWindow : Window
         await _viewModel.InitializeAsync();
     }
 
+    private void OnOpenTranscript(object sender, RoutedEventArgs eventArgs)
+    {
+        if (!_viewModel.HasTranscript || _viewModel.TranscriptPath is null) return;
+        try
+        {
+            new TranscriptWindow(_viewModel.TranscriptPath) { Owner = this }.ShowDialog();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"Could not open transcript: {exception.Message}", "Transcript",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_shutdownComplete) return;

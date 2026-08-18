@@ -385,6 +385,19 @@ try
             }
 
             var combinedSessionDirectory = Directory.GetDirectories(testDir, "session_*").Single();
+            var processingDirectory = Path.Combine(combinedSessionDirectory, "processing");
+            Directory.CreateDirectory(processingDirectory);
+            var discoveredTranscript = Path.Combine(processingDirectory, "transcript.json");
+            File.WriteAllText(discoveredTranscript, "{}");
+            if (combined.FindLatestTranscript() != discoveredTranscript)
+            {
+                Console.Error.WriteLine("FAIL Latest transcript discovery did not return the completed session artifact.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine("PASS Latest transcript discovery restores the newest local artifact.");
+            }
             using (var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(combinedSessionDirectory, "manifest.json"))))
             {
                 var root = manifest.RootElement;

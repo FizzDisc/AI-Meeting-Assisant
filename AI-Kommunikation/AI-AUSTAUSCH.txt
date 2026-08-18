@@ -1706,3 +1706,43 @@ Systemaudio-Aussagen erscheinen beide im Transkript und sind korrekt mit
 source=microphone beziehungsweise source=system_audio gekennzeichnet.
 
 Sprint 2.5 ist damit endgueltig abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.6 Transkriptansicht und Export implementiert
+Status: READY FOR MANUAL UI SMOKE
+
+Nachricht:
+Core validiert Transkript-Schema 1/2, sortiert Segmente und exportiert komplette
+Dokumente atomisch als Markdown oder JSON. Ein separates WPF-Fenster zeigt
+Zeitstempel, Quellen und Text und filtert Mikrofon/Systemaudio nicht-destruktiv.
+Das neueste lokale Transkript wird nach App-Neustart wiederentdeckt.
+
+Build 0/0, 30 Core-Tests sowie Windows-/Capture-Smokes bestanden. Manueller
+Viewer-, Filter- und Export-Smoke steht aus. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.6 abgeschlossen und Folgeanforderungen konkretisiert
+Status: DONE
+
+Nachricht:
+Viewer-, Quellenfilter-, Markdown-/JSON-Export- und Restart-Smoke sind
+erfolgreich. Sprint 2.6 ist abgeschlossen.
+
+AMA-117 beschreibt fuer Sprint 2.7 eine Meeting Library fuer alle gespeicherten
+Sessions inklusive Status und nachholbarer Transkription. AMA-118 haelt fest:
+Teams-Software-Mute stoppt normalerweise nur die Uebertragung, nicht unsere
+direkte WASAPI-Mikrofonspur; eigener App-Mute, klare Indikatoren und Manifest-
+Muteintervalle sind erforderlich.
+
+Sprint 3 wurde in lokale pyannote-Diarisierung des Systemaudios, anonym
+speaker-gelabeltes Transkript und spaetere manuelle/lokale Identitaetszuordnung
+zerlegt. Die Mikrofonspur bleibt der bekannte lokale Teilnehmer. Commit und
+Push bleiben bei Kevin.
