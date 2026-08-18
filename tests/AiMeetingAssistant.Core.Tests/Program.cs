@@ -2,6 +2,7 @@ using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
 using System.Buffers.Binary;
 using System.Text;
+using System.Text.Json;
 
 var tests = new (string Name, Func<Task> Run)[]
 {
@@ -30,6 +31,8 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("session manifest is written atomically", SessionManifestIsWrittenAtomically)
     ,("media duration reader parses WAV and MP4", MediaDurationReaderParsesWavAndMp4)
     ,("alignment analyzer calculates stream end spread", AlignmentAnalyzerCalculatesSpread)
+    ,("interrupted session recovery preserves artifacts", InterruptedSessionRecoveryPreservesArtifacts)
+    ,("capture storage guard enforces required capacity", CaptureStorageGuardEnforcesCapacity)
     ,("audio timeline fills missing silent frames", AudioTimelineFillsMissingFrames)
 };
 
@@ -446,6 +449,40 @@ static Task AlignmentAnalyzerCalculatesSpread()
         return Task.CompletedTask;
     }
     finally { Directory.Delete(directory, true); }
+}
+
+static Task InterruptedSessionRecoveryPreservesArtifacts()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_recovery_{Guid.NewGuid():N}");
+    var session = Path.Combine(directory, "session_test");
+    Directory.CreateDirectory(session);
+    try
+    {
+        var media = Path.Combine(session, "screen.mp4");
+        File.WriteAllBytes(media, [1, 2, 3]);
+        File.WriteAllBytes(Path.Combine(session, "empty.wav"), []);
+        var path = Path.Combine(session, "manifest.json");
+        var manifest = new CaptureSessionManifest(2, "session_test", "recording", DateTimeOffset.UtcNow, null, null,
+            TestPlan(), [new("screen", "screen.mp4", 10), new("microphone", "empty.wav", 20)]);
+        CaptureSessionManifestStore.WriteAtomic(path, manifest);
+        var report = CaptureSessionRecovery.RecoverInterrupted(directory);
+        Equal(1, report.RecoveredSessions);
+        Equal(0, report.Issues.Count);
+        var recovered = JsonSerializer.Deserialize<CaptureSessionManifest>(File.ReadAllText(path))!;
+        Equal("interrupted", recovered.Status);
+        Equal("unavailable", recovered.Alignment?.Status);
+        if (!File.Exists(media) || recovered.Alignment?.Detail?.Contains("microphone", StringComparison.Ordinal) is not true)
+            throw new InvalidOperationException("Recovery did not preserve media or report missing artifacts.");
+        return Task.CompletedTask;
+    }
+    finally { Directory.Delete(directory, true); }
+}
+
+static Task CaptureStorageGuardEnforcesCapacity()
+{
+    if (!CaptureStorageGuard.HasRequiredSpace(200, 200) || CaptureStorageGuard.HasRequiredSpace(199, 200))
+        throw new InvalidOperationException("Storage threshold comparison is incorrect.");
+    return Task.CompletedTask;
 }
 
 static byte[] CreateTestMp4(uint durationMilliseconds)

@@ -37,6 +37,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     public event EventHandler<AudioCaptureFaultEventArgs>? MicrophoneFaulted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
     public CaptureAlignmentManifest? LastAlignment { get; private set; }
+    public CaptureRecoveryReport RecoverInterruptedSessions() => CaptureSessionRecovery.RecoverInterrupted(_baseDirectory);
 
     public async Task StartAsync(CapturePlan plan, CancellationToken cancellationToken = default)
     {
@@ -47,6 +48,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
             LastAlignment = null;
             if (string.IsNullOrWhiteSpace(plan.ScreenSourceId) || string.IsNullOrWhiteSpace(plan.SystemAudioSourceId) || string.IsNullOrWhiteSpace(plan.MicrophoneSourceId))
                 throw new ArgumentException("Screen, system audio and microphone source IDs are required.");
+            CaptureStorageGuard.EnsureAvailable(_baseDirectory);
 
             var startedAt = DateTimeOffset.UtcNow;
             var timestamp = startedAt.LocalDateTime;

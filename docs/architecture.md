@@ -59,6 +59,8 @@ Sprint 1.6.1 implements the capture-session form of this workspace. `manifest.js
 
 Sprint 1.6.2 advances the manifest to schema version 2. After all containers are finalized, managed parsers read WAV `fmt`/`data` chunks and the MP4 `mvhd` timescale/duration. Each stream receives `MediaDurationMilliseconds`, `ExpectedEndOffsetMilliseconds` and `SessionEndDifferenceMilliseconds`. Alignment quality is the spread between the earliest and latest expected stream end: `aligned` at or below 100 ms, otherwise `warning`. Container finalization delay remains visible as the difference between stream ends and total session duration but does not count as inter-stream drift.
 
+Sprint 1.6.3 scans capture workspaces on startup. Manifests left in `preparing` or `recording` are atomically moved to `interrupted`, assigned a completion observation time and marked alignment `unavailable`; existing media is never removed or rewritten. Missing artifacts are listed in the recovery detail, while malformed manifests are surfaced as issues and preserved for inspection. Before creating a session, the target drive must report at least 2 GiB free.
+
 ## Capture direction for Sprint 1
 
 - Screen: Windows Graphics Capture (Sprint 1.5)

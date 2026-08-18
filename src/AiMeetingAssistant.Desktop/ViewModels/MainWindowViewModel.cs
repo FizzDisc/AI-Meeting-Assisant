@@ -165,7 +165,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         set => _uiDispatcher = value;
     }
 
-    public Task InitializeAsync() => RefreshSourcesAsync();
+    public async Task InitializeAsync()
+    {
+        CaptureRecoveryReport? recovery = null;
+        if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
+            recovery = combined.RecoverInterruptedSessions();
+        await RefreshSourcesAsync();
+        if (recovery?.RecoveredSessions > 0) StatusMessage = $"Recovered {recovery.RecoveredSessions} interrupted recording(s).";
+        if (recovery?.Issues.Count > 0) ErrorMessage = $"Session recovery found {recovery.Issues.Count} issue(s): {recovery.Issues[0]}";
+    }
 
     public async Task ShutdownAsync()
     {

@@ -1343,3 +1343,47 @@ klassifiziert. Session-Enddifferenzen von -183 bis -233 ms entsprechen der
 anschliessenden Stop-/Containerfinalisierung.
 
 Sprint 1.6.2 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.6.3 bereit fuer Crash-Smoke-Test
+Status: READY FOR MANUAL TEST
+
+Nachricht:
+Beim App-Start werden liegengebliebene preparing/recording-Sessions atomar als
+interrupted markiert. Vorhandene Medien bleiben unangetastet; fehlende Dateien
+und defekte Manifeste werden explizit gemeldet. Vor Aufnahmebeginn sind 2 GiB
+freier Speicher erforderlich.
+
+Die bisherige UI-Ueberschrift Processing pipeline heisst nun treffend Release
+roadmap. Build: 0 Warnungen/Fehler. Automatisch: 28/28 Core-Tests und alle
+Windows-Smoke-Tests bestanden.
+
+Offen: echter Prozessabbruch waehrend Aufnahme und Recovery beim Neustart.
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.6.3 abgeschlossen
+Status: DONE
+
+Nachricht:
+Der echte Crash-Test via taskkill /F ist erfolgreich. Beim Neustart meldete die
+App eine wiederhergestellte Session; das Manifest wechselte atomar auf
+interrupted und Alignment unavailable. Alle drei Pfade blieben erhalten:
+MP4 230224 Bytes, Mikrofon-WAV 2752512 Bytes, Systemaudio-WAV 0 Bytes.
+
+Der Test deckte damit einen Diagnosefall auf: vorhandene 0-Byte-Artefakte
+werden nun wie fehlende Dateien explizit als missing or empty gemeldet.
+Core-Tests nach dieser Schaerfung: 28/28 PASS. Der abschliessende Solution-Build
+war nur durch die noch geoeffnete App-DLL gesperrt; der vorherige Vollbuild war
+fehlerfrei und der geaenderte Core wurde erfolgreich kompiliert/getestet.
+
+Sprint 1.6.3 und damit Sprint 1.6 sind abgeschlossen. Commit und Push bleiben
+bei Kevin.
