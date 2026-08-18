@@ -2,6 +2,7 @@ using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Core.Transcripts;
 using AiMeetingAssistant.Core.Meetings;
+using AiMeetingAssistant.Core.Status;
 using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
@@ -40,6 +41,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("transcript Markdown and JSON exports are atomic", TranscriptExportsAreAtomic)
     ,("meeting library discovers valid and invalid sessions", MeetingLibraryDiscoversAllSessions)
     ,("meeting library deletion is scoped to direct session workspaces", MeetingLibraryDeletionIsScoped)
+    ,("operational status log is bounded and deduplicated", OperationalStatusLogIsBounded)
 };
 
 var failures = 0;
@@ -662,6 +664,20 @@ static Task MeetingLibraryDeletionIsScoped()
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
         if (Directory.Exists(outside)) Directory.Delete(outside, true);
     }
+}
+
+static Task OperationalStatusLogIsBounded()
+{
+    var log = new OperationalStatusLog(3);
+    log.Add("STARTUP", "one", DateTimeOffset.UnixEpoch);
+    log.Add("STARTUP", "one", DateTimeOffset.UnixEpoch.AddSeconds(1));
+    log.Add("INFO", "two", DateTimeOffset.UnixEpoch.AddSeconds(2));
+    log.Add("AI", "three", DateTimeOffset.UnixEpoch.AddSeconds(3));
+    var entries = log.Add("READY", "four", DateTimeOffset.UnixEpoch.AddSeconds(4));
+    Equal(3, entries.Count);
+    SequenceEqual(new[] { "four", "three", "two" }, entries.Select(entry => entry.Message));
+    Equal(0, log.Clear().Count);
+    return Task.CompletedTask;
 }
 
 static void Equal<T>(T expected, T actual)

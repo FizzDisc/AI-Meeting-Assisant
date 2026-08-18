@@ -1,5 +1,9 @@
 # Architecture
 
+## Sprint 2.8 operational status
+
+Core owns a thread-safe bounded `OperationalStatusLog`; WPF projects its immutable snapshots into the dashboard. Status producers remain the existing orchestration paths rather than a second event bus. Runtime initialization publishes a distinct loading/final state, while capture and transcription continue to own their domain-specific messages.
+
 ## Sprint 2.7 library boundary
 
 `MeetingLibrary` is a read-only Core projection over the session workspace format. It tolerates individual missing or corrupt manifests and returns both visible entries and discovery issues. WPF owns selection and commands, while the existing worker client remains the sole transcription executor. Audio-only capture is represented by absence of a screen stream, never by a placeholder video.

@@ -15,7 +15,7 @@
                 <TextBlock Text="Capture, transcribe and turn conversations into clear outcomes." Foreground="{StaticResource MutedBrush}" FontSize="15" Margin="0,8,0,0"/>
             </StackPanel>
             <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#18352E" CornerRadius="12" Padding="14,8">
-                <TextBlock Text="SPRINT 2.7 · MEETING LIBRARY" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
+                <TextBlock Text="SPRINT 2.8 · STATUS CENTER" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
             </Border>
         </Grid>
         <Grid Grid.Row="2">
@@ -74,21 +74,34 @@
             <StackPanel>
                 <Border Style="{StaticResource CardStyle}" Margin="0,0,0,20">
                     <StackPanel>
-                        <TextBlock Text="Release roadmap" FontSize="18" FontWeight="SemiBold"/>
-                        <ItemsControl ItemsSource="{Binding PipelineSteps}" Margin="0,12,0,0">
-                            <ItemsControl.ItemTemplate><DataTemplate>
-                                <Grid Margin="0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Ellipse Width="9" Height="9" Fill="{StaticResource AccentBrush}" HorizontalAlignment="Left"/><TextBlock Grid.Column="1" Text="{Binding Name}"/><TextBlock Grid.Column="2" Text="{Binding Phase}" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
-                                </Grid>
-                            </DataTemplate></ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <Grid>
+                            <TextBlock Text="Status center" FontSize="18" FontWeight="SemiBold"/>
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                        <TextBlock Text="{Binding OperationalStatusMessage}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                        <TextBlock Text="{Binding RuntimeStatus}" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" FontSize="12" Margin="0,7,0,0"/>
+                        <Expander Header="Technical activity" Foreground="{StaticResource MutedBrush}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <ItemsControl ItemsSource="{Binding StatusLogEntries}" Margin="0,8,0,0">
+                                    <ItemsControl.ItemTemplate><DataTemplate>
+                                        <Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding TimeLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Level}" Foreground="{StaticResource AccentBrush}" FontSize="10" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Message}" Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Content="Clear activity" Command="{Binding ClearStatusLogCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Expander>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CardStyle}" Margin="0,0,0,20">
                     <StackPanel>
                         <TextBlock Text="Local transcription" FontSize="18" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding TranscriptionStatusMessage}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,9,0,0"/>
-                        <ProgressBar Height="7" Minimum="0" Maximum="100" Value="{Binding TranscriptionProgress, Mode=OneWay}" Foreground="{StaticResource AccentBrush}" Background="#1A3A35" Margin="0,12,0,0"/>
+                        <TextBlock Text="{Binding TranscriptionActivityDetail}" Foreground="{StaticResource AccentBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <ProgressBar Height="7" Minimum="0" Maximum="100" Value="{Binding TranscriptionProgress, Mode=OneWay}" IsIndeterminate="{Binding IsTranscriptionIndeterminate}" Foreground="{StaticResource AccentBrush}" Background="#1A3A35" Margin="0,12,0,0"/>
                         <UniformGrid Columns="3" Margin="0,12,0,0">
                             <Button Content="Transcribe latest" Command="{Binding TranscribeLatestCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,5,0"/>
                             <Button Content="Cancel" Command="{Binding CancelTranscriptionCommand}" Style="{StaticResource SecondaryButtonStyle}" Margin="5,0"/>
@@ -104,13 +117,9 @@
                         <Button Content="Open recordings" Click="OnOpenMeetingLibrary" Style="{StaticResource SecondaryButtonStyle}" Margin="0,12,0,0"/>
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource CardStyle}"><StackPanel>
-                    <TextBlock Text="Privacy first" FontSize="18" FontWeight="SemiBold"/>
-                    <TextBlock Text="Recordings and transcripts remain local by default. External AI providers will require explicit configuration and consent." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" LineHeight="21" Margin="0,10,0,0"/>
-                </StackPanel></Border>
             </StackPanel>
             </ScrollViewer>
         </Grid>
-        <Grid Grid.Row="4"><TextBlock Text="Local capture and transcription · no automatic cloud upload" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 2.7 · Meeting library" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+        <Grid Grid.Row="4"><TextBlock Text="Local capture and transcription" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 2.8 · Status center" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
     </Grid>
 </Window>

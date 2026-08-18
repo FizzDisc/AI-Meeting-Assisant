@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Meetings;
 using AiMeetingAssistant.Core.Recording;
+using AiMeetingAssistant.Core.Status;
 using AiMeetingAssistant.Windows.Worker;
 
 namespace AiMeetingAssistant.Desktop.ViewModels;
@@ -18,6 +19,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly PythonWorkerClient? _workerClient;
     private readonly string? _modelPath;
     private readonly Stopwatch _recordingStopwatch = new();
+    private readonly Stopwatch _transcriptionStopwatch = new();
     private readonly DispatcherTimer _recordingTimer;
     private Dispatcher? _uiDispatcher;
     private IReadOnlyList<CaptureSource> _screenSources = [];
@@ -43,6 +45,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isScreenCaptureEnabled = AppPreferences.LoadScreenCaptureEnabled();
     private bool _isShuttingDown;
     private TaskCompletionSource? _transcriptionCompletion;
+    private readonly OperationalStatusLog _statusLog = new(50);
+    private IReadOnlyList<OperationalStatusEntry> _statusLogEntries = [];
+    private string _runtimeStatus = "AI runtime not loaded yet.";
+    private string _transcriptionActivityDetail = "The worker is idle.";
+    private bool _isTranscriptionIndeterminate;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
         PythonWorkerClient? workerClient = null, string? modelPath = null)
@@ -63,6 +70,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         CancelTranscriptionCommand = new AsyncRelayCommand(CancelTranscriptionAsync, () => IsTranscribing);
         RefreshMeetingLibraryCommand = new AsyncRelayCommand(RefreshMeetingLibraryAsync, () => !IsRecording && !IsTranscribing);
         TranscribeSelectedCommand = new AsyncRelayCommand(TranscribeSelectedAsync, () => CanTranscribeSelected);
+        ClearStatusLogCommand = new AsyncRelayCommand(ClearStatusLogAsync);
         _recordingSession.StateChanged += OnRecordingStateChanged;
     }
 
@@ -75,6 +83,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public AsyncRelayCommand CancelTranscriptionCommand { get; }
     public AsyncRelayCommand RefreshMeetingLibraryCommand { get; }
     public AsyncRelayCommand TranscribeSelectedCommand { get; }
+    public AsyncRelayCommand ClearStatusLogCommand { get; }
 
     public RecordingSessionState State => _recordingSession.State;
 
@@ -146,6 +155,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _ => State.ToString()
     };
 
+    public string RuntimeStatus
+    {
+        get => _runtimeStatus;
+        private set { _runtimeStatus = value; OnPropertyChanged(); }
+    }
+
+    public string OperationalStatusMessage => ErrorMessage ?? StatusMessage ?? StateLabel;
+
+    public IReadOnlyList<OperationalStatusEntry> StatusLogEntries
+    {
+        get => _statusLogEntries;
+        private set { _statusLogEntries = value; OnPropertyChanged(); }
+    }
+
     public string RecordingButtonLabel => IsRecording ? "Stop recording" : "Start recording";
 
     public string RecordingElapsedLabel => _recordingStopwatch.Elapsed.ToString(@"hh\:mm\:ss");
@@ -208,7 +231,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string? ErrorMessage
     {
         get => _errorMessage;
-        private set { _errorMessage = value; OnPropertyChanged(); }
+        private set
+        {
+            _errorMessage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(OperationalStatusMessage));
+            if (!string.IsNullOrWhiteSpace(value)) AddStatus("ERROR", value);
+        }
     }
 
     public double SystemAudioLevel
@@ -226,7 +255,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string? StatusMessage
     {
         get => _statusMessage;
-        private set { _statusMessage = value; OnPropertyChanged(); }
+        private set
+        {
+            _statusMessage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(OperationalStatusMessage));
+            if (!string.IsNullOrWhiteSpace(value)) AddStatus("INFO", value);
+        }
     }
 
     public bool IsTranscribing
@@ -250,10 +285,28 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set { _transcriptionProgress = value; OnPropertyChanged(); }
     }
 
+    public string TranscriptionActivityDetail
+    {
+        get => _transcriptionActivityDetail;
+        private set { _transcriptionActivityDetail = value; OnPropertyChanged(); }
+    }
+
+    public bool IsTranscriptionIndeterminate
+    {
+        get => _isTranscriptionIndeterminate;
+        private set { _isTranscriptionIndeterminate = value; OnPropertyChanged(); }
+    }
+
     public string TranscriptionStatusMessage
     {
         get => _transcriptionStatusMessage;
-        private set { _transcriptionStatusMessage = value; OnPropertyChanged(); }
+        private set
+        {
+            if (_transcriptionStatusMessage == value) return;
+            _transcriptionStatusMessage = value;
+            OnPropertyChanged();
+            AddStatus("AI", value);
+        }
     }
 
     public string? TranscriptPath
@@ -264,15 +317,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool HasTranscript => TranscriptPath is not null && File.Exists(TranscriptPath);
 
-    public IReadOnlyList<PipelineStep> PipelineSteps { get; } =
-    [
-        new("Capture foundation", "Complete"),
-        new("Local transcription", "Sprint 2.5"),
-        new("Speaker diarization", "Sprint 3"),
-        new("Meeting intelligence", "Sprint 4"),
-        new("Knowledge base", "Later")
-    ];
-
     public Dispatcher? UIDispatcher
     {
         get => _uiDispatcher;
@@ -281,6 +325,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public async Task InitializeAsync()
     {
+        AddStatus("STARTUP", "Starting AI Meeting Assistant...");
+        RuntimeStatus = "Loading AI runtime...";
+        AddStatus("STARTUP", RuntimeStatus);
         CaptureRecoveryReport? recovery = null;
         if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
         {
@@ -306,11 +353,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     : health.RuntimeSupported
                         ? $"AI worker connected · setup required: {string.Join(", ", health.Diagnostics.MissingRequirements)}"
                         : $"AI worker connected · Python {health.PythonVersion} is unsupported; use Python 3.10 through 3.13.";
+                RuntimeStatus = health.MlReady
+                    ? $"Ready · {health.Diagnostics.Compute.Mode.ToUpperInvariant()}/{health.Diagnostics.Compute.ComputeType} · Python {health.PythonVersion}"
+                    : health.RuntimeSupported ? "Worker connected · setup required" : $"Unsupported Python {health.PythonVersion}";
+                AddStatus(health.MlReady ? "READY" : "WARNING", RuntimeStatus);
                 if (_modelPath is null)
                     TranscriptionStatusMessage = "No local model installed. Use the future Model Manager or development installer.";
             }
             catch (Exception exception)
             {
+                RuntimeStatus = "AI runtime unavailable";
                 ErrorMessage = $"AI worker unavailable: {exception.Message}";
             }
         }
@@ -415,11 +467,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ErrorMessage = null;
         TranscriptPath = null;
         TranscriptionProgress = 0;
+        _transcriptionStopwatch.Restart();
+        TranscriptionActivityDetail = "Starting worker job · elapsed 00:00";
+        IsTranscriptionIndeterminate = true;
         IsTranscribing = true;
         _transcriptionCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _transcriptionCancellation = new CancellationTokenSource();
         var token = _transcriptionCancellation.Token;
         string? activeJobId = null;
+        var modelLoadNoticeLogged = false;
         try
         {
             var microphone = Directory.GetFiles(_latestSessionDirectory, "microphone_*.wav").SingleOrDefault();
@@ -438,6 +494,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 job = await _workerClient.GetTranscriptionStatusAsync(job.JobId, token);
                 TranscriptionProgress = Math.Clamp(job.Progress * 100, 0, 100);
                 TranscriptionStatusMessage = FormatTranscriptionStatus(job);
+                IsTranscriptionIndeterminate = job.Status is "queued" or "normalizing" or "loading-model";
+                TranscriptionActivityDetail = FormatTranscriptionActivity(job.Status, _transcriptionStopwatch.Elapsed);
+                if (!modelLoadNoticeLogged && job.Status == "loading-model" && _transcriptionStopwatch.Elapsed >= TimeSpan.FromSeconds(15))
+                {
+                    AddStatus("AI", "Speech model is still loading on CPU; the worker remains active.");
+                    modelLoadNoticeLogged = true;
+                }
                 if (job.Status == "completed")
                 {
                     TranscriptPath = job.OutputPath ?? outputPath;
@@ -474,6 +537,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         finally
         {
+            _transcriptionStopwatch.Stop();
+            IsTranscriptionIndeterminate = false;
+            TranscriptionActivityDetail = $"Worker idle · last job {_transcriptionStopwatch.Elapsed:mm\\:ss}";
             _transcriptionCancellation?.Dispose();
             _transcriptionCancellation = null;
             IsTranscribing = false;
@@ -505,6 +571,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         "system_audio" => "system audio",
         _ => "audio"
     };
+
+    private static string FormatTranscriptionActivity(string status, TimeSpan elapsed)
+    {
+        var phase = status switch
+        {
+            "loading-model" => "Worker active · loading the local model on CPU; a cold start can take several minutes",
+            "normalizing" => "Worker active · preparing audio",
+            "transcribing" => "Worker active · decoding speech",
+            "queued" => "Worker active · job queued",
+            _ => $"Worker active · {status}"
+        };
+        return $"{phase} · elapsed {elapsed:mm\\:ss}";
+    }
 
     private async Task ToggleRecordingAsync()
     {
@@ -595,6 +674,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanChangeSources));
         OnPropertyChanged(nameof(CanDeleteSelectedMeeting));
         OnPropertyChanged(nameof(StateLabel));
+        OnPropertyChanged(nameof(OperationalStatusMessage));
         OnPropertyChanged(nameof(RecordingButtonLabel));
 
         if (eventArgs.CurrentState == RecordingSessionState.Preparing)
@@ -670,6 +750,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         TranscribeSelectedCommand.RaiseCanExecuteChanged();
     }
 
+    private Task ClearStatusLogAsync()
+    {
+        StatusLogEntries = _statusLog.Clear();
+        return Task.CompletedTask;
+    }
+
+    private void AddStatus(string level, string message)
+    {
+        StatusLogEntries = _statusLog.Add(level, message);
+    }
+
     private static CaptureSource? PreserveSelection(CaptureSource? current, IReadOnlyList<CaptureSource> sources) =>
         sources.FirstOrDefault(source => source.Id == current?.Id) ?? sources.FirstOrDefault();
 
@@ -694,5 +785,3 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 }
-
-public sealed record PipelineStep(string Name, string Phase);
