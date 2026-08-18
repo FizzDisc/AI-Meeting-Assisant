@@ -1806,3 +1806,22 @@ und erneut laden. Der fehlerhafte nicht vorhandene PrimaryButtonStyle wurde
 korrigiert. Nach einem festhaengenden Altprozess beendet der neue Shutdown-Pfad
 die WPF-Anwendung explizit und begrenzt das Warten auf den Worker. Sprint 3.3.1
 ist abgeschlossen; als naechstes folgt Sprint 3.4.1 Modellkatalog/-auswahl.
+=== CODEX · Sprint 3.4.1 ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Der lokale Speech-Modellkatalog ist implementiert. Settings zeigen Tiny, Small
+und Medium mit Installationsstatus, Qualitaet, ungefaehrer Groesse und Hardware-
+Hinweis. Die stabile Modell-ID wird gespeichert und beim App-Start auf einen
+existierenden lokalen Ordner aufgeloest. Nicht installierte Modelle koennen vor
+3.4.2 nicht versehentlich aktiviert werden; der Custom-Path bleibt als Advanced-
+Override erhalten. Build, Core-Tests und Windows-Smoke inklusive Katalogtest sind
+erfolgreich. Manueller UI-/Persistenz-Smoke steht aus.
+=== CODEX · Sprint 3.4.1 ACCEPTED ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Manueller Smoke erfolgreich: Katalog lesbar, nicht installierte Modelle werden
+abgewiesen, Tiny bleibt persistent und die App beendet sauber. Hinweis des
+Testers aufgenommen: Die aktuelle GPU-Option bedeutet ausschliesslich NVIDIA
+CUDA; die Intel-GPU des Referenzgeraets faellt bewusst auf CPU zurueck. Eine
+separate Windows-GPU-Backend-Evaluierung fuer Intel/AMD wurde als AMA-124 in den
+Backlog aufgenommen. Sprint 3.4.1 ist abgeschlossen.

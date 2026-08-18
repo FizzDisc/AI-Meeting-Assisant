@@ -1,5 +1,9 @@
 # Architecture
 
+## Sprint 3.4.1 local speech-model catalog
+
+Settings persist a stable curated model ID rather than a catalog-specific absolute path. At application composition time, `LocalModelResolver` maps that ID to an existing folder under `worker/models`; the worker still receives only an explicit local path and never downloads implicitly. The advanced custom-directory and environment overrides remain escape hatches. Catalog entries expose indicative quality, size and hardware guidance, while installation state is derived from the filesystem.
+
 ## Sprint 3.3.1 meeting speaker names
 
 Manual speaker names are presentation metadata, not AI evidence. `processing/speaker-names.json` maps stable technical IDs to meeting-local display names and is written atomically. The transcript viewer and Markdown exporter resolve this sidecar at read time; `transcript.json` is never rewritten. Unknown and ambiguous assignments cannot receive a global name because a shared uncertainty label may cover multiple people.

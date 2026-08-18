@@ -76,6 +76,29 @@ catch (Exception exception)
     failures++;
 }
 
+try
+{
+    var root = Path.Combine(Path.GetTempPath(), $"aima_catalog_{Guid.NewGuid():N}");
+    var worker = Path.Combine(root, "worker", "models");
+    Directory.CreateDirectory(Path.Combine(worker, "faster-whisper-small"));
+    try
+    {
+        if (LocalModelResolver.SpeechModels.Select(model => model.Id).SequenceEqual(["tiny", "small", "medium"]) is false)
+            throw new InvalidOperationException("Speech model catalog order or IDs are incorrect.");
+        if (!LocalModelResolver.IsSpeechModelInstalled("small", root) || LocalModelResolver.IsSpeechModelInstalled("medium", root))
+            throw new InvalidOperationException("Installed speech model detection is incorrect.");
+        if (LocalModelResolver.ResolveSpeechModel("small", root) != Path.Combine(worker, "faster-whisper-small"))
+            throw new InvalidOperationException("Selected catalog model did not resolve to its local directory.");
+        Console.WriteLine("PASS Speech model catalog exposes tiny/small/medium and detects local installation state.");
+    }
+    finally { Directory.Delete(root, true); }
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Speech model catalog: {exception.Message}");
+    failures++;
+}
+
 // Test 1: Source Discovery
 try
 {

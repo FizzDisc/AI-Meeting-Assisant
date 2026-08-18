@@ -1,11 +1,37 @@
 namespace AiMeetingAssistant.Windows.Worker;
 
+public sealed record LocalSpeechModelDefinition(string Id, string DisplayName, string DirectoryName,
+    string Quality, string DownloadSize, string HardwareGuidance);
+
 public static class LocalModelResolver
 {
     public const string OverrideVariable = "AI_MEETING_ASSISTANT_MODEL";
+    public const string DefaultSpeechModelId = "tiny";
+    public static IReadOnlyList<LocalSpeechModelDefinition> SpeechModels { get; } =
+    [
+        new("tiny", "Whisper Tiny", "faster-whisper-tiny", "Basic", "~75 MB", "CPU friendly · fastest, lowest accuracy"),
+        new("small", "Whisper Small", "faster-whisper-small", "Good", "~500 MB", "CPU usable · noticeably slower, better accuracy"),
+        new("medium", "Whisper Medium", "faster-whisper-medium", "High", "~1.5 GB", "GPU recommended · slow on CPU, strongest option in this catalog")
+    ];
 
     public static string? ResolveDevelopmentModel(string? baseDirectory = null)
-        => ResolveModel("faster-whisper-tiny", OverrideVariable, baseDirectory);
+        => ResolveSpeechModel(DefaultSpeechModelId, baseDirectory);
+
+    public static string? ResolveSpeechModel(string? modelId, string? baseDirectory = null)
+    {
+        var configured = Environment.GetEnvironmentVariable(OverrideVariable);
+        if (!string.IsNullOrWhiteSpace(configured) && Directory.Exists(configured))
+            return Path.GetFullPath(configured);
+        var model = GetSpeechModel(modelId);
+        return ResolveModel(model.DirectoryName, null, baseDirectory);
+    }
+
+    public static LocalSpeechModelDefinition GetSpeechModel(string? modelId) =>
+        SpeechModels.SingleOrDefault(model => string.Equals(model.Id, modelId, StringComparison.Ordinal))
+        ?? SpeechModels.Single(model => model.Id == DefaultSpeechModelId);
+
+    public static bool IsSpeechModelInstalled(string modelId, string? baseDirectory = null) =>
+        ResolveModel(GetSpeechModel(modelId).DirectoryName, null, baseDirectory) is not null;
 
     public static string? ResolveDiarizationModel(string? baseDirectory = null)
         => ResolveModel("speaker-diarization-community-1", null, baseDirectory);
