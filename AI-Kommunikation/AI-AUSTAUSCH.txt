@@ -1758,3 +1758,6 @@ Real observation: a 2-second silent dual-track job completed normally with 0 seg
 
 === CODEX · Sprint 2.9 ===
 Settings Center foundation: Recording, Storage, AI Model and Diagnostics sections; atomic schema-v1 local settings; validated capture/model paths; automatic/cpu-only/prefer-cuda profile; one injected capture root for recording, recovery, library and deletion. Manual smoke pending.
+
+=== CODEX · Sprint 3.1 ===
+README modernized. Gated pyannote community-1 installs directly from Settings with a non-persisted token and is stored for offline use. Isolated system-audio diarization prefers exclusive turns. Real Windows run found TorchCodec incompatible with Torch 2.8 CPU; fixed by direct PCM16-to-tensor loading. Real offline job completed correctly with 0 speakers/turns on a silent short capture. Python 9/9 and .NET build green. Sprint 3.2 will reconcile turns with transcript segments.

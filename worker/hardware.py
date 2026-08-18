@@ -9,12 +9,11 @@ def select_compute(torch_api: Any, preference: str = "automatic") -> dict[str, A
     if preference not in PREFERENCES:
         raise ValueError(f"Unknown compute preference: {preference}")
     cuda_available = bool(torch_api.cuda.is_available())
-    if preference == "prefer-cuda" and not cuda_available:
-        raise RuntimeError("CUDA was requested but no compatible NVIDIA CUDA device/runtime is available.")
     use_cuda = cuda_available and preference != "cpu-only"
     if not use_cuda:
         reason = None
         if preference == "cpu-only": reason = "CPU-only mode was selected."
+        elif preference == "prefer-cuda" and not cuda_available: reason = "Preferred NVIDIA CUDA was unavailable; safely fell back to CPU."
         elif not cuda_available: reason = "No compatible NVIDIA CUDA device/runtime was detected."
         return {"preference": preference, "mode": "cpu", "computeType": "int8", "batchSize": 2,
                 "cudaAvailable": cuda_available, "deviceName": None, "totalVramBytes": None,

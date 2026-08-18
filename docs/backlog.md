@@ -50,7 +50,7 @@
 
 ## Sprint 3 — speakers
 
-- **Sprint 3.1: Local diarization runtime** — Explicitly install/import the gated `pyannote/speaker-diarization-community-1` model after license acceptance, keep it offline-capable and run diarization only on `system_audio`. The separate microphone track remains the known local participant (`You`).
+- **Sprint 3.1: Local diarization runtime — Complete.** Explicitly install the gated `pyannote/speaker-diarization-community-1` model from Settings with a one-time, non-persisted Hugging Face token, then load it fully offline in an isolated job. Diarization accepts only `system_audio`, prefers exclusive speaker turns and persists anonymous time ranges. The separate microphone track remains the known local participant (`You`). Real Windows validation loaded the offline model and completed a silent system-audio job with the correct zero-speaker result. Desktop transcript reconciliation remains Sprint 3.2.
 - **Sprint 3.2: Speaker-labelled transcript** — Merge exclusive pyannote speaker turns with WhisperX timestamps and emit anonymous `SPEAKER_00`, `SPEAKER_01`, etc. Preserve confidence/ambiguity and overlapping-speech diagnostics instead of inventing certainty.
 - **Sprint 3.3: Speaker correction and identity** — Let users rename/merge speakers and optionally remember voice identities locally with explicit consent and deletion controls. Audio-only diarization does not infer real names; Teams metadata or visual-name extraction would be separate opt-in work.
 

@@ -461,6 +461,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         await RefreshMeetingLibraryAsync();
         MeetingLibraryStatus = $"Recording deleted · {MeetingSessions.Count} local recording(s) remaining";
+        ErrorMessage = null;
+        StatusMessage = "Recording deleted from the local library.";
     }
 
     private async Task TranscribeLatestAsync()

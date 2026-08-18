@@ -1,58 +1,45 @@
 # AI Meeting Assistant
 
-Greenfield desktop application for recording meetings on Windows and turning them into useful, locally processed knowledge. This repository deliberately contains no code from the former Marvin prototype.
+Local-first Windows desktop app for synchronized screen, system/Teams audio and microphone recording, followed by local source-aware transcription. This greenfield repository contains no Marvin prototype code.
 
-## Sprint 0 scope
+## Implemented
 
-- Native Windows application shell with a minimal recording dashboard
-- Explicit capture and transcription boundaries, with placeholder implementations only
-- Versioned JSON contract between the .NET application and Python worker
-- Architecture decisions and an ordered delivery backlog
-- No production screen or audio capture yet
+- .NET 8 WPF desktop app and native Windows capture
+- optional screen capture, recoverable session workspaces and alignment diagnostics
+- local WhisperX transcription of separate microphone and system-audio tracks
+- transcript viewer/export and meeting library
+- operational status center and versioned settings
+- offline pyannote speaker-diarization foundation
 
-## Repository layout
+No AI model is bundled or downloaded automatically.
 
-```text
-src/
-  AiMeetingAssistant.Desktop/   WPF application and presentation layer
-  AiMeetingAssistant.Core/      Use-case and capture abstractions
-  AiMeetingAssistant.Contracts/ Versioned worker messages
-  AiMeetingAssistant.Windows/   Windows display and Core Audio adapters
-worker/                          Python AI worker skeleton
-contracts/                       Language-neutral JSON Schema
-docs/                            Architecture, decisions and backlog
-```
+## Setup
 
-## Prerequisites
-
-- Windows 10 version 2004 or newer
-- .NET 8 SDK (the desktop workload is included in the Windows SDK)
-- Python 3.11 or 3.12 for the worker ML runtime; protocol health checks also report unsupported runtimes clearly. ML dependencies are intentionally deferred.
-
-## Run the desktop shell
+Requires Windows 10 2004+, .NET 8 SDK, Python 3.10–3.13 and FFmpeg.
 
 ```powershell
-dotnet restore .\AI-Meeting-Assistant.sln
+.\scripts\setup-ai-runtime.ps1
+.\scripts\install-development-model.ps1
 dotnet run --project .\src\AiMeetingAssistant.Desktop
 ```
 
-The record control currently exercises the Sprint 1.1 state machine using a clearly labelled simulation. No screen or audio is captured or saved yet.
+## Optional diarization model
 
-## Verify Sprint 1.1
+Accept the conditions for `pyannote/speaker-diarization-community-1` on Hugging Face, create a read token, then run:
+
+```powershell
+.\scripts\install-diarization-model.ps1
+```
+
+The token is used only during download and is not stored. The pipeline then runs locally/offline. Sprint 3 processes only `system_audio`; the separate microphone track remains the known local participant (`You`).
+
+## Verify
 
 ```powershell
 dotnet build .\AI-Meeting-Assistant.sln
 dotnet run --project .\tests\AiMeetingAssistant.Core.Tests
 dotnet run --project .\tests\AiMeetingAssistant.Windows.SmokeTests
-dotnet run --project .\src\AiMeetingAssistant.Desktop
+.\worker\.venv\Scripts\python.exe -m unittest discover .\worker\tests -p "test_*_unittest.py"
 ```
 
-## Exercise the worker protocol
-
-```powershell
-'{"protocolVersion":"1.0","requestId":"demo","type":"health.check","payload":{}}' | python .\worker\main.py
-```
-
-Expected output is one JSON response on stdout. Logs must go to stderr so the protocol stream remains machine-readable.
-
-See [architecture](docs/architecture.md), [Sprint backlog](docs/backlog.md), and [ADR-001](docs/decisions/001-platform-and-process-boundary.md).
+See [architecture](docs/architecture.md), [backlog](docs/backlog.md), and [decisions](docs/decisions/).

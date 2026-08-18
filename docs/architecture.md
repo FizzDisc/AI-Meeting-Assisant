@@ -1,5 +1,9 @@
 # Architecture
 
+## Sprint 3.1 diarization runtime
+
+The gated pyannote `community-1` pipeline is installed explicitly through Settings and loaded from disk by an isolated system-audio-only job. Hugging Face credentials are process-scoped and never persisted. Because TorchCodec DLL compatibility is unreliable in the pinned Windows CPU runtime, the adapter validates and loads our PCM16 WAV directly into a waveform/sample-rate tensor before inference. Exclusive speaker diarization is the canonical output for later transcript reconciliation.
+
 ## Sprint 2.9 settings boundary
 
 Desktop settings are local, schema-versioned and atomically replaced. The main composition root reads them once and injects storage/model/compute decisions into capture and transcription orchestration. This prevents different features from silently using different library roots.

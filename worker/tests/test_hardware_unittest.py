@@ -17,9 +17,10 @@ class HardwareSelectionTests(unittest.TestCase):
         self.assertEqual(("cpu", "int8", 2), (result["mode"], result["computeType"], result["batchSize"]))
         self.assertIn("No compatible NVIDIA", result["fallbackReason"])
 
-    def test_prefer_cuda_fails_when_unavailable(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "CUDA was requested"):
-            select_compute(SimpleNamespace(cuda=FakeCuda(False)), "prefer-cuda")
+    def test_prefer_cuda_falls_back_when_unavailable(self) -> None:
+        result = select_compute(SimpleNamespace(cuda=FakeCuda(False)), "prefer-cuda")
+        self.assertEqual("cpu", result["mode"])
+        self.assertIn("fell back to CPU", result["fallbackReason"])
 
     def test_cuda_profile_uses_vram_for_batch_size(self) -> None:
         result = select_compute(SimpleNamespace(cuda=FakeCuda(True, 12 * 1024**3)), "automatic")
