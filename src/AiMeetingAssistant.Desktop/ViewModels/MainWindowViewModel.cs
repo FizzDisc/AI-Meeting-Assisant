@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
 using AiMeetingAssistant.Core.Capture;
+using AiMeetingAssistant.Core.Meetings;
 using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Windows.Worker;
 
@@ -36,6 +37,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private double _transcriptionProgress;
     private string _transcriptionStatusMessage = "Complete a recording to enable local transcription.";
     private string? _transcriptPath;
+    private IReadOnlyList<MeetingLibraryEntry> _meetingSessions = [];
+    private MeetingLibraryEntry? _selectedMeetingSession;
+    private string _meetingLibraryStatus = "No local recordings found.";
+    private bool _isScreenCaptureEnabled = AppPreferences.LoadScreenCaptureEnabled();
+    private bool _isShuttingDown;
+    private TaskCompletionSource? _transcriptionCompletion;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
         PythonWorkerClient? workerClient = null, string? modelPath = null)
@@ -54,6 +61,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         RefreshSourcesCommand = new AsyncRelayCommand(RefreshSourcesAsync, () => CanChangeSources);
         TranscribeLatestCommand = new AsyncRelayCommand(TranscribeLatestAsync, () => CanTranscribeLatest);
         CancelTranscriptionCommand = new AsyncRelayCommand(CancelTranscriptionAsync, () => IsTranscribing);
+        RefreshMeetingLibraryCommand = new AsyncRelayCommand(RefreshMeetingLibraryAsync, () => !IsRecording && !IsTranscribing);
+        TranscribeSelectedCommand = new AsyncRelayCommand(TranscribeSelectedAsync, () => CanTranscribeSelected);
         _recordingSession.StateChanged += OnRecordingStateChanged;
     }
 
@@ -64,6 +73,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public AsyncRelayCommand RefreshSourcesCommand { get; }
     public AsyncRelayCommand TranscribeLatestCommand { get; }
     public AsyncRelayCommand CancelTranscriptionCommand { get; }
+    public AsyncRelayCommand RefreshMeetingLibraryCommand { get; }
+    public AsyncRelayCommand TranscribeSelectedCommand { get; }
 
     public RecordingSessionState State => _recordingSession.State;
 
@@ -76,6 +87,52 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool CanTranscribeLatest => !IsTranscribing && _workerClient is not null &&
         _latestSessionDirectory is not null && Directory.Exists(_latestSessionDirectory) &&
         _modelPath is not null && Directory.Exists(_modelPath);
+
+    public bool IsScreenCaptureEnabled
+    {
+        get => _isScreenCaptureEnabled;
+        set
+        {
+            _isScreenCaptureEnabled = value;
+            AppPreferences.SaveScreenCaptureEnabled(value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ScreenSelectionEnabled));
+            ToggleRecordingCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    public bool ScreenSelectionEnabled => CanChangeSources && IsScreenCaptureEnabled;
+
+    public IReadOnlyList<MeetingLibraryEntry> MeetingSessions
+    {
+        get => _meetingSessions;
+        private set { _meetingSessions = value; OnPropertyChanged(); }
+    }
+
+    public MeetingLibraryEntry? SelectedMeetingSession
+    {
+        get => _selectedMeetingSession;
+        set
+        {
+            _selectedMeetingSession = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CanOpenSelectedTranscript));
+            OnPropertyChanged(nameof(CanTranscribeSelected));
+            OnPropertyChanged(nameof(CanDeleteSelectedMeeting));
+            TranscribeSelectedCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    public string MeetingLibraryStatus
+    {
+        get => _meetingLibraryStatus;
+        private set { _meetingLibraryStatus = value; OnPropertyChanged(); }
+    }
+
+    public bool CanOpenSelectedTranscript => SelectedMeetingSession?.TranscriptPath is not null;
+    public bool CanDeleteSelectedMeeting => SelectedMeetingSession is not null && !IsRecording && !IsTranscribing;
+    public bool CanTranscribeSelected => !IsTranscribing && SelectedMeetingSession?.CanTranscribe == true &&
+        _workerClient is not null && _modelPath is not null && Directory.Exists(_modelPath);
 
     public string StateLabel => IsTranscribing ? "Transcribing latest recording" : State switch
     {
@@ -105,6 +162,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _isDiscoveringSources = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(CanChangeSources));
+            OnPropertyChanged(nameof(ScreenSelectionEnabled));
             OnPropertyChanged(nameof(StateLabel));
             OnPropertyChanged(nameof(SourceSummary));
             RaiseCommandStates();
@@ -180,6 +238,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(CanTranscribeLatest));
             OnPropertyChanged(nameof(CanChangeSources));
+            OnPropertyChanged(nameof(CanDeleteSelectedMeeting));
             OnPropertyChanged(nameof(StateLabel));
             RaiseCommandStates();
         }
@@ -234,6 +293,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             }
         }
         await RefreshSourcesAsync();
+        await RefreshMeetingLibraryAsync();
         if (recovery?.RecoveredSessions > 0) StatusMessage = $"Recovered {recovery.RecoveredSessions} interrupted recording(s).";
         if (recovery?.Issues.Count > 0) ErrorMessage = $"Session recovery found {recovery.Issues.Count} issue(s): {recovery.Issues[0]}";
         if (_workerClient is not null)
@@ -258,7 +318,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public async Task ShutdownAsync()
     {
+        _isShuttingDown = true;
         _transcriptionCancellation?.Cancel();
+        if (_transcriptionCompletion is not null)
+        {
+            try { await _transcriptionCompletion.Task.WaitAsync(TimeSpan.FromSeconds(5)); }
+            catch { /* Worker disposal below is the final bounded fallback. */ }
+        }
         _recordingTimer.Stop();
         _recordingStopwatch.Stop();
         try
@@ -301,7 +367,45 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private bool CanToggleRecording() => IsRecording ||
-        (!IsTranscribing && CanChangeSources && SelectedScreen is not null && SelectedSystemAudio is not null && SelectedMicrophone is not null);
+        (!IsTranscribing && CanChangeSources && (!IsScreenCaptureEnabled || SelectedScreen is not null) && SelectedSystemAudio is not null && SelectedMicrophone is not null);
+
+    private Task RefreshMeetingLibraryAsync()
+    {
+        var result = MeetingLibrary.Discover("artifacts/captures");
+        MeetingSessions = result.Sessions;
+        SelectedMeetingSession = MeetingSessions.FirstOrDefault(session => session.SessionDirectory == SelectedMeetingSession?.SessionDirectory)
+            ?? MeetingSessions.FirstOrDefault();
+        MeetingLibraryStatus = result.Issues.Count == 0
+            ? $"{MeetingSessions.Count} local recording(s)"
+            : $"{MeetingSessions.Count} recording(s) · {result.Issues.Count} issue(s)";
+        return Task.CompletedTask;
+    }
+
+    private async Task TranscribeSelectedAsync()
+    {
+        if (!CanTranscribeSelected || SelectedMeetingSession is null) return;
+        _latestSessionDirectory = SelectedMeetingSession.SessionDirectory;
+        TranscriptPath = SelectedMeetingSession.TranscriptPath;
+        await TranscribeLatestAsync();
+        await RefreshMeetingLibraryAsync();
+        SelectedMeetingSession = MeetingSessions.FirstOrDefault(session => session.SessionDirectory == _latestSessionDirectory);
+    }
+
+    public async Task DeleteSelectedMeetingAsync()
+    {
+        if (!CanDeleteSelectedMeeting || SelectedMeetingSession is null) return;
+        var deletedDirectory = SelectedMeetingSession.SessionDirectory;
+        MeetingLibrary.DeleteSession("artifacts/captures", deletedDirectory);
+        if (_latestSessionDirectory is not null &&
+            string.Equals(Path.GetFullPath(_latestSessionDirectory), Path.GetFullPath(deletedDirectory), StringComparison.OrdinalIgnoreCase))
+        {
+            _latestSessionDirectory = null;
+            TranscriptPath = null;
+            TranscriptionStatusMessage = "Select a recording from the library to transcribe it.";
+        }
+        await RefreshMeetingLibraryAsync();
+        MeetingLibraryStatus = $"Recording deleted · {MeetingSessions.Count} local recording(s) remaining";
+    }
 
     private async Task TranscribeLatestAsync()
     {
@@ -312,6 +416,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         TranscriptPath = null;
         TranscriptionProgress = 0;
         IsTranscribing = true;
+        _transcriptionCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _transcriptionCancellation = new CancellationTokenSource();
         var token = _transcriptionCancellation.Token;
         string? activeJobId = null;
@@ -345,8 +450,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         catch (OperationCanceledException)
         {
-            TranscriptionStatusMessage = "Cancelling local transcription...";
-            if (activeJobId is not null)
+            TranscriptionStatusMessage = _isShuttingDown ? "Stopping local transcription for shutdown..." : "Cancelling local transcription...";
+            if (!_isShuttingDown && activeJobId is not null)
             {
                 try
                 {
@@ -361,14 +466,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         catch (Exception exception)
         {
-            ErrorMessage = $"Transcription failed: {exception.Message}";
-            TranscriptionStatusMessage = "Transcription failed.";
+            if (!_isShuttingDown)
+            {
+                ErrorMessage = $"Transcription failed: {exception.Message}";
+                TranscriptionStatusMessage = "Transcription failed.";
+            }
         }
         finally
         {
             _transcriptionCancellation?.Dispose();
             _transcriptionCancellation = null;
             IsTranscribing = false;
+            _transcriptionCompletion?.TrySetResult();
+            _transcriptionCompletion = null;
         }
     }
 
@@ -407,8 +517,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 return;
             }
 
-            if (SelectedScreen is null || SelectedSystemAudio is null || SelectedMicrophone is null)
-                throw new InvalidOperationException("Select one display, output, and microphone first.");
+            if ((IsScreenCaptureEnabled && SelectedScreen is null) || SelectedSystemAudio is null || SelectedMicrophone is null)
+                throw new InvalidOperationException("Select the required capture sources first.");
 
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)
             {
@@ -418,7 +528,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 combinedCoordinator.MicrophoneFaulted += OnMicrophoneFaulted;
             }
 
-            var plan = new CapturePlan(SelectedScreen.Id, SelectedSystemAudio.Id, SelectedMicrophone.Id);
+            var plan = new CapturePlan(IsScreenCaptureEnabled ? SelectedScreen!.Id : string.Empty, SelectedSystemAudio.Id, SelectedMicrophone.Id);
             await _recordingSession.StartAsync(plan);
         }
         catch (Exception exception)
@@ -483,6 +593,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(State));
         OnPropertyChanged(nameof(IsRecording));
         OnPropertyChanged(nameof(CanChangeSources));
+        OnPropertyChanged(nameof(CanDeleteSelectedMeeting));
         OnPropertyChanged(nameof(StateLabel));
         OnPropertyChanged(nameof(RecordingButtonLabel));
 
@@ -517,6 +628,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     ? "Recording ready, but no local transcription model is installed."
                     : "Recording ready for local transcription.";
                 OnPropertyChanged(nameof(CanTranscribeLatest));
+                _ = RefreshMeetingLibraryAsync();
             }
 
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)
@@ -529,7 +641,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         else if (eventArgs.CurrentState == RecordingSessionState.Recording)
         {
-            StatusMessage = "Screen and audio recording in progress...";
+            StatusMessage = IsScreenCaptureEnabled ? "Screen and audio recording in progress..." : "Audio-only recording in progress...";
         }
 
         RaiseCommandStates();
@@ -554,6 +666,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         RefreshSourcesCommand.RaiseCanExecuteChanged();
         TranscribeLatestCommand.RaiseCanExecuteChanged();
         CancelTranscriptionCommand.RaiseCanExecuteChanged();
+        RefreshMeetingLibraryCommand.RaiseCanExecuteChanged();
+        TranscribeSelectedCommand.RaiseCanExecuteChanged();
     }
 
     private static CaptureSource? PreserveSelection(CaptureSource? current, IReadOnlyList<CaptureSource> sources) =>

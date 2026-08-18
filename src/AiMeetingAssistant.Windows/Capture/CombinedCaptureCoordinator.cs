@@ -57,8 +57,8 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         {
             if (_manifest is not null) throw new InvalidOperationException("Capture session is already active.");
             LastAlignment = null;
-            if (string.IsNullOrWhiteSpace(plan.ScreenSourceId) || string.IsNullOrWhiteSpace(plan.SystemAudioSourceId) || string.IsNullOrWhiteSpace(plan.MicrophoneSourceId))
-                throw new ArgumentException("Screen, system audio and microphone source IDs are required.");
+            if (string.IsNullOrWhiteSpace(plan.SystemAudioSourceId) || string.IsNullOrWhiteSpace(plan.MicrophoneSourceId))
+                throw new ArgumentException("System audio and microphone source IDs are required.");
             CaptureStorageGuard.EnsureAvailable(_baseDirectory);
 
             var startedAt = DateTimeOffset.UtcNow;
@@ -75,14 +75,17 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
                 return _audioFactory?.Invoke(id, path, mode) ?? new WasapiAudioCaptureProvider(id, path, mode);
             }
 
-            _screen = new(directory, CreateScreen, Timestamp);
+            _screen = string.IsNullOrWhiteSpace(plan.ScreenSourceId) ? null : new(directory, CreateScreen, Timestamp);
             _audio = new(directory, CreateAudio, Timestamp);
             Subscribe(_screen, _audio);
             _manifest = new(2, sessionId, "preparing", startedAt, null, null, plan, []);
             WriteManifest();
             _clock.Restart();
-            await _screen.StartAsync(plan, cancellationToken).ConfigureAwait(false);
-            _screenStarted = true;
+            if (_screen is not null)
+            {
+                await _screen.StartAsync(plan, cancellationToken).ConfigureAwait(false);
+                _screenStarted = true;
+            }
             await _audio.StartAsync(plan, cancellationToken).ConfigureAwait(false);
             _audioStarted = true;
             _manifest = BuildManifest("recording", null);
@@ -103,9 +106,9 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         finally { _lock.Release(); }
     }
 
-    private void Subscribe(ScreenCaptureCoordinator screen, DualAudioCaptureCoordinator audio)
+    private void Subscribe(ScreenCaptureCoordinator? screen, DualAudioCaptureCoordinator audio)
     {
-        screen.CaptureStarted += OnScreenStarted; screen.CaptureFailed += OnCaptureFailed;
+        if (screen is not null) { screen.CaptureStarted += OnScreenStarted; screen.CaptureFailed += OnCaptureFailed; }
         audio.SystemAudioStarted += OnSystemStarted; audio.MicrophoneStarted += OnMicrophoneStarted; audio.CaptureFailed += OnCaptureFailed;
         audio.SystemAudioLevelChanged += OnSystemLevel; audio.SystemAudioFaulted += OnSystemFault;
         audio.MicrophoneLevelChanged += OnMicrophoneLevel; audio.MicrophoneFaulted += OnMicrophoneFault;

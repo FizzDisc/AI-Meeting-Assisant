@@ -1,5 +1,9 @@
 # Architecture
 
+## Sprint 2.7 library boundary
+
+`MeetingLibrary` is a read-only Core projection over the session workspace format. It tolerates individual missing or corrupt manifests and returns both visible entries and discovery issues. WPF owns selection and commands, while the existing worker client remains the sole transcription executor. Audio-only capture is represented by absence of a screen stream, never by a placeholder video.
+
 ## Product boundary
 
 AI Meeting Assistant is a local-first Windows desktop product. It owns capture, processing orchestration, meeting artifacts and their lifecycle. The previous Marvin toolchain and codebase are explicitly outside this repository.

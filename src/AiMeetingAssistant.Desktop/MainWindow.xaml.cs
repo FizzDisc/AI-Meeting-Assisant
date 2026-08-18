@@ -48,6 +48,9 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnOpenMeetingLibrary(object sender, RoutedEventArgs eventArgs) =>
+        new MeetingLibraryWindow(_viewModel) { Owner = this }.ShowDialog();
+
     private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (_shutdownComplete) return;

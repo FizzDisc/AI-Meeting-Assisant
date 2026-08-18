@@ -1,0 +1,52 @@
+<Window x:Class="AiMeetingAssistant.Desktop.MeetingLibraryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Meeting Library · AI Meeting Assistant" Width="1040" Height="660" MinWidth="820" MinHeight="500"
+        Background="{StaticResource CanvasBrush}" WindowStartupLocation="CenterOwner">
+    <Grid Margin="28">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="18"/><RowDefinition Height="*"/><RowDefinition Height="18"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid>
+            <StackPanel>
+                <TextBlock Text="MEETING LIBRARY" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
+                <TextBlock Text="Local recordings" FontSize="28" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                <TextBlock Text="Every session stays visible, including interrupted or incomplete recordings." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0"/>
+            </StackPanel>
+            <Button Content="Refresh" Command="{Binding RefreshMeetingLibraryCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        </Grid>
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}">
+            <DataGrid ItemsSource="{Binding MeetingSessions}" SelectedItem="{Binding SelectedMeetingSession}" AutoGenerateColumns="False"
+                      IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      Background="#151B25" Foreground="#F5F7FA" BorderThickness="0" RowBackground="#151B25" AlternatingRowBackground="#1D2633"
+                      HorizontalGridLinesBrush="#2B3747" SelectionUnit="FullRow">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#1D2633"/>
+                        <Setter Property="Foreground" Value="#F5F7FA"/>
+                        <Setter Property="BorderBrush" Value="#3B4B60"/>
+                        <Setter Property="Padding" Value="10,8"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Started" Binding="{Binding StartedLabel}" Width="155"/>
+                    <DataGridTextColumn Header="Duration" Binding="{Binding DurationLabel}" Width="90"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                    <DataGridTextColumn Header="Sources" Binding="{Binding SourceSummary}" Width="*" MinWidth="220"/>
+                    <DataGridTextColumn Header="Alignment" Binding="{Binding AlignmentStatus}" Width="100"/>
+                    <DataGridTextColumn Header="Transcript" Binding="{Binding TranscriptStatus}" Width="130"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+        <Grid Grid.Row="4">
+            <StackPanel>
+                <TextBlock Text="{Binding MeetingLibraryStatus}" Foreground="{StaticResource MutedBrush}"/>
+                <TextBlock Text="{Binding SelectedMeetingSession.Diagnostic}" Foreground="{StaticResource RecordBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Delete recording" Click="OnDeleteSelectedRecording" IsEnabled="{Binding CanDeleteSelectedMeeting}" Background="#3A2327" BorderBrush="#8A3D45" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
+                <Button Content="Open transcript" Click="OnOpenSelectedTranscript" IsEnabled="{Binding CanOpenSelectedTranscript}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
+                <Button Content="Transcribe / retry" Command="{Binding TranscribeSelectedCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

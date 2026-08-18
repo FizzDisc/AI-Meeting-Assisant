@@ -1,6 +1,7 @@
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Core.Transcripts;
+using AiMeetingAssistant.Core.Meetings;
 using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
@@ -37,6 +38,8 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("audio timeline fills missing silent frames", AudioTimelineFillsMissingFrames)
     ,("transcript parser validates and orders source segments", TranscriptParserValidatesAndOrders)
     ,("transcript Markdown and JSON exports are atomic", TranscriptExportsAreAtomic)
+    ,("meeting library discovers valid and invalid sessions", MeetingLibraryDiscoversAllSessions)
+    ,("meeting library deletion is scoped to direct session workspaces", MeetingLibraryDeletionIsScoped)
 };
 
 var failures = 0;
@@ -603,6 +606,62 @@ static Task TranscriptExportsAreAtomic()
         return Task.CompletedTask;
     }
     finally { Directory.Delete(directory, true); }
+}
+
+static Task MeetingLibraryDiscoversAllSessions()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_library_{Guid.NewGuid():N}");
+    var valid = Path.Combine(directory, "session_valid");
+    var invalid = Path.Combine(directory, "session_invalid");
+    Directory.CreateDirectory(valid);
+    Directory.CreateDirectory(invalid);
+    try
+    {
+        File.WriteAllBytes(Path.Combine(valid, "microphone.wav"), [1]);
+        File.WriteAllBytes(Path.Combine(valid, "system.wav"), [1]);
+        var manifest = new CaptureSessionManifest(2, "session_valid", "completed", DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow, 1234, new("", "system", "microphone"),
+            [new("microphone", "microphone.wav", 0), new("system_audio", "system.wav", 0)],
+            new("aligned", 500, 25, null));
+        CaptureSessionManifestStore.WriteAtomic(Path.Combine(valid, "manifest.json"), manifest);
+        File.WriteAllText(Path.Combine(invalid, "manifest.json"), "not json");
+
+        var result = MeetingLibrary.Discover(directory);
+        Equal(2, result.Sessions.Count);
+        Equal(1, result.Issues.Count);
+        var validEntry = result.Sessions.Single(session => session.SessionId == "session_valid");
+        Equal(true, validEntry.CanTranscribe);
+        Equal("System audio · Microphone", validEntry.SourceSummary);
+        Equal("invalid", result.Sessions.Single(session => session.SessionId == "session_invalid").Status);
+        return Task.CompletedTask;
+    }
+    finally { Directory.Delete(directory, true); }
+}
+
+static Task MeetingLibraryDeletionIsScoped()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_delete_{Guid.NewGuid():N}");
+    var session = Path.Combine(directory, "session_delete");
+    var outside = Path.Combine(Path.GetTempPath(), $"session_outside_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(session);
+    Directory.CreateDirectory(outside);
+    try
+    {
+        File.WriteAllText(Path.Combine(session, "artifact.txt"), "test");
+        MeetingLibrary.DeleteSession(directory, session);
+        Equal(false, Directory.Exists(session));
+        var rejected = false;
+        try { MeetingLibrary.DeleteSession(directory, outside); }
+        catch (InvalidOperationException) { rejected = true; }
+        Equal(true, rejected);
+        Equal(true, Directory.Exists(outside));
+        return Task.CompletedTask;
+    }
+    finally
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        if (Directory.Exists(outside)) Directory.Delete(outside, true);
+    }
 }
 
 static void Equal<T>(T expected, T actual)

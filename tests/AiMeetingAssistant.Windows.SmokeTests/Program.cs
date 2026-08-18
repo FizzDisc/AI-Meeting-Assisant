@@ -415,6 +415,32 @@ try
                 }
             }
 
+            var audioOnlyDirectory = Path.Combine(testDir, "audio-only");
+            var audioOnlyScreenFactoryCalls = 0;
+            var audioOnlyProviders = new List<FakeAudioProvider>();
+            var audioOnly = new CombinedCaptureCoordinator(
+                audioOnlyDirectory,
+                (_, _) => { audioOnlyScreenFactoryCalls++; return new FakeScreenProvider(); },
+                (_, _, _) => { var provider = new FakeAudioProvider(); audioOnlyProviders.Add(provider); return provider; });
+            await audioOnly.StartAsync(new("", "output", "microphone"));
+            await audioOnly.StopAsync();
+            var audioOnlySession = Directory.GetDirectories(audioOnlyDirectory, "session_*").Single();
+            using (var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(audioOnlySession, "manifest.json"))))
+            {
+                var streams = manifest.RootElement.GetProperty("Streams");
+                if (audioOnlyScreenFactoryCalls != 0 || streams.GetArrayLength() != 2 ||
+                    streams.EnumerateArray().Any(stream => stream.GetProperty("Kind").GetString() == "screen") ||
+                    audioOnlyProviders.Any(provider => provider.StartCount != 1 || provider.StopCount != 1 || provider.DisposeCount != 1))
+                {
+                    Console.Error.WriteLine("FAIL Audio-only capture created or started a screen provider.");
+                    failures++;
+                }
+                else
+                {
+                    Console.WriteLine("PASS Audio-only capture omits the screen provider and manifest stream.");
+                }
+            }
+
             var rollbackAudio = new List<FakeAudioProvider>();
             var rollbackScreen = new FakeScreenProvider();
             var rollback = new CombinedCaptureCoordinator(

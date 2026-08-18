@@ -1746,3 +1746,8 @@ Sprint 3 wurde in lokale pyannote-Diarisierung des Systemaudios, anonym
 speaker-gelabeltes Transkript und spaetere manuelle/lokale Identitaetszuordnung
 zerlegt. Die Mikrofonspur bleibt der bekannte lokale Teilnehmer. Commit und
 Push bleiben bei Kevin.
+
+=== CODEX · Sprint 2.7 ===
+Meeting Library implemented: all session workspaces are enumerated with timing, lifecycle, source, alignment and transcript state. Invalid/incomplete sessions stay visible with diagnostics. Any eligible completed session can open an existing transcript or start/retry cancellable local transcription. Bonus: persisted Screen Capture toggle supports honest audio-only sessions without creating an MP4. Build and automated Core/Windows validation completed; manual UI/media smoke test pending.
+Manual smoke passed. Follow-up adds readable explicit DataGrid header colors plus confirmed, capture-root-scoped deletion of a complete selected recording workspace.
+Shutdown race fixed: closing during transcription now cancels UI polling, waits for it to unwind, then disposes the worker. It never sends the old job hash to a newly restarted worker. Privacy-first dashboard card is scheduled for removal in the next sprint.
