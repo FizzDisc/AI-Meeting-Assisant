@@ -1224,3 +1224,41 @@ Versatz zum Video: 74 ms bzw. 343 ms. Fuer Sprint 1.5.2 akzeptiert; diese Werte
 sind konkrete Eingabe fuer Session-Clock und Alignment in Sprint 1.6.
 
 Sprint 1.5.2 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.5.3 bereit fuer Hardware-Smoke-Test
+Status: READY FOR MANUAL TEST
+
+Nachricht:
+Der Dreifach-Capture besitzt nun automatisierte Robustheitsabdeckung fuer
+Runtime-Displayfehler, zehn schnelle Start/Stop-Zyklen, wiederholten Shutdown,
+Teilstart-Rollback und Stop-Fehler. Selbst wenn Audio beim Stoppen wirft, wird
+das MP4 weiterhin finalisiert und jeder Provider genau einmal entsorgt.
+
+Media-Foundation-Format- und Berechtigungsfehler liefern konkrete Hinweise zu
+Display-Refresh, Grafiktreiber und Windows-Datenschutz. Build: 0 Warnungen und
+0 Fehler; 23/23 Core-Tests und alle Windows-Smoke-Tests bestanden.
+
+Offen: manueller Rapid-Cycle- und Close-during-recording-Test.
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.5.3 abgeschlossen
+Status: DONE
+
+Nachricht:
+Der manuelle Robustheits-Smoke-Test ist erfolgreich. Mehrere schnelle
+Dreifach-Aufnahmen wurden korrekt finalisiert. Beim Schliessen des Fensters
+waehrend einer Aufnahme entstanden abspielbare, nicht leere MP4- und WAV-
+Artefakte. Nach dem Neustart war eine weitere Aufnahme erfolgreich.
+
+Sprint 1.5.3 und damit Sprint 1.5 sind abgeschlossen. Commit und Push bleiben
+bei Kevin.

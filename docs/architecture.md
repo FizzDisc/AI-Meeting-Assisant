@@ -97,6 +97,10 @@ Live display handover is deferred. The UI should eventually offer one seamless s
 
 The composite forwards both live audio levels and all provider failures to the existing recording state machine. This slice establishes one atomic user-visible lifecycle, not sample-accurate synchronization; per-stream monotonic timestamps and alignment metadata remain Sprint 1.6.
 
+### Combined capture robustness (Sprint 1.5.3)
+
+Runtime failure of screen, loopback or microphone fails the whole recording and converges on the serialized combined cleanup path. Cleanup attempts both audio providers and the screen provider even when an earlier stop throws, so an audio finalization problem cannot prevent MP4 finalization. Rapid cycles and repeated shutdown are idempotent and covered with exactly-once lifecycle assertions. Media Foundation sink/format failures and access failures are translated into actionable display, driver and privacy guidance.
+
 ## Privacy and quality guardrails
 
 - Show an unambiguous recording indicator and require consent confirmation.

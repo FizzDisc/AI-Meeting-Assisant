@@ -73,7 +73,14 @@ public sealed class ScreenRecorderCaptureProvider : IScreenCaptureProvider
             _recorder.OnRecordingFailed += OnRecordingFailed;
             _recorder.Record(_outputPath);
 
-            await _started.Task.WaitAsync(StartTimeout, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await _started.Task.WaitAsync(StartTimeout, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TimeoutException exception)
+            {
+                throw new InvalidOperationException("Screen capture did not start within 10 seconds. Refresh displays and retry.", exception);
+            }
             _isCapturing = true;
         }
         catch
@@ -121,10 +128,11 @@ public sealed class ScreenRecorderCaptureProvider : IScreenCaptureProvider
 
     private void OnRecordingFailed(object? sender, RecordingFailedEventArgs e)
     {
-        var exception = new InvalidOperationException(e.Error);
+        var message = ScreenCaptureError.Describe(e.Error);
+        var exception = new InvalidOperationException(message);
         _started?.TrySetException(exception);
         _stopped?.TrySetException(exception);
-        CaptureFaulted?.Invoke(this, new CaptureErrorEventArgs(e.Error, exception));
+        CaptureFaulted?.Invoke(this, new CaptureErrorEventArgs(message, exception));
     }
 
     private void DisposeRecorder()

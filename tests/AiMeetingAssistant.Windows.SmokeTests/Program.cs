@@ -46,6 +46,18 @@ try
         Console.WriteLine("PASS 5160x2160 display is scaled proportionally to an encoder-safe 3840x1608.");
     }
 
+    var sinkError = ScreenCaptureError.Describe("Failed to initialize video sink writer: invalid media type");
+    if (!sinkError.Contains("H.264", StringComparison.OrdinalIgnoreCase) ||
+        !sinkError.Contains("graphics driver", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.Error.WriteLine("FAIL Video-sink error is not actionable.");
+        failures++;
+    }
+    else
+    {
+        Console.WriteLine("PASS Video-sink failure produces actionable encoder guidance.");
+    }
+
     // Test 2: Microphone availability (Sprint 1.3)
     var microphones = sources.Where(s => s.Kind == CaptureSourceKind.Microphone).ToArray();
     if (microphones.Length == 0)
@@ -330,6 +342,108 @@ try
                     Console.WriteLine("PASS Combined audio start failure rolls back screen and both audio providers.");
                 }
             }
+
+            var runtimeAudio = new List<FakeAudioProvider>();
+            var runtimeScreen = new FakeScreenProvider();
+            var runtimeCoordinator = new CombinedCaptureCoordinator(
+                testDir,
+                (_, _) => runtimeScreen,
+                (_, _, _) =>
+                {
+                    var provider = new FakeAudioProvider();
+                    runtimeAudio.Add(provider);
+                    return provider;
+                });
+            var runtimeSession = new RecordingSession(runtimeCoordinator);
+            await runtimeSession.StartAsync(new("screen:\\\\.\\DISPLAY1", "output", "microphone"));
+            runtimeScreen.RaiseFault("display disconnected");
+            await WaitForState(runtimeSession, RecordingSessionState.Failed);
+            if (runtimeScreen.StopCount != 1 || runtimeScreen.DisposeCount != 1 ||
+                runtimeAudio.Any(provider => provider.StopCount != 1 || provider.DisposeCount != 1))
+            {
+                Console.Error.WriteLine("FAIL Runtime screen failure did not stop and dispose all three streams.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine("PASS Runtime screen failure fails the session and cleans all three streams.");
+            }
+
+            var rapidScreens = new List<FakeScreenProvider>();
+            var rapidCombinedAudio = new List<FakeAudioProvider>();
+            var rapidCombined = new CombinedCaptureCoordinator(
+                testDir,
+                (_, _) => { var provider = new FakeScreenProvider(); rapidScreens.Add(provider); return provider; },
+                (_, _, _) => { var provider = new FakeAudioProvider(); rapidCombinedAudio.Add(provider); return provider; });
+            for (var cycle = 0; cycle < 10; cycle++)
+            {
+                await rapidCombined.StartAsync(new("screen:\\\\.\\DISPLAY1", "output", "microphone"));
+                await rapidCombined.StopAsync();
+            }
+            if (rapidScreens.Count != 10 || rapidCombinedAudio.Count != 20 ||
+                rapidScreens.Any(provider => provider.StopCount != 1 || provider.DisposeCount != 1) ||
+                rapidCombinedAudio.Any(provider => provider.StopCount != 1 || provider.DisposeCount != 1))
+            {
+                Console.Error.WriteLine("FAIL Rapid combined cycles leaked or duplicated lifecycle calls.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine("PASS Ten rapid combined cycles clean up all three streams exactly once.");
+            }
+
+            var combinedStopAudio = new List<FakeAudioProvider>();
+            var combinedStopScreen = new FakeScreenProvider();
+            var combinedStopFailure = new CombinedCaptureCoordinator(
+                testDir,
+                (_, _) => combinedStopScreen,
+                (_, _, _) =>
+                {
+                    var provider = new FakeAudioProvider(failOnStop: combinedStopAudio.Count == 1);
+                    combinedStopAudio.Add(provider);
+                    return provider;
+                });
+            await combinedStopFailure.StartAsync(new("screen:\\\\.\\DISPLAY1", "output", "microphone"));
+            try
+            {
+                await combinedStopFailure.StopAsync();
+                Console.Error.WriteLine("FAIL Combined audio stop failure should have propagated.");
+                failures++;
+            }
+            catch (IOException)
+            {
+                if (combinedStopScreen.StopCount != 1 || combinedStopScreen.DisposeCount != 1 ||
+                    combinedStopAudio.Any(provider => provider.DisposeCount != 1))
+                {
+                    Console.Error.WriteLine("FAIL Audio stop failure prevented screen finalization or provider disposal.");
+                    failures++;
+                }
+                else
+                {
+                    Console.WriteLine("PASS Audio stop failure still finalizes screen and disposes all providers.");
+                }
+            }
+
+            var shutdownAudio = new List<FakeAudioProvider>();
+            var shutdownScreen = new FakeScreenProvider();
+            var combinedShutdownCoordinator = new CombinedCaptureCoordinator(
+                testDir,
+                (_, _) => shutdownScreen,
+                (_, _, _) => { var provider = new FakeAudioProvider(); shutdownAudio.Add(provider); return provider; });
+            var combinedShutdownSession = new RecordingSession(combinedShutdownCoordinator);
+            await combinedShutdownSession.StartAsync(new("screen:\\\\.\\DISPLAY1", "output", "microphone"));
+            await combinedShutdownSession.ShutdownAsync();
+            await combinedShutdownSession.ShutdownAsync();
+            if (shutdownScreen.StopCount != 1 || shutdownScreen.DisposeCount != 1 ||
+                shutdownAudio.Any(provider => provider.StopCount != 1 || provider.DisposeCount != 1))
+            {
+                Console.Error.WriteLine("FAIL Repeated combined shutdown did not clean all streams exactly once.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine("PASS Repeated combined shutdown cleans all streams exactly once.");
+            }
         }
         finally
         {
@@ -398,11 +512,9 @@ file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = 
     }
 }
 
-file sealed class FakeScreenProvider : IScreenCaptureProvider
+file sealed class FakeScreenProvider(bool failOnStop = false) : IScreenCaptureProvider
 {
-#pragma warning disable CS0067
     public event EventHandler<CaptureErrorEventArgs>? CaptureFaulted;
-#pragma warning restore CS0067
     public int StartCount { get; private set; }
     public int StopCount { get; private set; }
     public int DisposeCount { get; private set; }
@@ -419,7 +531,13 @@ file sealed class FakeScreenProvider : IScreenCaptureProvider
     {
         if (IsCapturing) StopCount++;
         IsCapturing = false;
+        if (failOnStop) throw new IOException("Simulated screen stop failure.");
         return Task.CompletedTask;
+    }
+
+    public void RaiseFault(string message)
+    {
+        if (IsCapturing) CaptureFaulted?.Invoke(this, new(message));
     }
 
     public ValueTask DisposeAsync()

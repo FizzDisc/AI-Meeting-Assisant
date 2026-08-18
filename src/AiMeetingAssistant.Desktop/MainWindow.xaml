@@ -15,7 +15,7 @@
                 <TextBlock Text="Capture, transcribe and turn conversations into clear outcomes." Foreground="{StaticResource MutedBrush}" FontSize="15" Margin="0,8,0,0"/>
             </StackPanel>
             <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#18352E" CornerRadius="12" Padding="14,8">
-                <TextBlock Text="SPRINT 1.5.2 · VIDEO + AUDIO" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
+                <TextBlock Text="SPRINT 1.5.3 · CAPTURE ROBUSTNESS" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
             </Border>
         </Grid>
         <Grid Grid.Row="2">
@@ -89,6 +89,6 @@
                 </StackPanel></Border>
             </StackPanel>
         </Grid>
-        <Grid Grid.Row="4"><TextBlock Text="Separate screen MP4 + system audio + microphone WAV files" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 1.5.2 · Combined capture" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+        <Grid Grid.Row="4"><TextBlock Text="Separate screen MP4 + system audio + microphone WAV files" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 1.5.3 · Robust combined capture" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
     </Grid>
 </Window>
