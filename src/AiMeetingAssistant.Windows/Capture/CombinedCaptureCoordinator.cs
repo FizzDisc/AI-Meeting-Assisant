@@ -14,6 +14,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     private DualAudioCaptureCoordinator? _audio;
     private CaptureSessionManifest? _manifest;
     private string? _manifestPath;
+    private string? _sessionDirectory;
     private string? _screenPath;
     private string? _systemPath;
     private string? _microphonePath;
@@ -35,6 +36,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     public event EventHandler<AudioFrameCapturedEventArgs>? MicrophoneLevelChanged;
     public event EventHandler<AudioCaptureFaultEventArgs>? MicrophoneFaulted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
+    public CaptureAlignmentManifest? LastAlignment { get; private set; }
 
     public async Task StartAsync(CapturePlan plan, CancellationToken cancellationToken = default)
     {
@@ -42,6 +44,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         try
         {
             if (_manifest is not null) throw new InvalidOperationException("Capture session is already active.");
+            LastAlignment = null;
             if (string.IsNullOrWhiteSpace(plan.ScreenSourceId) || string.IsNullOrWhiteSpace(plan.SystemAudioSourceId) || string.IsNullOrWhiteSpace(plan.MicrophoneSourceId))
                 throw new ArgumentException("Screen, system audio and microphone source IDs are required.");
 
@@ -49,6 +52,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
             var timestamp = startedAt.LocalDateTime;
             var sessionId = $"session_{timestamp:yyyyMMdd_HHmmss_fff}";
             var directory = CaptureFileNaming.CreateUniqueDirectory(_baseDirectory, sessionId);
+            _sessionDirectory = directory;
             _manifestPath = Path.Combine(directory, "manifest.json");
             DateTime Timestamp() => timestamp;
             IScreenCaptureProvider CreateScreen(string id, string path) { _screenPath = path; return _screenFactory?.Invoke(id, path) ?? new ScreenRecorderCaptureProvider(id, path); }
@@ -61,7 +65,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
             _screen = new(directory, CreateScreen, Timestamp);
             _audio = new(directory, CreateAudio, Timestamp);
             Subscribe(_screen, _audio);
-            _manifest = new(1, sessionId, "preparing", startedAt, null, null, plan, []);
+            _manifest = new(2, sessionId, "preparing", startedAt, null, null, plan, []);
             WriteManifest();
             _clock.Restart();
             await _screen.StartAsync(plan, cancellationToken).ConfigureAwait(false);
@@ -136,9 +140,16 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         if (stopAudio && audio is not null) { try { await audio.StopAsync(token).ConfigureAwait(false); } catch (Exception ex) { error = ex; } }
         if (stopScreen && screen is not null) { try { await screen.StopAsync(token).ConfigureAwait(false); } catch (Exception ex) { error ??= ex; } }
         _clock.Stop();
-        if (_manifest is not null) { _manifest = BuildManifest(error is null ? finalStatus : "failed", DateTimeOffset.UtcNow); WriteManifest(); }
+        if (_manifest is not null)
+        {
+            _manifest = BuildManifest(error is null ? finalStatus : "failed", DateTimeOffset.UtcNow);
+            if (error is null && finalStatus == "completed" && _sessionDirectory is not null)
+                _manifest = CaptureAlignmentAnalyzer.Analyze(_sessionDirectory, _manifest);
+            LastAlignment = _manifest.Alignment;
+            WriteManifest();
+        }
         Unsubscribe(screen, audio);
-        _screen = null; _audio = null; _manifest = null; _manifestPath = null;
+        _screen = null; _audio = null; _manifest = null; _manifestPath = null; _sessionDirectory = null;
         _screenPath = _systemPath = _microphonePath = null;
         _screenOffset = _systemOffset = _microphoneOffset = null;
         if (error is not null) throw error;

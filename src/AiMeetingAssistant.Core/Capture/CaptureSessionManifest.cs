@@ -2,8 +2,9 @@ using System.Text.Json;
 
 namespace AiMeetingAssistant.Core.Capture;
 
-public sealed record CaptureSessionManifest(int SchemaVersion, string SessionId, string Status, DateTimeOffset StartedAtUtc, DateTimeOffset? CompletedAtUtc, double? DurationMilliseconds, CapturePlan Sources, IReadOnlyList<CaptureStreamManifest> Streams);
-public sealed record CaptureStreamManifest(string Kind, string RelativePath, double StartOffsetMilliseconds);
+public sealed record CaptureSessionManifest(int SchemaVersion, string SessionId, string Status, DateTimeOffset StartedAtUtc, DateTimeOffset? CompletedAtUtc, double? DurationMilliseconds, CapturePlan Sources, IReadOnlyList<CaptureStreamManifest> Streams, CaptureAlignmentManifest? Alignment = null);
+public sealed record CaptureStreamManifest(string Kind, string RelativePath, double StartOffsetMilliseconds, double? MediaDurationMilliseconds = null, double? ExpectedEndOffsetMilliseconds = null, double? SessionEndDifferenceMilliseconds = null);
+public sealed record CaptureAlignmentManifest(string Status, double ToleranceMilliseconds, double? EndSpreadMilliseconds, string? Detail);
 
 public static class CaptureSessionManifestStore
 {

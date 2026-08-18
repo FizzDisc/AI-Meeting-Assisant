@@ -57,6 +57,8 @@ Writes should use temporary files followed by atomic rename. The manifest record
 
 Sprint 1.6.1 implements the capture-session form of this workspace. `manifest.json` schema version 1 stores the session ID, lifecycle status, UTC wall-clock boundaries, monotonic duration, selected source IDs and one relative path/start offset per stream. Manifest replacement uses a sibling temporary file followed by atomic move, so readers never observe partially serialized JSON. Durable meeting IDs, recovery and migration into `data/meetings` remain later work.
 
+Sprint 1.6.2 advances the manifest to schema version 2. After all containers are finalized, managed parsers read WAV `fmt`/`data` chunks and the MP4 `mvhd` timescale/duration. Each stream receives `MediaDurationMilliseconds`, `ExpectedEndOffsetMilliseconds` and `SessionEndDifferenceMilliseconds`. Alignment quality is the spread between the earliest and latest expected stream end: `aligned` at or below 100 ms, otherwise `warning`. Container finalization delay remains visible as the difference between stream ends and total session duration but does not count as inter-stream drift.
+
 ## Capture direction for Sprint 1
 
 - Screen: Windows Graphics Capture (Sprint 1.5)

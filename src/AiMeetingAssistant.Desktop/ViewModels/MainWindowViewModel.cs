@@ -320,7 +320,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(RecordingElapsedLabel));
             SystemAudioLevel = 0;
             MicrophoneLevel = 0;
-            StatusMessage = eventArgs.ErrorMessage ?? (eventArgs.CurrentState == RecordingSessionState.Completed ? "Video and audio saved to artifacts/captures/" : "Recording failed");
+            StatusMessage = eventArgs.ErrorMessage ?? (eventArgs.CurrentState == RecordingSessionState.Completed ? GetCompletedStatusMessage() : "Recording failed");
 
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)
             {
@@ -340,6 +340,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void OnRecordingTimerTick(object? sender, EventArgs eventArgs) =>
         OnPropertyChanged(nameof(RecordingElapsedLabel));
+
+    private string GetCompletedStatusMessage()
+    {
+        if (_captureCoordinator is not AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined || combined.LastAlignment is null)
+            return "Video and audio saved to artifacts/captures/";
+        var alignment = combined.LastAlignment;
+        if (alignment.EndSpreadMilliseconds is null)
+            return $"Saved · alignment {alignment.Status}: {alignment.Detail}";
+        return $"Saved · {alignment.Status} · end spread {alignment.EndSpreadMilliseconds:F0} ms";
+    }
 
     private void RaiseCommandStates()
     {

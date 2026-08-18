@@ -1,5 +1,7 @@
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
+using System.Buffers.Binary;
+using System.Text;
 
 var tests = new (string Name, Func<Task> Run)[]
 {
@@ -26,6 +28,8 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("system audio filename is unique and correctly prefixed", SystemAudioFilenameIsUnique)
     ,("screen filename is an MP4 and correctly prefixed", ScreenFilenameIsMp4)
     ,("session manifest is written atomically", SessionManifestIsWrittenAtomically)
+    ,("media duration reader parses WAV and MP4", MediaDurationReaderParsesWavAndMp4)
+    ,("alignment analyzer calculates stream end spread", AlignmentAnalyzerCalculatesSpread)
     ,("audio timeline fills missing silent frames", AudioTimelineFillsMissingFrames)
 };
 
@@ -404,6 +408,61 @@ static Task SessionManifestIsWrittenAtomically()
         return Task.CompletedTask;
     }
     finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+}
+
+static Task MediaDurationReaderParsesWavAndMp4()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_duration_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var wav = Path.Combine(directory, "audio.wav");
+        using (var writer = new Pcm16WavWriter(wav, 1, 48000)) writer.Write(new byte[96000]);
+        Equal(1000d, MediaDurationReader.ReadMilliseconds(wav));
+        var mp4 = Path.Combine(directory, "video.mp4");
+        File.WriteAllBytes(mp4, CreateTestMp4(2500));
+        Equal(2500d, MediaDurationReader.ReadMilliseconds(mp4));
+        return Task.CompletedTask;
+    }
+    finally { Directory.Delete(directory, true); }
+}
+
+static Task AlignmentAnalyzerCalculatesSpread()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_alignment_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var screen = Path.Combine(directory, "screen.mp4");
+        var audio = Path.Combine(directory, "audio.wav");
+        File.WriteAllBytes(screen, CreateTestMp4(1000));
+        using (var writer = new Pcm16WavWriter(audio, 1, 48000)) writer.Write(new byte[96000]);
+        var manifest = new CaptureSessionManifest(2, "session", "completed", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1200,
+            TestPlan(), [new("screen", "screen.mp4", 100), new("microphone", "audio.wav", 125)]);
+        var result = CaptureAlignmentAnalyzer.Analyze(directory, manifest, 50);
+        Equal("aligned", result.Alignment?.Status);
+        Equal(25d, result.Alignment?.EndSpreadMilliseconds);
+        Equal(2, result.Streams.Count(stream => stream.MediaDurationMilliseconds == 1000));
+        return Task.CompletedTask;
+    }
+    finally { Directory.Delete(directory, true); }
+}
+
+static byte[] CreateTestMp4(uint durationMilliseconds)
+{
+    var mvhdContent = new byte[20];
+    BinaryPrimitives.WriteUInt32BigEndian(mvhdContent.AsSpan(12, 4), 1000);
+    BinaryPrimitives.WriteUInt32BigEndian(mvhdContent.AsSpan(16, 4), durationMilliseconds);
+    return CreateBox("moov", CreateBox("mvhd", mvhdContent));
+}
+
+static byte[] CreateBox(string type, byte[] content)
+{
+    var box = new byte[8 + content.Length];
+    BinaryPrimitives.WriteUInt32BigEndian(box.AsSpan(0, 4), (uint)box.Length);
+    Encoding.ASCII.GetBytes(type, box.AsSpan(4, 4));
+    content.CopyTo(box, 8);
+    return box;
 }
 
 static Task AudioTimelineFillsMissingFrames()

@@ -1303,3 +1303,43 @@ Die Sessiondauer 16906,5 ms enthaelt plausibel weitere 186-217 ms fuer Stop und
 Containerfinalisierung.
 
 Sprint 1.6.1 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.6.2 bereit fuer Hardware-Smoke-Test
+Status: READY FOR MANUAL TEST
+
+Nachricht:
+Nach dem Finalisieren liest die App WAV-Dauern aus fmt/data und MP4-Dauer aus
+dem mvhd-Atom. Schema 2 speichert Mediendauer, erwartetes Stream-Ende und
+Differenz zum Session-Ende je Stream. Die Spannweite der drei Stream-Enden wird
+bei maximal 100 ms als aligned, darueber als warning klassifiziert und in der
+UI angezeigt.
+
+Build: 0 Warnungen/Fehler. Automatisch: 26/26 Core-Tests und alle Windows-
+Smoke-Tests bestanden. Offen: reale Aufnahme und Vergleich der automatisch
+geschriebenen Alignment-Werte.
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.6.2 abgeschlossen
+Status: DONE
+
+Nachricht:
+Der reale Schema-2-Smoke-Test ist erfolgreich. Alle drei referenzierten Dateien
+existieren. Die App berechnete Stream-Enden von 18153,4 ms (Screen), 18122,8 ms
+(Systemaudio) und 18103,8 ms (Mikrofon). Manifest-Spannweite: 49,6 ms; eine
+unabhaengige Nachrechnung ergab ebenfalls exakt 49,6 ms.
+
+Die Session ist damit korrekt als aligned innerhalb der 100-ms-Toleranz
+klassifiziert. Session-Enddifferenzen von -183 bis -233 ms entsprechen der
+anschliessenden Stop-/Containerfinalisierung.
+
+Sprint 1.6.2 ist abgeschlossen. Commit und Push bleiben bei Kevin.
