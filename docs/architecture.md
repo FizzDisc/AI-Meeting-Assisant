@@ -83,6 +83,14 @@ Runtime failure in either audio provider fails the whole `RecordingSession`; the
 
 Live microphone handover is intentionally a future segmented-capture feature: keep system audio running, finalize the old microphone WAV and start a new microphone segment with its session-clock offset. This avoids mixing devices with different channel counts or sample formats inside one WAV.
 
+### Screen capture (Sprint 1.5.1)
+
+The selected Windows display is recorded to `artifacts/captures/screen_{timestamp}.mp4` as H.264 at 30 fps. `ScreenCaptureCoordinator` depends only on the Core `IScreenCaptureProvider` port. Its Windows implementation wraps ScreenRecorderLib 6.6.0, which uses native Microsoft Media Foundation encoding and accepts the stable display device names already returned by source discovery. Sources larger than 3840×2160 are proportionally downscaled to even encoder-safe dimensions; smaller displays retain their native size. Library-provided audio is disabled: microphone and loopback remain independent WASAPI streams and will be composed with screen capture in Sprint 1.5.2.
+
+The application targets x64 for this native adapter while Core remains platform-independent. Start waits for a real recording-status event, stop waits for MP4 finalization, and asynchronous encoder failures enter the existing failed-session path. The provider boundary keeps the third-party encoder replaceable and enables lifecycle tests without invoking desktop capture.
+
+Live display handover is deferred. The UI should eventually offer one seamless switch; the adapter may update the source dynamically when dimensions and encoder state permit, otherwise the session workspace may retain internal timestamped video segments.
+
 ## Privacy and quality guardrails
 
 - Show an unambiguous recording indicator and require consent confirmation.

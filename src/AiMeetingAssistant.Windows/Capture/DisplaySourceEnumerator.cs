@@ -6,6 +6,8 @@ namespace AiMeetingAssistant.Windows.Capture;
 internal static class DisplaySourceEnumerator
 {
     private const uint MonitorInfoPrimary = 0x00000001;
+    private static readonly object DimensionsLock = new();
+    private static readonly Dictionary<string, (int Width, int Height)> Dimensions = new(StringComparer.OrdinalIgnoreCase);
 
     public static IReadOnlyList<CaptureSource> Enumerate()
     {
@@ -28,6 +30,12 @@ internal static class DisplaySourceEnumerator
             throw new InvalidOperationException($"Windows could not enumerate displays (error {Marshal.GetLastWin32Error()}).");
         }
 
+        lock (DimensionsLock)
+        {
+            Dimensions.Clear();
+            foreach (var monitor in monitors) Dimensions[monitor.DeviceName] = (monitor.Width, monitor.Height);
+        }
+
         return monitors
             .OrderByDescending(monitor => monitor.IsPrimary)
             .ThenBy(monitor => monitor.DeviceName, StringComparer.OrdinalIgnoreCase)
@@ -37,6 +45,31 @@ internal static class DisplaySourceEnumerator
                 CaptureSourceKind.Screen,
                 true))
             .ToArray();
+    }
+
+    public static bool TryGetDimensions(string deviceName, out int width, out int height)
+    {
+        lock (DimensionsLock)
+        {
+            if (Dimensions.TryGetValue(deviceName, out var size))
+            {
+                (width, height) = size;
+                return true;
+            }
+        }
+
+        _ = Enumerate();
+        lock (DimensionsLock)
+        {
+            if (Dimensions.TryGetValue(deviceName, out var size))
+            {
+                (width, height) = size;
+                return true;
+            }
+        }
+
+        width = height = 0;
+        return false;
     }
 
     private delegate bool MonitorEnumProc(IntPtr monitor, IntPtr deviceContext, IntPtr monitorRectangle, IntPtr data);

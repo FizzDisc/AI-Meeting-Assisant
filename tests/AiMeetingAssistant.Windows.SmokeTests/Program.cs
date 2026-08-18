@@ -35,6 +35,17 @@ try
         Console.WriteLine("PASS Source discovery returned unique identifiers and at least one display.");
     }
 
+    var ultraWide = ScreenCaptureSizing.FitWithinEncoderLimit(5160, 2160);
+    if (ultraWide.Width != 3840 || ultraWide.Height != 1608)
+    {
+        Console.Error.WriteLine($"FAIL Ultra-wide screen was scaled to {ultraWide.Width}x{ultraWide.Height} instead of 3840x1608.");
+        failures++;
+    }
+    else
+    {
+        Console.WriteLine("PASS 5160x2160 display is scaled proportionally to an encoder-safe 3840x1608.");
+    }
+
     // Test 2: Microphone availability (Sprint 1.3)
     var microphones = sources.Where(s => s.Kind == CaptureSourceKind.Microphone).ToArray();
     if (microphones.Length == 0)
@@ -70,7 +81,7 @@ try
 
         var created = new List<(string Path, WasapiCaptureMode Mode, FakeAudioProvider Provider)>();
         var dualDir = Path.Combine(Path.GetTempPath(), $"aima_dual_{Guid.NewGuid():N}");
-        var dualCoordinator = new RealCaptureCoordinator(dualDir, (_, path, mode) =>
+        var dualCoordinator = new DualAudioCaptureCoordinator(dualDir, (_, path, mode) =>
         {
             var provider = new FakeAudioProvider();
             created.Add((path, mode, provider));
@@ -95,7 +106,7 @@ try
         }
 
         var partialProviders = new List<FakeAudioProvider>();
-        var partialCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        var partialCoordinator = new DualAudioCaptureCoordinator(dualDir, (_, _, _) =>
         {
             var provider = new FakeAudioProvider(failOnStart: partialProviders.Count == 1);
             partialProviders.Add(provider);
@@ -121,7 +132,7 @@ try
         }
 
         var rapidProviders = new List<FakeAudioProvider>();
-        var rapidCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        var rapidCoordinator = new DualAudioCaptureCoordinator(dualDir, (_, _, _) =>
         {
             var provider = new FakeAudioProvider();
             rapidProviders.Add(provider);
@@ -143,7 +154,7 @@ try
         }
 
         var faultProviders = new List<FakeAudioProvider>();
-        var faultCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        var faultCoordinator = new DualAudioCaptureCoordinator(dualDir, (_, _, _) =>
         {
             var provider = new FakeAudioProvider();
             faultProviders.Add(provider);
@@ -165,7 +176,7 @@ try
         }
 
         var stopFailureProviders = new List<FakeAudioProvider>();
-        var stopFailureCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        var stopFailureCoordinator = new DualAudioCaptureCoordinator(dualDir, (_, _, _) =>
         {
             var provider = new FakeAudioProvider(failOnStop: stopFailureProviders.Count == 1);
             stopFailureProviders.Add(provider);
@@ -192,7 +203,7 @@ try
         }
 
         var shutdownProviders = new List<FakeAudioProvider>();
-        var shutdownCoordinator = new RealCaptureCoordinator(dualDir, (_, _, _) =>
+        var shutdownCoordinator = new DualAudioCaptureCoordinator(dualDir, (_, _, _) =>
         {
             var provider = new FakeAudioProvider();
             shutdownProviders.Add(provider);
@@ -231,15 +242,34 @@ try
             return name.Substring(prefixLength, 19);
         }
 
-        // Test 3: RealCaptureCoordinator initialization (not actual capture, just constructor)
+        // Test 3: Screen coordinator lifecycle with a fake provider
         var testDir = Path.Combine(Path.GetTempPath(), "aima_smoke_test");
         Directory.CreateDirectory(testDir);
 
         try
         {
-            var coordinator = new RealCaptureCoordinator(testDir);
-            Console.WriteLine("PASS RealCaptureCoordinator initialized (constructor only).");
-            // NOTE: Actual capture start/stop requires real audio device and is tested in manual smoke tests.
+            string? selectedScreen = null;
+            string? outputPath = null;
+            var fakeScreen = new FakeScreenProvider();
+            var coordinator = new ScreenCaptureCoordinator(testDir, (id, path) =>
+            {
+                selectedScreen = id;
+                outputPath = path;
+                return fakeScreen;
+            });
+            await coordinator.StartAsync(new("screen:\\\\.\\DISPLAY1", "", ""));
+            await coordinator.StopAsync();
+            if (selectedScreen != "screen:\\\\.\\DISPLAY1" || outputPath is null ||
+                !Path.GetFileName(outputPath).StartsWith("screen_") || Path.GetExtension(outputPath) != ".mp4" ||
+                fakeScreen.StartCount != 1 || fakeScreen.StopCount != 1 || fakeScreen.DisposeCount != 1)
+            {
+                Console.Error.WriteLine("FAIL Screen coordinator did not use the selected display, MP4 naming and exactly-once cleanup.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine("PASS Screen coordinator uses the selected display, MP4 naming and exactly-once cleanup.");
+            }
         }
         finally
         {
@@ -298,6 +328,38 @@ file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = 
     public void RaiseFault(string message)
     {
         if (IsCapturing) CaptureFaulted?.Invoke(this, new(message));
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        DisposeCount++;
+        IsCapturing = false;
+        return ValueTask.CompletedTask;
+    }
+}
+
+file sealed class FakeScreenProvider : IScreenCaptureProvider
+{
+#pragma warning disable CS0067
+    public event EventHandler<CaptureErrorEventArgs>? CaptureFaulted;
+#pragma warning restore CS0067
+    public int StartCount { get; private set; }
+    public int StopCount { get; private set; }
+    public int DisposeCount { get; private set; }
+    public bool IsCapturing { get; private set; }
+
+    public Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        StartCount++;
+        IsCapturing = true;
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsCapturing) StopCount++;
+        IsCapturing = false;
+        return Task.CompletedTask;
     }
 
     public ValueTask DisposeAsync()

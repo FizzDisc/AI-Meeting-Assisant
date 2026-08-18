@@ -1141,3 +1141,46 @@ Neues Backlog-Item AMA-109: Mikrofon waehrend einer laufenden Aufnahme als
 segmentierten Handover wechseln, z. B. wenn ein Headset leer ist.
 
 Sprint 1.4.3 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.5.1 bereit fuer Hardware-Smoke-Test
+Status: READY FOR MANUAL TEST
+
+Nachricht:
+Der ausgewaehlte Bildschirm wird isoliert als H.264-MP4 unter
+artifacts/captures/screen_*.mp4 aufgenommen. Audio ist in diesem Slice bewusst
+deaktiviert und kehrt in Sprint 1.5.2 als getrennte WASAPI-Spuren zurueck.
+
+Die native Media-Foundation-Implementierung liegt hinter einer Core-Abstraktion.
+Build: 0 Warnungen, 0 Fehler. Automatisch: 23/23 Core-Tests und alle Windows-
+Smoke-Tests inklusive bestehender Dual-Audio-Regressionen bestanden.
+
+Offen: manueller Test beider Displays und Wiedergabe der erzeugten MP4-Dateien.
+Commit und Push bleiben bei Kevin.
+
+Nachtrag Sprint 1.5.1:
+Der erste Test von Display 2 (5160x2160) scheiterte beim Media-Foundation-
+Video-Sink. Ursache ist die fuer viele H.264-Encoder zu grosse Framebreite.
+Uebergrosse Quellen werden nun proportional auf maximal 3840x2160 und gerade
+Pixelmasse skaliert; Display 2 ergibt 3840x1608. Erneuter Hardwaretest offen.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.5.1 abgeschlossen
+Status: DONE
+
+Nachricht:
+Der manuelle Hardware-Smoke-Test ist fuer beide Displays erfolgreich. Der
+Ultrawide-Bildschirm mit physischer Capture-Flaeche 5160x2160 wird ohne
+Verzerrung als encoder-sicheres 3840x1608-H.264-MP4 gespeichert und ist
+abspielbar.
+
+Automatisch: 23/23 Core-Tests und alle Windows-Smoke-Tests bestanden.
+Sprint 1.5.1 ist abgeschlossen. Commit und Push bleiben bei Kevin.

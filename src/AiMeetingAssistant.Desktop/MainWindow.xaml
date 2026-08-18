@@ -15,7 +15,7 @@
                 <TextBlock Text="Capture, transcribe and turn conversations into clear outcomes." Foreground="{StaticResource MutedBrush}" FontSize="15" Margin="0,8,0,0"/>
             </StackPanel>
             <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#18352E" CornerRadius="12" Padding="14,8">
-                <TextBlock Text="SPRINT 1.4.3 · CAPTURE ROBUSTNESS" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
+                <TextBlock Text="SPRINT 1.5.1 · SCREEN CAPTURE" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
             </Border>
         </Grid>
         <Grid Grid.Row="2">
@@ -31,7 +31,7 @@
                         <Button Content="Refresh devices" Command="{Binding RefreshSourcesCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                     </Grid>
                     <StackPanel Grid.Row="1" VerticalAlignment="Center">
-                        <Button Width="126" Height="126" Command="{Binding ToggleRecordingCommand}" ToolTip="Start or stop microphone and system audio recording" HorizontalAlignment="Center" BorderThickness="0" Background="Transparent">
+                        <Button Width="126" Height="126" Command="{Binding ToggleRecordingCommand}" ToolTip="Start or stop recording the selected screen" HorizontalAlignment="Center" BorderThickness="0" Background="Transparent">
                             <Grid>
                                 <Ellipse Fill="#3A2327"/>
                                 <Ellipse Width="72" Height="72" Fill="{StaticResource RecordBrush}"/>
@@ -55,11 +55,7 @@
                         </Button>
                         <TextBlock Text="{Binding RecordingButtonLabel}" HorizontalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="0,14,0,0"/>
                         <TextBlock Text="{Binding RecordingElapsedLabel}" HorizontalAlignment="Center" FontSize="24" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="16"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                            <StackPanel><TextBlock Text="SYSTEM AUDIO" Foreground="{StaticResource MutedBrush}" FontSize="10"/><ProgressBar Height="7" Margin="0,5,0,0" Maximum="100" Value="{Binding SystemAudioLevel, Mode=OneWay}" Foreground="{StaticResource AccentBrush}" Background="#1A3A35"/></StackPanel>
-                            <StackPanel Grid.Column="2"><TextBlock Text="MICROPHONE" Foreground="{StaticResource MutedBrush}" FontSize="10"/><ProgressBar Height="7" Margin="0,5,0,0" Maximum="100" Value="{Binding MicrophoneLevel, Mode=OneWay}" Foreground="{StaticResource AccentBrush}" Background="#1A3A35"/></StackPanel>
-                        </Grid>
+                        <TextBlock Text="VIDEO ONLY · AUDIO RETURNS IN SPRINT 1.5.2" HorizontalAlignment="Center" Foreground="{StaticResource AccentBrush}" FontSize="10" Margin="0,12,0,0"/>
                         <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,10,0,0"/>
                         <TextBlock Text="{Binding ErrorMessage}" HorizontalAlignment="Center" Foreground="{StaticResource RecordBrush}" Margin="0,4,0,0" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="620"/>
                     </StackPanel>
@@ -89,6 +85,6 @@
                 </StackPanel></Border>
             </StackPanel>
         </Grid>
-        <Grid Grid.Row="4"><TextBlock Text="Separate microphone + system audio WAV files in artifacts/captures/" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 1.4.3 · Robust dual capture" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+        <Grid Grid.Row="4"><TextBlock Text="H.264 MP4 screen recordings in artifacts/captures/" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 1.5.1 · Selected display" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
     </Grid>
 </Window>

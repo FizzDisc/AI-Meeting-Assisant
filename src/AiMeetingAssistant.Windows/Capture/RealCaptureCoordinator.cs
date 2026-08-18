@@ -2,7 +2,7 @@ using AiMeetingAssistant.Core.Capture;
 
 namespace AiMeetingAssistant.Windows.Capture;
 
-public sealed class RealCaptureCoordinator : ICaptureCoordinator
+public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
 {
     private readonly string _captureBaseDirectory;
     private readonly Func<string, string, WasapiCaptureMode, IAudioCaptureProvider> _providerFactory;
@@ -17,7 +17,7 @@ public sealed class RealCaptureCoordinator : ICaptureCoordinator
     public event EventHandler<AudioCaptureFaultEventArgs>? MicrophoneFaulted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
 
-    public RealCaptureCoordinator(
+    public DualAudioCaptureCoordinator(
         string captureBaseDirectory = "artifacts/captures",
         Func<string, string, WasapiCaptureMode, IAudioCaptureProvider>? providerFactory = null)
     {

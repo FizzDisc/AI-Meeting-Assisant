@@ -24,6 +24,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("fault and stop race completes without deadlock", FaultAndStopRaceCompletes)
     ,("shutdown after failed capture is idempotent", ShutdownAfterFailureIsIdempotent)
     ,("system audio filename is unique and correctly prefixed", SystemAudioFilenameIsUnique)
+    ,("screen filename is an MP4 and correctly prefixed", ScreenFilenameIsMp4)
     ,("audio timeline fills missing silent frames", AudioTimelineFillsMissingFrames)
 };
 
@@ -362,6 +363,22 @@ static Task SystemAudioFilenameIsUnique()
         File.WriteAllBytes(first, []);
         var second = CaptureFileNaming.CreateUniqueWavPath(directory, "system_audio", timestamp);
         Equal("system_audio_20260817_123456_789_01.wav", Path.GetFileName(second));
+        return Task.CompletedTask;
+    }
+    finally
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+}
+
+static Task ScreenFilenameIsMp4()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_screen_naming_{Guid.NewGuid():N}");
+    try
+    {
+        var timestamp = new DateTime(2026, 8, 18, 12, 34, 56, 789);
+        var path = CaptureFileNaming.CreateUniqueMp4Path(directory, "screen", timestamp);
+        Equal("screen_20260818_123456_789.mp4", Path.GetFileName(path));
         return Task.CompletedTask;
     }
     finally

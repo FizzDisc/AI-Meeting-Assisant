@@ -14,7 +14,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        _viewModel = new(new WindowsCaptureSourceDiscovery(), new RealCaptureCoordinator())
+        _viewModel = new(new WindowsCaptureSourceDiscovery(), new ScreenCaptureCoordinator())
         {
             UIDispatcher = Dispatcher
         };
