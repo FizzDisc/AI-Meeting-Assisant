@@ -34,6 +34,10 @@
 ### Cross-cutting UI
 
 - **AMA-111: Status Center** — Replace the dashboard's release-roadmap card with an operational status surface for current jobs, progress, warnings, recoveries and a collapsible bounded technical log. Move the product roadmap to a separate secondary view rather than mixing planned releases with live application state.
+- **AMA-112: Settings Center** — Add a dedicated settings surface with sections for Recording, Storage, AI Models, Privacy and Diagnostics. Persist versioned settings locally, validate changes before applying them and distinguish application defaults from per-recording overrides.
+- **AMA-113: Recording profiles and export formats** — Keep robust capture masters as separate PCM WAV audio and H.264 MP4 video by default. Offer selectable quality profiles and later lossless/compressed exports such as FLAC, MP3 or M4A for audio and H.264/H.265 MP4 where supported. Do not encode microphone/system audio directly to a lossy format during capture; derive exports after successful finalization. Add screen modes `Off`, `Full motion` and a later storage-saving `Presentation/snapshot` mode. Fixed 5/15-second frame intervals are not a meeting default because they lose cursor movement, animations and visual context; evaluate slide-change detection before exposing interval capture.
+- **AMA-114: Storage and retention settings** — Let users choose and validate the session storage location, show available space and estimated recording capacity, configure minimum-free-space guardrails, retention/deletion policy and separate model/cache locations. Moving an existing library must be explicit, resumable and verified.
+- **AMA-115: Local Model Manager** — Ship no speech or diarization model by default. Present a curated compatible model catalog with task, languages, quality/speed class, download size, expected RAM/VRAM, license and source. Require explicit install, verify checksums, show download progress, support selecting a default/per-job model, offline import, update and removal. Keep the supervised worker/runtime separable from model payloads.
 
 ## Sprint 3 — speakers
 

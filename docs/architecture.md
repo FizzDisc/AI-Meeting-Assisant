@@ -22,6 +22,10 @@ The .NET desktop process owns WPF UI and lifecycle, screen/audio capture, consen
 
 The Python process owns media preprocessing, WhisperX transcription/alignment, pyannote diarization, and later AI enrichment. It has no UI access and does not own application state.
 
+The application may package a compatible worker runtime in a later distribution slice, but it does not bundle speech, diarization or language-model weights by default. A local Model Manager owns explicit downloads/imports, compatibility metadata, integrity verification, storage and removal. Model selection is a persisted default with optional per-job override; model files remain outside application binaries and session workspaces.
+
+Capture masters favor recoverability and downstream processing: independent PCM WAV tracks and H.264 MP4. User-selected compressed formats are derived exports after finalization. Screen recording is independently switchable; full-motion capture remains the meeting default, while a future presentation/snapshot mode may reduce storage using content-aware slide changes rather than arbitrary long frame intervals.
+
 The processes initially exchange newline-delimited JSON over redirected standard input/output. Every message carries a protocol version and request ID. Large media and result artifacts travel through scoped filesystem paths. This is inspectable today and permits a later move to named pipes or gRPC.
 
 Sprint 2.1 packages `worker/main.py` into the desktop output and supervises it as one hidden, long-lived child process with redirected standard streams. Requests are serialized through a lifecycle lock, correlated by request ID, constrained by a ten-second timeout and checked against protocol 1.0. Stdout is protocol-only; the last ten stderr lines are retained for actionable exit diagnostics. Health negotiation returns worker/Python versions, runtime support and capabilities. Python 3.11 and 3.12 are accepted for the ML stack; other versions can exercise the protocol but are reported unsupported for WhisperX/pyannote.

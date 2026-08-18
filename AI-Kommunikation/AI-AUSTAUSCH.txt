@@ -1450,3 +1450,27 @@ Neues Backlog-Item AMA-111: Release-Roadmap im Dashboard mittelfristig durch
 ein Status Center fuer Jobs, Fortschritt, Warnungen und technisches Log ersetzen.
 
 Sprint 2.1 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Settings-, Format- und Model-Manager-TODOs aufgenommen
+Status: BACKLOG
+
+Nachricht:
+Neue Backlog-Items: AMA-112 Settings Center, AMA-113 Recording Profiles und
+Exportformate, AMA-114 Speicherort/Retention sowie AMA-115 Local Model Manager.
+
+Capture-Master bleiben fuer Recovery und Verarbeitung standardmaessig getrennte
+PCM-WAVs plus H.264-MP4. MP3/FLAC/M4A und weitere Videoformate sind spaetere
+Exports statt verlustbehafteter Live-Capture. Screen-Modi: Off, Full motion und
+spaeter Presentation/Snapshot. Starre 5/15-Sekunden-Intervalle sind kein guter
+Meeting-Standard; eine spaetere Folienwechsel-Erkennung ist sinnvoller.
+
+Es werden standardmaessig keine Modellgewichte mitgeliefert. Ein Model Manager
+soll kompatible Modelle mit Groesse, Qualitaet, Sprachen, Hardwarebedarf und
+Lizenz anzeigen, explizit installieren, pruefen, auswaehlen und entfernen.
+
+Commit und Push bleiben bei Kevin.
