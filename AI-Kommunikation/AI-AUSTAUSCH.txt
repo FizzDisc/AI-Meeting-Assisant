@@ -1633,3 +1633,76 @@ Der manuelle Desktop-Smoke ist erfolgreich. Die App meldet
 Aufnahmesteuerung funktionieren weiterhin.
 
 Sprint 2.4 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.5 Desktop-Transkription implementiert
+Status: READY FOR MANUAL UI SMOKE
+
+Nachricht:
+Die WPF-App merkt sich die zuletzt erfolgreich finalisierte Session und bietet
+bei vorhandenem lokalen Modell `Transcribe latest` und `Cancel`. Sichtbar sind
+Normalisierung, Modellladen, Transkription, Fortschritt, Abschluss/Fehler und
+der resultierende transcript.json-Pfad. Abbruch beendet den echten ML-Job.
+Aufnahme und Transkription sind gegenseitig geschuetzt; es gibt keinen
+ueberraschenden automatischen Start nach einer Aufnahme.
+
+Build: 0 Warnungen, 0 Fehler. Windows-Smokes, 28 Core-Tests und Modell-/Session-
+Resolver sind gruen. Manueller UI-Abschluss- und Abbruch-Smoke stehen aus.
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.5 manueller UI-Smoke erfolgreich
+Status: DONE
+
+Nachricht:
+Ein initialer Start-Crash wurde auf das WPF-Standard-TwoWay-Binding der
+ProgressBar an die schreibgeschuetzte TranscriptionProgress-Eigenschaft
+zurueckgefuehrt und mit explizitem OneWay-Binding behoben. Build danach 0/0,
+App-Start verifiziert.
+
+Der vollstaendige manuelle UI-Smoke ist erfolgreich; Darstellung und Bedienung
+sehen gut aus. Sprint 2.5 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Zwei-Spur-Transkription korrigiert
+Status: READY FOR CONTENT RE-SMOKE
+
+Nachricht:
+Der erste UI-Transkriptionslauf war technisch completed, enthielt aber nur
+Systemaudio-Inhalte. Messung widerlegt ein Capture-/Pegelproblem: Mikrofon
+mean -33,0 dB / peak -8,8 dB, Systemaudio mean -32,6 dB / peak -12,4 dB.
+Ursache war die konzeptionelle Einspur-Mischung: Bei ueberlappender Sprache
+kann ASR eine Seite unterdruecken.
+
+Mikrofon und Systemaudio werden nun separat normalisiert und mit demselben
+geladenen Modell separat transkribiert. Erst die Segmente werden chronologisch
+zusammengefuehrt; jedes Segment traegt source=microphone oder system_audio.
+Das verhindert Verlust einer Spur und bereitet Sprecherlogik vor. Manueller
+Inhalts-Re-Smoke steht aus. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Zwei-Spur-Inhalts-Smoke erfolgreich
+Status: DONE
+
+Nachricht:
+Der manuelle Inhalts-Re-Smoke ist erfolgreich. Eindeutige Mikrofon- und
+Systemaudio-Aussagen erscheinen beide im Transkript und sind korrekt mit
+source=microphone beziehungsweise source=system_audio gekennzeichnet.
+
+Sprint 2.5 ist damit endgueltig abgeschlossen. Commit und Push bleiben bei Kevin.

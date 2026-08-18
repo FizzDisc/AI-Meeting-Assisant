@@ -52,6 +52,30 @@ catch (Exception exception)
     failures++;
 }
 
+try
+{
+    var modelRoot = Path.Combine(Path.GetTempPath(), $"aima_model_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(modelRoot);
+    var originalModel = Environment.GetEnvironmentVariable(LocalModelResolver.OverrideVariable);
+    try
+    {
+        Environment.SetEnvironmentVariable(LocalModelResolver.OverrideVariable, modelRoot);
+        if (LocalModelResolver.ResolveDevelopmentModel() != Path.GetFullPath(modelRoot))
+            throw new InvalidOperationException("Explicit local model override was ignored.");
+        Console.WriteLine("PASS Local model resolver honors the explicit installed-model override.");
+    }
+    finally
+    {
+        Environment.SetEnvironmentVariable(LocalModelResolver.OverrideVariable, originalModel);
+        Directory.Delete(modelRoot, true);
+    }
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Local model resolver: {exception.Message}");
+    failures++;
+}
+
 // Test 1: Source Discovery
 try
 {
@@ -366,6 +390,7 @@ try
                 var root = manifest.RootElement;
                 var streams = root.GetProperty("Streams");
                 if (root.GetProperty("Status").GetString() != "completed" || streams.GetArrayLength() != 3 ||
+                    combined.LastCompletedSessionDirectory != combinedSessionDirectory ||
                     streams.EnumerateArray().Any(stream => Path.IsPathRooted(stream.GetProperty("RelativePath").GetString() ?? "")))
                 {
                     Console.Error.WriteLine("FAIL Completed session manifest is missing relative metadata for all three streams.");

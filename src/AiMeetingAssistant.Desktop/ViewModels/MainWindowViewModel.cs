@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
 using AiMeetingAssistant.Core.Capture;
@@ -14,6 +15,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly RecordingSession _recordingSession;
     private readonly ICaptureCoordinator _captureCoordinator;
     private readonly PythonWorkerClient? _workerClient;
+    private readonly string? _modelPath;
     private readonly Stopwatch _recordingStopwatch = new();
     private readonly DispatcherTimer _recordingTimer;
     private Dispatcher? _uiDispatcher;
@@ -28,12 +30,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private double _systemAudioLevel;
     private double _microphoneLevel;
     private string? _statusMessage;
+    private string? _latestSessionDirectory;
+    private CancellationTokenSource? _transcriptionCancellation;
+    private bool _isTranscribing;
+    private double _transcriptionProgress;
+    private string _transcriptionStatusMessage = "Complete a recording to enable local transcription.";
+    private string? _transcriptPath;
 
-    public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator, PythonWorkerClient? workerClient = null)
+    public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
+        PythonWorkerClient? workerClient = null, string? modelPath = null)
     {
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
         _workerClient = workerClient;
+        _modelPath = modelPath;
         _recordingSession = new(captureCoordinator);
         _recordingTimer = new(DispatcherPriority.Background)
         {
@@ -42,6 +52,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _recordingTimer.Tick += OnRecordingTimerTick;
         ToggleRecordingCommand = new AsyncRelayCommand(ToggleRecordingAsync, CanToggleRecording);
         RefreshSourcesCommand = new AsyncRelayCommand(RefreshSourcesAsync, () => CanChangeSources);
+        TranscribeLatestCommand = new AsyncRelayCommand(TranscribeLatestAsync, () => CanTranscribeLatest);
+        CancelTranscriptionCommand = new AsyncRelayCommand(CancelTranscriptionAsync, () => IsTranscribing);
         _recordingSession.StateChanged += OnRecordingStateChanged;
     }
 
@@ -50,16 +62,22 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public AsyncRelayCommand ToggleRecordingCommand { get; }
 
     public AsyncRelayCommand RefreshSourcesCommand { get; }
+    public AsyncRelayCommand TranscribeLatestCommand { get; }
+    public AsyncRelayCommand CancelTranscriptionCommand { get; }
 
     public RecordingSessionState State => _recordingSession.State;
 
     public bool IsRecording => State is RecordingSessionState.Recording;
 
-    public bool CanChangeSources => !_isDiscoveringSources && State is RecordingSessionState.Idle
+    public bool CanChangeSources => !_isDiscoveringSources && !IsTranscribing && State is RecordingSessionState.Idle
         or RecordingSessionState.Completed
         or RecordingSessionState.Failed;
 
-    public string StateLabel => State switch
+    public bool CanTranscribeLatest => !IsTranscribing && _workerClient is not null &&
+        _latestSessionDirectory is not null && Directory.Exists(_latestSessionDirectory) &&
+        _modelPath is not null && Directory.Exists(_modelPath);
+
+    public string StateLabel => IsTranscribing ? "Transcribing latest recording" : State switch
     {
         RecordingSessionState.Idle when IsDiscoveringSources => "Discovering Windows devices...",
         RecordingSessionState.Idle => "Ready",
@@ -153,10 +171,42 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set { _statusMessage = value; OnPropertyChanged(); }
     }
 
+    public bool IsTranscribing
+    {
+        get => _isTranscribing;
+        private set
+        {
+            _isTranscribing = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CanTranscribeLatest));
+            OnPropertyChanged(nameof(CanChangeSources));
+            OnPropertyChanged(nameof(StateLabel));
+            RaiseCommandStates();
+        }
+    }
+
+    public double TranscriptionProgress
+    {
+        get => _transcriptionProgress;
+        private set { _transcriptionProgress = value; OnPropertyChanged(); }
+    }
+
+    public string TranscriptionStatusMessage
+    {
+        get => _transcriptionStatusMessage;
+        private set { _transcriptionStatusMessage = value; OnPropertyChanged(); }
+    }
+
+    public string? TranscriptPath
+    {
+        get => _transcriptPath;
+        private set { _transcriptPath = value; OnPropertyChanged(); }
+    }
+
     public IReadOnlyList<PipelineStep> PipelineSteps { get; } =
     [
         new("Capture foundation", "Complete"),
-        new("Local transcription", "Sprint 2.1"),
+        new("Local transcription", "Sprint 2.5"),
         new("Speaker diarization", "Sprint 3"),
         new("Meeting intelligence", "Sprint 4"),
         new("Knowledge base", "Later")
@@ -186,6 +236,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     : health.RuntimeSupported
                         ? $"AI worker connected · setup required: {string.Join(", ", health.Diagnostics.MissingRequirements)}"
                         : $"AI worker connected · Python {health.PythonVersion} is unsupported; use Python 3.10 through 3.13.";
+                if (_modelPath is null)
+                    TranscriptionStatusMessage = "No local model installed. Use the future Model Manager or development installer.";
             }
             catch (Exception exception)
             {
@@ -196,6 +248,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public async Task ShutdownAsync()
     {
+        _transcriptionCancellation?.Cancel();
         _recordingTimer.Stop();
         _recordingStopwatch.Stop();
         try
@@ -238,7 +291,100 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private bool CanToggleRecording() => IsRecording ||
-        (CanChangeSources && SelectedScreen is not null && SelectedSystemAudio is not null && SelectedMicrophone is not null);
+        (!IsTranscribing && CanChangeSources && SelectedScreen is not null && SelectedSystemAudio is not null && SelectedMicrophone is not null);
+
+    private async Task TranscribeLatestAsync()
+    {
+        if (!CanTranscribeLatest || _workerClient is null || _latestSessionDirectory is null || _modelPath is null)
+            return;
+
+        ErrorMessage = null;
+        TranscriptPath = null;
+        TranscriptionProgress = 0;
+        IsTranscribing = true;
+        _transcriptionCancellation = new CancellationTokenSource();
+        var token = _transcriptionCancellation.Token;
+        string? activeJobId = null;
+        try
+        {
+            var microphone = Directory.GetFiles(_latestSessionDirectory, "microphone_*.wav").SingleOrDefault();
+            var systemAudio = Directory.GetFiles(_latestSessionDirectory, "system_audio_*.wav").SingleOrDefault();
+            if (microphone is null || systemAudio is null)
+                throw new InvalidDataException("The latest session does not contain exactly one microphone and system-audio WAV file.");
+
+            var outputPath = Path.Combine(_latestSessionDirectory, "processing", "transcript.json");
+            TranscriptionStatusMessage = "Queuing local transcription...";
+            var job = await _workerClient.StartTranscriptionAsync([microphone, systemAudio], _modelPath, outputPath,
+                computePreference: "automatic", cancellationToken: token);
+            activeJobId = job.JobId;
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                job = await _workerClient.GetTranscriptionStatusAsync(job.JobId, token);
+                TranscriptionProgress = Math.Clamp(job.Progress * 100, 0, 100);
+                TranscriptionStatusMessage = FormatTranscriptionStatus(job);
+                if (job.Status == "completed")
+                {
+                    TranscriptPath = job.OutputPath ?? outputPath;
+                    break;
+                }
+                if (job.Status == "failed") throw new InvalidOperationException(job.Error ?? "Local transcription failed.");
+                if (job.Status == "cancelled") break;
+                await Task.Delay(500, token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            TranscriptionStatusMessage = "Cancelling local transcription...";
+            if (activeJobId is not null)
+            {
+                try
+                {
+                    var cancelled = await _workerClient.CancelTranscriptionAsync(activeJobId, CancellationToken.None);
+                    TranscriptionStatusMessage = FormatTranscriptionStatus(cancelled);
+                }
+                catch (Exception exception)
+                {
+                    ErrorMessage = $"Transcription cancellation failed: {exception.Message}";
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            ErrorMessage = $"Transcription failed: {exception.Message}";
+            TranscriptionStatusMessage = "Transcription failed.";
+        }
+        finally
+        {
+            _transcriptionCancellation?.Dispose();
+            _transcriptionCancellation = null;
+            IsTranscribing = false;
+        }
+    }
+
+    private Task CancelTranscriptionAsync()
+    {
+        _transcriptionCancellation?.Cancel();
+        return Task.CompletedTask;
+    }
+
+    private static string FormatTranscriptionStatus(TranscriptionJobStatus job) => job.Status switch
+    {
+        "queued" => "Transcription queued...",
+        "normalizing" => "Mixing and normalizing audio...",
+        "loading-model" => "Loading local speech model...",
+        "transcribing" => $"Transcribing {FormatSource(job.Source)} on {job.Device?.ToUpperInvariant() ?? "local hardware"}...",
+        "completed" => $"Transcription completed · {job.SegmentCount ?? 0} segment(s)",
+        "cancelled" => "Transcription cancelled.",
+        _ => job.Status
+    };
+
+    private static string FormatSource(string? source) => source switch
+    {
+        "microphone" => "microphone",
+        "system_audio" => "system audio",
+        _ => "audio"
+    };
 
     private async Task ToggleRecordingAsync()
     {
@@ -353,6 +499,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             MicrophoneLevel = 0;
             StatusMessage = eventArgs.ErrorMessage ?? (eventArgs.CurrentState == RecordingSessionState.Completed ? GetCompletedStatusMessage() : "Recording failed");
 
+            if (eventArgs.CurrentState == RecordingSessionState.Completed &&
+                _captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator completedCoordinator)
+            {
+                _latestSessionDirectory = completedCoordinator.LastCompletedSessionDirectory;
+                TranscriptionStatusMessage = _modelPath is null
+                    ? "Recording ready, but no local transcription model is installed."
+                    : "Recording ready for local transcription.";
+                OnPropertyChanged(nameof(CanTranscribeLatest));
+            }
+
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)
             {
                 combinedCoordinator.SystemAudioLevelChanged -= OnSystemAudioLevelChanged;
@@ -386,6 +542,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         ToggleRecordingCommand.RaiseCanExecuteChanged();
         RefreshSourcesCommand.RaiseCanExecuteChanged();
+        TranscribeLatestCommand.RaiseCanExecuteChanged();
+        CancelTranscriptionCommand.RaiseCanExecuteChanged();
     }
 
     private static CaptureSource? PreserveSelection(CaptureSource? current, IReadOnlyList<CaptureSource> sources) =>

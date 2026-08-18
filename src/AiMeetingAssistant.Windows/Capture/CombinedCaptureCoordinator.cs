@@ -37,6 +37,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     public event EventHandler<AudioCaptureFaultEventArgs>? MicrophoneFaulted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
     public CaptureAlignmentManifest? LastAlignment { get; private set; }
+    public string? LastCompletedSessionDirectory { get; private set; }
     public CaptureRecoveryReport RecoverInterruptedSessions() => CaptureSessionRecovery.RecoverInterrupted(_baseDirectory);
 
     public async Task StartAsync(CapturePlan plan, CancellationToken cancellationToken = default)
@@ -146,7 +147,10 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         {
             _manifest = BuildManifest(error is null ? finalStatus : "failed", DateTimeOffset.UtcNow);
             if (error is null && finalStatus == "completed" && _sessionDirectory is not null)
+            {
                 _manifest = CaptureAlignmentAnalyzer.Analyze(_sessionDirectory, _manifest);
+                LastCompletedSessionDirectory = _sessionDirectory;
+            }
             LastAlignment = _manifest.Alignment;
             WriteManifest();
         }
