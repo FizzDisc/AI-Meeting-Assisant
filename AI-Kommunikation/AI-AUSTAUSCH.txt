@@ -1879,3 +1879,35 @@ legacy/unknown sichtbar. Ein beim ersten Library-Smoke entdeckter harter WPF-
 Absturz durch TwoWay-Bindings auf schreibgeschuetzte Run-Anzeigefelder wurde
 auf explizite OneWay-Bindings korrigiert. Sprint 3.4.3 ist abgeschlossen und
 commitbereit.
+=== CODEX · Sprint 3.5.1 ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Der Intel-Backend-Spike laeuft isoliert vom produktiven WhisperX/CTranslate2-
+Worker. OpenVINO 2026.3 erkennt auf dem Core-Ultra-Referenzlaptop CPU, Intel
+iGPU und Intel AI Boost NPU. Separate OpenVINO-Whisper-small-FP16-Gewichte und
+ein reproduzierbarer Benchmark erfassen Compile-/Inferenzzeit, RTF, Text,
+Zeitstempel und Plattenbedarf. Ein 41,724-s-Sample benoetigte 8,088 s auf CPU
+und 4,808 s auf der Intel-GPU (40,5 Prozent schnellere Inferenz). Zeitstempel
+waren identisch, eine erkannte Phrase wich jedoch ab. Runtime/Modell belegen
+ca. 252 MB/1,56 GB. Reales Meetingmaterial ist deshalb das Acceptance Gate;
+Produktintegration bleibt Sprint 3.5.2 und bewusst konditional.
+
+Nachtrag Sprint 3.5.1: Der erste monolithische 39:54-Lauf wurde nach 29 Minuten
+manuell abgebrochen. Der Harness verarbeitet nun ueberlappende 30-s-Bloecke,
+zeigt jeden Block an, begrenzt Zeitstempel an Ownership-Grenzen und schreibt
+atomare Zwischenstaende inklusive interrupted-Status. Ein 199,781-s-System-
+audio lief in 47,739 s auf CPU und 24,484 s auf Intel-GPU; die GPU-Inferenz war
+48,7 Prozent schneller. Text war nahezu identisch. Vollmeeting-Smoke bleibt
+offen.
+
+=== CODEX · Sprint 3.5.1 ACCEPTED / BACKEND REJECTED ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Der segmentierte 39:54-Intel-GPU-Lauf ist abgeschlossen: 820,911 s Inferenz,
+RTF 0,3429, 479 Segmente. Die Qualitaet verfehlt das Gate deutlich: 129 direkt
+aufeinanderfolgende exakte Duplikate, lange Wiederholungshalluzinationen und
+52.418 Zeichen gegen 16.503 Zeichen der validierten WhisperX-Systemspur.
+Intel-GPU-Ausfuehrung ist technisch bewiesen, der getestete Optimum/OpenVINO-
+Decoder wird aber nicht in die UI integriert. Sprint 3.5.1 ist abgeschlossen;
+3.5.2 bleibt fuer diesen Backendpfad abgelehnt. Der produktive CPU/CUDA-Worker
+bleibt unveraendert.

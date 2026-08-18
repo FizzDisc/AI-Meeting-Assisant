@@ -7,6 +7,7 @@ obj/
 __pycache__/
 *.py[cod]
 .venv/
+.openvino-spike/
 worker/models/
 venv/
 .pytest_cache/
