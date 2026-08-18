@@ -31,6 +31,28 @@ def merge_segments(results: list[tuple[str, dict[str, Any]]]) -> list[dict[str, 
                         for item in result.get("segments", []) if str(item["text"]).strip())
     return sorted(segments, key=lambda item: (item["start"], item["end"], item["source"]))
 
+def diarize_system_audio(model_path: Path, normalized: list[tuple[str, Path]], status_path: Path) -> tuple[list[dict[str, Any]], int]:
+    from diarization_job import extract, load_pcm16
+    from pyannote.audio import Pipeline
+    system_path = next((path for label, path in normalized if label == "system_audio"), None)
+    if system_path is None: return [], 0
+    write_atomic(status_path, {"status": "loading-diarization-model", "progress": 0.91})
+    pipeline = Pipeline.from_pretrained(model_path)
+    write_atomic(status_path, {"status": "diarizing", "progress": 0.94, "source": "system_audio"})
+    turns = extract(pipeline(load_pcm16(system_path)))
+    return turns, len({turn["speaker"] for turn in turns})
+
+def reconcile_without_diarization(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = []
+    for segment in segments:
+        item = dict(segment)
+        known = item.get("source") == "microphone"
+        item.update(speaker="You" if known else None,
+                    speakerAssignment="known-source" if known else "not-run",
+                    speakerOverlapRatio=1.0 if known else 0.0)
+        result.append(item)
+    return result
+
 def run(request_path: Path) -> int:
     request = json.loads(request_path.read_text(encoding="utf-8"))
     inputs = [Path(item).resolve() for item in request["audioPaths"]]
@@ -58,15 +80,27 @@ def run(request_path: Path) -> int:
         results.append((label, model.transcribe(audio, batch_size=batch_size)))
     detected_languages = {source: result.get("language") for source, result in results}
     languages = {language for language in detected_languages.values() if language}
-    transcript = {"schemaVersion": 2, "createdAtUtc": datetime.now(timezone.utc).isoformat(),
+    segments = merge_segments(results)
+    diarization_path_text = request.get("diarizationModelPath")
+    speaker_count = 0
+    if diarization_path_text:
+        from speaker_reconciliation import reconcile
+        turns, speaker_count = diarize_system_audio(Path(diarization_path_text).resolve(), normalized, status_path)
+        write_atomic(status_path, {"status": "assigning-speakers", "progress": 0.98})
+        segments = reconcile(segments, turns)
+    else:
+        segments = reconcile_without_diarization(segments)
+    transcript = {"schemaVersion": 3, "createdAtUtc": datetime.now(timezone.utc).isoformat(),
                   "language": next(iter(languages)) if len(languages) == 1 else None,
                   "detectedLanguages": detected_languages, "device": device, "computeType": compute_type,
                   "batchSize": batch_size, "computePreference": compute["preference"],
                   "fallbackReason": compute["fallbackReason"],
-                  "segments": merge_segments(results)}
+                  "diarizationEnabled": bool(diarization_path_text), "speakerCount": speaker_count,
+                  "segments": segments}
     write_atomic(output_path, transcript)
     write_atomic(status_path, {"status": "completed", "progress": 1.0,
-                               "outputPath": str(output_path), "segmentCount": len(transcript["segments"])})
+                               "outputPath": str(output_path), "segmentCount": len(transcript["segments"]),
+                               "speakerCount": speaker_count})
     return 0
 
 def main() -> int:

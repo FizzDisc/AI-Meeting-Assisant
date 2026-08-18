@@ -17,14 +17,15 @@ public sealed class TranscriptWindowViewModel : INotifyPropertyChanged
         SourcePath = sourcePath;
         _allSegments = document.Segments.Select(segment => new TranscriptSegmentViewModel(
             TranscriptDocumentStore.FormatTimestamp(segment.Start),
-            TranscriptDocumentStore.FormatSource(segment.Source), segment.Source, segment.Text)).ToArray();
+            TranscriptDocumentStore.FormatSpeaker(segment), TranscriptDocumentStore.FormatSource(segment.Source),
+            segment.Source, segment.SpeakerAssignment, segment.Text)).ToArray();
         _segments = _allSegments;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public TranscriptDocument Document { get; }
     public string SourcePath { get; }
-    public string Summary => $"{Document.Segments.Count} segments · {Document.Language ?? "multiple/unknown"} · {Document.Device ?? "unknown"}/{Document.ComputeType ?? "unknown"}";
+    public string Summary => $"{Document.Segments.Count} segments · {Document.SpeakerCount ?? 0} detected system speaker(s) · {Document.Language ?? "multiple/unknown"} · {Document.Device ?? "unknown"}/{Document.ComputeType ?? "unknown"}";
     public IReadOnlyList<TranscriptSegmentViewModel> Segments { get => _segments; private set { _segments = value; OnPropertyChanged(); } }
 
     public bool ShowMicrophone { get => _showMicrophone; set { _showMicrophone = value; OnPropertyChanged(); ApplyFilter(); } }
@@ -41,4 +42,5 @@ public sealed class TranscriptWindowViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
-public sealed record TranscriptSegmentViewModel(string Timestamp, string SourceLabel, string? Source, string Text);
+public sealed record TranscriptSegmentViewModel(string Timestamp, string SpeakerLabel, string SourceLabel,
+    string? Source, string? SpeakerAssignment, string Text);

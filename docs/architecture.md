@@ -1,5 +1,9 @@
 # Architecture
 
+## Sprint 3.2 speaker reconciliation
+
+The isolated transcription process now owns a complete transcript pipeline: normalize both tracks, transcribe them independently, diarize only normalized system audio, then reconcile speaker turns by timestamp overlap. Microphone segments are deterministically `You`. A system segment receives an anonymous pyannote speaker only when one candidate has sufficient coverage and separation from the runner-up; all other outcomes remain explicitly ambiguous or unassigned. Transcript schema 3 stores these diagnostics, while schema 1 and 2 remain readable.
+
 ## Sprint 3.1 diarization runtime
 
 The gated pyannote `community-1` pipeline is installed explicitly through Settings and loaded from disk by an isolated system-audio-only job. Hugging Face credentials are process-scoped and never persisted. Because TorchCodec DLL compatibility is unreliable in the pinned Windows CPU runtime, the adapter validates and loads our PCM16 WAV directly into a waveform/sample-rate tensor before inference. Exclusive speaker diarization is the canonical output for later transcript reconciliation.

@@ -18,6 +18,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ICaptureCoordinator _captureCoordinator;
     private readonly PythonWorkerClient? _workerClient;
     private readonly string? _modelPath;
+    private readonly string? _diarizationModelPath;
     private readonly string _captureBaseDirectory;
     private readonly string _computePreference;
     private readonly Stopwatch _recordingStopwatch = new();
@@ -54,12 +55,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isTranscriptionIndeterminate;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
-        PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic")
+        PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic", string? diarizationModelPath = null)
     {
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
         _workerClient = workerClient;
         _modelPath = modelPath;
+        _diarizationModelPath = diarizationModelPath;
         _captureBaseDirectory = Path.GetFullPath(captureBaseDirectory);
         _computePreference = computePreference;
         _recordingSession = new(captureCoordinator);
@@ -492,7 +494,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var outputPath = Path.Combine(_latestSessionDirectory, "processing", "transcript.json");
             TranscriptionStatusMessage = "Queuing local transcription...";
             var job = await _workerClient.StartTranscriptionAsync([microphone, systemAudio], _modelPath, outputPath,
-                computePreference: _computePreference, cancellationToken: token);
+                computePreference: _computePreference, diarizationModelPath: _diarizationModelPath, cancellationToken: token);
             activeJobId = job.JobId;
             while (true)
             {
@@ -500,7 +502,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 job = await _workerClient.GetTranscriptionStatusAsync(job.JobId, token);
                 TranscriptionProgress = Math.Clamp(job.Progress * 100, 0, 100);
                 TranscriptionStatusMessage = FormatTranscriptionStatus(job);
-                IsTranscriptionIndeterminate = job.Status is "queued" or "normalizing" or "loading-model";
+                IsTranscriptionIndeterminate = job.Status is "queued" or "normalizing" or "loading-model" or "loading-diarization-model";
                 TranscriptionActivityDetail = FormatTranscriptionActivity(job.Status, _transcriptionStopwatch.Elapsed);
                 if (!modelLoadNoticeLogged && job.Status == "loading-model" && _transcriptionStopwatch.Elapsed >= TimeSpan.FromSeconds(15))
                 {
@@ -566,6 +568,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         "normalizing" => "Mixing and normalizing audio...",
         "loading-model" => "Loading local speech model...",
         "transcribing" => $"Transcribing {FormatSource(job.Source)} on {job.Device?.ToUpperInvariant() ?? "local hardware"}...",
+        "loading-diarization-model" => "Loading local speaker model...",
+        "diarizing" => "Detecting speakers in system audio...",
+        "assigning-speakers" => "Assigning speakers to transcript segments...",
         "completed" => $"Transcription completed · {job.SegmentCount ?? 0} segment(s)",
         "cancelled" => "Transcription cancelled.",
         _ => job.Status
@@ -583,8 +588,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var phase = status switch
         {
             "loading-model" => "Worker active · loading the local model on CPU; a cold start can take several minutes",
+            "loading-diarization-model" => "Worker active · loading the local speaker model",
             "normalizing" => "Worker active · preparing audio",
             "transcribing" => "Worker active · decoding speech",
+            "diarizing" => "Worker active · detecting speaker turns",
+            "assigning-speakers" => "Worker active · reconciling transcript timestamps",
             "queued" => "Worker active · job queued",
             _ => $"Worker active · {status}"
         };

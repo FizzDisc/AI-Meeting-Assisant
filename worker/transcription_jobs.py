@@ -21,9 +21,14 @@ class TranscriptionJobManager:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         status_path = output_path.parent / f"transcription-{job_id}.status.json"
         request_path = output_path.parent / f"transcription-{job_id}.request.json"
+        diarization_text = str(payload.get("diarizationModelPath") or "").strip()
+        diarization_path = Path(diarization_text).resolve() if diarization_text else None
+        if diarization_path is not None and not (diarization_path / "config.yaml").is_file():
+            raise FileNotFoundError(f"Local diarization model is invalid: {diarization_path}")
         request = {"audioPaths": [str(p) for p in audio_paths], "modelPath": str(model_path),
                    "outputPath": str(output_path), "statusPath": str(status_path), "language": payload.get("language"),
-                   "computePreference": payload.get("computePreference", "automatic")}
+                   "computePreference": payload.get("computePreference", "automatic"),
+                   "diarizationModelPath": str(diarization_path) if diarization_path else None}
         request_path.write_text(json.dumps(request), encoding="utf-8")
         process = subprocess.Popen([sys.executable, "-u", str(self._job_script), str(request_path)],
                                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,

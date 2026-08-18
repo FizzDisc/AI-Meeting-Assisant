@@ -14,7 +14,7 @@
                 <TextBlock Text="{Binding StateLabel}" FontSize="30" FontWeight="SemiBold" Margin="0,7,0,0"/>
                 <TextBlock Text="Capture, transcribe and turn conversations into clear outcomes." Foreground="{StaticResource MutedBrush}" FontSize="15" Margin="0,8,0,0"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"><Button Content="Settings" Click="OnOpenSettings" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/><Border Background="#18352E" CornerRadius="12" Padding="14,8"><TextBlock Text="SPRINT 3.1 · SPEAKER DIARIZATION" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/></Border></StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"><Button Content="Settings" Click="OnOpenSettings" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/><Border Background="#18352E" CornerRadius="12" Padding="14,8"><TextBlock Text="SPRINT 3.2 · SPEAKER TRANSCRIPTS" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/></Border></StackPanel>
         </Grid>
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="0.75*"/></Grid.ColumnDefinitions>
@@ -118,6 +118,6 @@
             </StackPanel>
             </ScrollViewer>
         </Grid>
-        <Grid Grid.Row="4"><TextBlock Text="Local capture, transcription and speaker analysis" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 3.1 · Diarization runtime" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+        <Grid Grid.Row="4"><TextBlock Text="Local capture, transcription and speaker analysis" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 3.2 · Speaker-labelled transcripts" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
     </Grid>
 </Window>

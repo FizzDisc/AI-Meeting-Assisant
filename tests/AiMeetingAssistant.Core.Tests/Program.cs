@@ -565,15 +565,15 @@ static Task TranscriptParserValidatesAndOrders()
         var path = Path.Combine(directory, "transcript.json");
         File.WriteAllText(path, JsonSerializer.Serialize(new
         {
-            schemaVersion = 2,
+            schemaVersion = 3,
             createdAtUtc = DateTimeOffset.UtcNow,
             language = "de",
             device = "cpu",
             computeType = "int8",
             segments = new[]
             {
-                new { start = 2.0, end = 3.0, text = "remote", source = "system_audio" },
-                new { start = 0.5, end = 1.5, text = "local", source = "microphone" }
+                new { start = 2.0, end = 3.0, text = "remote", source = "system_audio", speaker = "SPEAKER_00", speakerAssignment = "assigned", speakerOverlapRatio = 0.9 },
+                new { start = 0.5, end = 1.5, text = "local", source = "microphone", speaker = "You", speakerAssignment = "known-source", speakerOverlapRatio = 1.0 }
             }
         }));
         var document = TranscriptDocumentStore.Load(path);
@@ -581,6 +581,8 @@ static Task TranscriptParserValidatesAndOrders()
         Equal("microphone", document.Segments[0].Source);
         Equal("00:00.500", TranscriptDocumentStore.FormatTimestamp(document.Segments[0].Start));
         Equal("System audio", TranscriptDocumentStore.FormatSource(document.Segments[1].Source));
+        Equal("You", TranscriptDocumentStore.FormatSpeaker(document.Segments[0]));
+        Equal("SPEAKER_00", TranscriptDocumentStore.FormatSpeaker(document.Segments[1]));
         return Task.CompletedTask;
     }
     finally { Directory.Delete(directory, true); }

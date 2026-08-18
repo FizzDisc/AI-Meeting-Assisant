@@ -13,9 +13,12 @@ public sealed record TranscriptDocument(
     int? BatchSize,
     string? ComputePreference,
     string? FallbackReason,
-    IReadOnlyList<TranscriptSegment> Segments);
+    IReadOnlyList<TranscriptSegment> Segments,
+    bool? DiarizationEnabled = null,
+    int? SpeakerCount = null);
 
-public sealed record TranscriptSegment(double Start, double End, string Text, string? Source = null);
+public sealed record TranscriptSegment(double Start, double End, string Text, string? Source = null,
+    string? Speaker = null, string? SpeakerAssignment = null, double? SpeakerOverlapRatio = null);
 
 public static class TranscriptDocumentStore
 {
@@ -26,7 +29,7 @@ public static class TranscriptDocumentStore
     {
         var document = JsonSerializer.Deserialize<TranscriptDocument>(File.ReadAllText(path), ReadOptions)
             ?? throw new InvalidDataException("Transcript JSON is empty.");
-        if (document.SchemaVersion is < 1 or > 2)
+        if (document.SchemaVersion is < 1 or > 3)
             throw new InvalidDataException($"Unsupported transcript schema {document.SchemaVersion}.");
         if (document.Segments is null)
             throw new InvalidDataException("Transcript segments are missing.");
@@ -55,7 +58,8 @@ public static class TranscriptDocumentStore
         foreach (var segment in document.Segments)
         {
             markdown.Append("## ").Append(FormatTimestamp(segment.Start)).Append(" · ")
-                .AppendLine(FormatSource(segment.Source)).AppendLine().AppendLine(segment.Text.Trim()).AppendLine();
+                .Append(FormatSpeaker(segment)).Append(" · ").AppendLine(FormatSource(segment.Source))
+                .AppendLine().AppendLine(segment.Text.Trim()).AppendLine();
         }
         WriteAtomic(path, markdown.ToString());
     }
@@ -72,6 +76,15 @@ public static class TranscriptDocumentStore
         "system_audio" => "System audio",
         null or "" => "Mixed audio",
         _ => source.Replace('_', ' ')
+    };
+
+    public static string FormatSpeaker(TranscriptSegment segment) => segment.SpeakerAssignment switch
+    {
+        "ambiguous" => "Ambiguous speaker",
+        "unassigned" => "Unknown speaker",
+        "not-run" => "Speaker analysis not run",
+        _ when !string.IsNullOrWhiteSpace(segment.Speaker) => segment.Speaker,
+        _ => "Unknown speaker"
     };
 
     private static void WriteAtomic(string path, string content)

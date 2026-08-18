@@ -20,7 +20,8 @@ public partial class MainWindow : Window
         var settings = AppPreferences.Load();
         var pythonExecutable = PythonRuntimeResolver.Resolve();
         var modelPath = settings.ModelDirectory ?? LocalModelResolver.ResolveDevelopmentModel();
-        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(settings.CaptureDirectory), new PythonWorkerClient(pythonExecutable, workerPath), modelPath, settings.CaptureDirectory, settings.ComputePreference)
+        var diarizationModelPath = LocalModelResolver.ResolveDiarizationModel();
+        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(settings.CaptureDirectory), new PythonWorkerClient(pythonExecutable, workerPath), modelPath, settings.CaptureDirectory, settings.ComputePreference, diarizationModelPath)
         {
             UIDispatcher = Dispatcher
         };

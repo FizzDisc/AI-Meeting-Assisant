@@ -1761,3 +1761,30 @@ Settings Center foundation: Recording, Storage, AI Model and Diagnostics section
 
 === CODEX · Sprint 3.1 ===
 README modernized. Gated pyannote community-1 installs directly from Settings with a non-persisted token and is stored for offline use. Isolated system-audio diarization prefers exclusive turns. Real Windows run found TorchCodec incompatible with Torch 2.8 CPU; fixed by direct PCM16-to-tensor loading. Real offline job completed correctly with 0 speakers/turns on a silent short capture. Python 9/9 and .NET build green. Sprint 3.2 will reconcile turns with transcript segments.
+=== CODEX · Sprint 3.2 ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Sprint 3.2 verbindet die bestehende WhisperX-Transkription mit der lokalen
+pyannote-Diarisierung innerhalb desselben isolierten, abbrechbaren Worker-Jobs.
+Mikrofonsegmente werden als `You` markiert. Systemaudio erhaelt anonyme
+SPEAKER_XX-Labels nur bei einer hinreichend eindeutigen zeitlichen Ueberlappung;
+knappe oder fehlende Treffer bleiben explizit ambiguous/unassigned. Transcript
+Schema 3 speichert Assignment-Status, Overlap-Ratio und Kandidaten. Der Viewer
+und Markdown-Export zeigen Sprecher und Quelle getrennt. Automatische C#-Tests
+und 13 Python-Worker-Tests sind erfolgreich; Hardware-Smoke folgt manuell.
+=== CODEX · Sprint 3.2 Packaging-Fix ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Der Desktop-Build kopierte die neuen Laufzeitmodule `speaker_reconciliation.py`
+und `diarization_job.py` nicht in seinen worker-Ausgabeordner. Beide Dateien
+sind nun explizite Content-Items im Desktop-Projekt. Der Import wurde direkt
+aus dem gebauten Worker-Verzeichnis erfolgreich verifiziert. Die laufende App
+muss neu gestartet werden, damit ihr Worker die korrigierte Paketierung nutzt.
+=== CODEX · Sprint 3.2 ACCEPTED ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Der manuelle Realmeeting-Smoke ist erfolgreich. Ergebnis: Mikrofon korrekt als
+`You`, drei getrennte anonyme Remote-Sprecher sowie ein bewusst nicht erfundener
+`Unknown Speaker`. Sprecherwechsel und Transcript-Anzeige sind brauchbar. Die
+vollstaendige CPU-Verarbeitung dauerte 31:18; diese Laufzeit wird als Baseline
+fuer spaetere GPU-/Performance-Arbeit dokumentiert. Sprint 3.2 ist abgeschlossen.

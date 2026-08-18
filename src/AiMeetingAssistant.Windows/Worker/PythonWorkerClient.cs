@@ -69,9 +69,10 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
 
     public async Task<TranscriptionJobStatus> StartTranscriptionAsync(IReadOnlyList<string> audioPaths,
         string modelPath, string outputPath, string? language = null, string computePreference = "automatic",
+        string? diarizationModelPath = null,
         CancellationToken cancellationToken = default)
     {
-        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language, computePreference }, cancellationToken).ConfigureAwait(false);
+        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language, computePreference, diarizationModelPath }, cancellationToken).ConfigureAwait(false);
         return ParseTranscriptionStatus(response.Payload);
     }
 
