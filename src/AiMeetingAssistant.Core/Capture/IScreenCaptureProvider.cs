@@ -2,6 +2,7 @@ namespace AiMeetingAssistant.Core.Capture;
 
 public interface IScreenCaptureProvider : IAsyncDisposable
 {
+    event EventHandler? CaptureStarted;
     event EventHandler<CaptureErrorEventArgs>? CaptureFaulted;
 
     bool IsCapturing { get; }

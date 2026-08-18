@@ -25,6 +25,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("shutdown after failed capture is idempotent", ShutdownAfterFailureIsIdempotent)
     ,("system audio filename is unique and correctly prefixed", SystemAudioFilenameIsUnique)
     ,("screen filename is an MP4 and correctly prefixed", ScreenFilenameIsMp4)
+    ,("session manifest is written atomically", SessionManifestIsWrittenAtomically)
     ,("audio timeline fills missing silent frames", AudioTimelineFillsMissingFrames)
 };
 
@@ -385,6 +386,24 @@ static Task ScreenFilenameIsMp4()
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
+}
+
+static Task SessionManifestIsWrittenAtomically()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_manifest_{Guid.NewGuid():N}");
+    try
+    {
+        var path = Path.Combine(directory, "manifest.json");
+        var manifest = new CaptureSessionManifest(1, "session-test", "recording", DateTimeOffset.UtcNow, null, null,
+            new("screen", "system", "microphone"), [new("screen", "screen.mp4", 12.5)]);
+        CaptureSessionManifestStore.WriteAtomic(path, manifest);
+        var json = File.ReadAllText(path);
+        if (!json.Contains("session-test", StringComparison.Ordinal) || !json.Contains("12.5", StringComparison.Ordinal))
+            throw new InvalidOperationException("Manifest JSON is missing session timing data.");
+        Equal(0, Directory.GetFiles(directory, "*.tmp").Length);
+        return Task.CompletedTask;
+    }
+    finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 }
 
 static Task AudioTimelineFillsMissingFrames()

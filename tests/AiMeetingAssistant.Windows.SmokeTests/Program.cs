@@ -1,6 +1,7 @@
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Windows.Capture;
+using System.Text.Json;
 
 var failures = 0;
 
@@ -312,6 +313,23 @@ try
                 Console.WriteLine("PASS Combined capture uses one timestamp and exactly-once lifecycle for all three streams.");
             }
 
+            var combinedSessionDirectory = Directory.GetDirectories(testDir, "session_*").Single();
+            using (var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(combinedSessionDirectory, "manifest.json"))))
+            {
+                var root = manifest.RootElement;
+                var streams = root.GetProperty("Streams");
+                if (root.GetProperty("Status").GetString() != "completed" || streams.GetArrayLength() != 3 ||
+                    streams.EnumerateArray().Any(stream => Path.IsPathRooted(stream.GetProperty("RelativePath").GetString() ?? "")))
+                {
+                    Console.Error.WriteLine("FAIL Completed session manifest is missing relative metadata for all three streams.");
+                    failures++;
+                }
+                else
+                {
+                    Console.WriteLine("PASS Completed session manifest contains timing metadata for all three relative artifacts.");
+                }
+            }
+
             var rollbackAudio = new List<FakeAudioProvider>();
             var rollbackScreen = new FakeScreenProvider();
             var rollback = new CombinedCaptureCoordinator(
@@ -488,6 +506,7 @@ file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = 
         StartCount++;
         if (failOnStart) throw new InvalidOperationException("Simulated provider start failure.");
         IsCapturing = true;
+        CaptureStarted?.Invoke(this, new(48000, 2, 16));
         return Task.CompletedTask;
     }
 
@@ -514,6 +533,7 @@ file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = 
 
 file sealed class FakeScreenProvider(bool failOnStop = false) : IScreenCaptureProvider
 {
+    public event EventHandler? CaptureStarted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFaulted;
     public int StartCount { get; private set; }
     public int StopCount { get; private set; }
@@ -524,6 +544,7 @@ file sealed class FakeScreenProvider(bool failOnStop = false) : IScreenCapturePr
     {
         StartCount++;
         IsCapturing = true;
+        CaptureStarted?.Invoke(this, EventArgs.Empty);
         return Task.CompletedTask;
     }
 

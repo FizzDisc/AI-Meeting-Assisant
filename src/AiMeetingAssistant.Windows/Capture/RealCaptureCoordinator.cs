@@ -13,8 +13,10 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
     private bool _isCapturing;
 
     public event EventHandler<AudioFrameCapturedEventArgs>? SystemAudioLevelChanged;
+    public event EventHandler<AudioCaptureStartedEventArgs>? SystemAudioStarted;
     public event EventHandler<AudioCaptureFaultEventArgs>? SystemAudioFaulted;
     public event EventHandler<AudioFrameCapturedEventArgs>? MicrophoneLevelChanged;
+    public event EventHandler<AudioCaptureStartedEventArgs>? MicrophoneStarted;
     public event EventHandler<AudioCaptureFaultEventArgs>? MicrophoneFaulted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
 
@@ -80,17 +82,21 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
     private void SubscribeSystemAudio(IAudioCaptureProvider capture)
     {
         capture.FrameCaptured += OnSystemAudioFrameCaptured;
+        capture.CaptureStarted += OnSystemAudioCaptureStarted;
         capture.CaptureFaulted += OnSystemAudioCaptureFaulted;
     }
 
     private void SubscribeMicrophone(IAudioCaptureProvider capture)
     {
         capture.FrameCaptured += OnMicrophoneFrameCaptured;
+        capture.CaptureStarted += OnMicrophoneCaptureStarted;
         capture.CaptureFaulted += OnMicrophoneCaptureFaulted;
     }
 
     private void OnSystemAudioFrameCaptured(object? sender, AudioFrameCapturedEventArgs e) => SystemAudioLevelChanged?.Invoke(this, e);
+    private void OnSystemAudioCaptureStarted(object? sender, AudioCaptureStartedEventArgs e) => SystemAudioStarted?.Invoke(this, e);
     private void OnMicrophoneFrameCaptured(object? sender, AudioFrameCapturedEventArgs e) => MicrophoneLevelChanged?.Invoke(this, e);
+    private void OnMicrophoneCaptureStarted(object? sender, AudioCaptureStartedEventArgs e) => MicrophoneStarted?.Invoke(this, e);
 
     private void OnSystemAudioCaptureFaulted(object? sender, AudioCaptureFaultEventArgs e)
     {
@@ -124,6 +130,7 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
     {
         if (capture is null) return;
         capture.FrameCaptured -= OnMicrophoneFrameCaptured;
+        capture.CaptureStarted -= OnMicrophoneCaptureStarted;
         capture.CaptureFaulted -= OnMicrophoneCaptureFaulted;
         try { if (stopFirst && capture.IsCapturing) await capture.StopAsync(token).ConfigureAwait(false); }
         finally { await capture.DisposeAsync().ConfigureAwait(false); }
@@ -133,6 +140,7 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
     {
         if (capture is null) return;
         capture.FrameCaptured -= OnSystemAudioFrameCaptured;
+        capture.CaptureStarted -= OnSystemAudioCaptureStarted;
         capture.CaptureFaulted -= OnSystemAudioCaptureFaulted;
         try { if (stopFirst && capture.IsCapturing) await capture.StopAsync(token).ConfigureAwait(false); }
         finally { await capture.DisposeAsync().ConfigureAwait(false); }

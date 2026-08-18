@@ -39,17 +39,23 @@ Contracts are shared only by transport adapters. Dependencies point inward: Core
 ## Meeting workspace
 
 ```text
-data/meetings/{meeting-id}/
+artifacts/captures/session_{timestamp}/
   manifest.json
-  capture/screen.mp4
-  capture/system-audio.wav
-  capture/microphone.wav
+  screen_{timestamp}.mp4
+  system_audio_{timestamp}.wav
+  microphone_{timestamp}.wav
+
+data/meetings/{meeting-id}/              # later durable library
+  manifest.json
+  capture/...
   processing/transcript.json
   processing/diarization.json
   output/minutes.md
 ```
 
 Writes should use temporary files followed by atomic rename. The manifest records processing state so interrupted jobs can resume.
+
+Sprint 1.6.1 implements the capture-session form of this workspace. `manifest.json` schema version 1 stores the session ID, lifecycle status, UTC wall-clock boundaries, monotonic duration, selected source IDs and one relative path/start offset per stream. Manifest replacement uses a sibling temporary file followed by atomic move, so readers never observe partially serialized JSON. Durable meeting IDs, recovery and migration into `data/meetings` remain later work.
 
 ## Capture direction for Sprint 1
 

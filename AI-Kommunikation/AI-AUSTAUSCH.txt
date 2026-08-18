@@ -1262,3 +1262,44 @@ Artefakte. Nach dem Neustart war eine weitere Aufnahme erfolgreich.
 
 Sprint 1.5.3 und damit Sprint 1.5 sind abgeschlossen. Commit und Push bleiben
 bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.6.1 bereit fuer Hardware-Smoke-Test
+Status: READY FOR MANUAL TEST
+
+Nachricht:
+Jede Dreifach-Aufnahme erzeugt nun einen eigenen session_*-Ordner mit MP4,
+beiden WAV-Dateien und einem atomar geschriebenen manifest.json (Schema 1).
+Eine gemeinsame monotone Uhr misst die echten Provider-Startsignale fuer
+Screen, Systemaudio und Mikrofon sowie die gesamte Sessiondauer.
+
+Das Manifest speichert UTC-Grenzen, ausgewaehlte Source-IDs, relative Pfade und
+StartOffsetMilliseconds je Stream. Build: 0 Warnungen/Fehler. Automatisch:
+24/24 Core-Tests und alle Windows-Smoke-Tests bestanden.
+
+Offen: reales Manifest gegen erzeugte Medien und plausible Offsets pruefen.
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.6.1 abgeschlossen
+Status: DONE
+
+Nachricht:
+Der reale Session-Smoke-Test ist erfolgreich. manifest.json ist completed und
+referenziert alle drei vorhandenen Medien relativ. Gemessene Start-Offsets:
+Screen 1047,6 ms, Systemaudio 1091,6 ms, Mikrofon 1248,7 ms.
+
+Offset plus reale Mediendauer ergibt Stream-Endpunkte bei 16714,6 ms,
+16720,6 ms und 16689,7 ms; alle drei liegen damit innerhalb von nur 31 ms.
+Die Sessiondauer 16906,5 ms enthaelt plausibel weitere 186-217 ms fuer Stop und
+Containerfinalisierung.
+
+Sprint 1.6.1 ist abgeschlossen. Commit und Push bleiben bei Kevin.

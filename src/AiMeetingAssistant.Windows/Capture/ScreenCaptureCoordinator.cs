@@ -21,6 +21,7 @@ public sealed class ScreenCaptureCoordinator : ICaptureCoordinator
     }
 
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
+    public event EventHandler? CaptureStarted;
 
     public async Task StartAsync(CapturePlan plan, CancellationToken cancellationToken = default)
     {
@@ -33,6 +34,7 @@ public sealed class ScreenCaptureCoordinator : ICaptureCoordinator
             Directory.CreateDirectory(_captureBaseDirectory);
             var path = CaptureFileNaming.CreateUniqueMp4Path(_captureBaseDirectory, "screen", _timestampFactory());
             _capture = _providerFactory(plan.ScreenSourceId, path);
+            _capture.CaptureStarted += OnCaptureStarted;
             _capture.CaptureFaulted += OnCaptureFaulted;
             await _capture.StartAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -52,12 +54,14 @@ public sealed class ScreenCaptureCoordinator : ICaptureCoordinator
     }
 
     private void OnCaptureFaulted(object? sender, CaptureErrorEventArgs e) => CaptureFailed?.Invoke(this, e);
+    private void OnCaptureStarted(object? sender, EventArgs e) => CaptureStarted?.Invoke(this, EventArgs.Empty);
 
     private async Task CleanupCoreAsync(bool stopFirst, CancellationToken token)
     {
         var capture = _capture;
         _capture = null;
         if (capture is null) return;
+        capture.CaptureStarted -= OnCaptureStarted;
         capture.CaptureFaulted -= OnCaptureFaulted;
         try { if (stopFirst && capture.IsCapturing) await capture.StopAsync(token).ConfigureAwait(false); }
         finally { await capture.DisposeAsync().ConfigureAwait(false); }

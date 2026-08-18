@@ -25,6 +25,7 @@ public sealed class ScreenRecorderCaptureProvider : IScreenCaptureProvider
         _outputPath = outputPath;
     }
 
+    public event EventHandler? CaptureStarted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFaulted;
 
     public bool IsCapturing => _isCapturing;
@@ -121,7 +122,8 @@ public sealed class ScreenRecorderCaptureProvider : IScreenCaptureProvider
 
     private void OnStatusChanged(object? sender, RecordingStatusEventArgs e)
     {
-        if (e.Status is RecorderStatus.Recording) _started?.TrySetResult();
+        if (e.Status is RecorderStatus.Recording && _started?.TrySetResult() is true)
+            CaptureStarted?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnRecordingComplete(object? sender, RecordingCompleteEventArgs e) => _stopped?.TrySetResult();
