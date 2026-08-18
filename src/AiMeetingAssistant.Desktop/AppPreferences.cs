@@ -21,6 +21,6 @@ internal static class AppPreferences
         Directory.CreateDirectory(DirectoryPath); var temp=$"{FilePath}.{Guid.NewGuid():N}.tmp";
         try { File.WriteAllText(temp,JsonSerializer.Serialize(value,Options)); File.Move(temp,FilePath,true); } finally { if(File.Exists(temp)) File.Delete(temp); }
     }
-    private static string Normalize(string? value)=>value is "automatic" or "cpu-only" or "prefer-cuda"?value:"automatic";
+    private static string Normalize(string? value)=>value is "automatic" or "cpu-only" or "prefer-cuda" or "intel-gpu"?value:"automatic";
     private static string NormalizeModel(string? value)=>value is "tiny" or "small" or "medium"?value:"tiny";
 }

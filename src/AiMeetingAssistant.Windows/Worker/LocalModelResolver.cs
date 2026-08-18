@@ -36,6 +36,21 @@ public static class LocalModelResolver
     public static string? ResolveDiarizationModel(string? baseDirectory = null)
         => ResolveModel("speaker-diarization-community-1", null, baseDirectory);
 
+    public static string? ResolveOpenVinoSpeechModel(string? modelId, string? baseDirectory = null) =>
+        modelId == "small" ? ResolveModel("openvino-whisper-small-fp16", null, baseDirectory) : null;
+
+    public static string? ResolveOpenVinoRuntime(string? baseDirectory = null)
+    {
+        foreach (var start in new[] { baseDirectory ?? AppContext.BaseDirectory, Environment.CurrentDirectory }.Distinct())
+            for (var directory = new DirectoryInfo(start); directory is not null; directory = directory.Parent)
+            {
+                var candidate = Path.Combine(directory.FullName, "worker", ".openvino-spike");
+                if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "openvino_genai", "__init__.py")))
+                    return candidate;
+            }
+        return null;
+    }
+
     private static string? ResolveModel(string directoryName, string? overrideVariable, string? baseDirectory)
     {
         var configured = overrideVariable is null ? null : Environment.GetEnvironmentVariable(overrideVariable);

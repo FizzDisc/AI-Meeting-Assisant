@@ -12,6 +12,11 @@ class FakeCuda:
 
 
 class HardwareSelectionTests(unittest.TestCase):
+    def test_intel_gpu_is_an_explicit_non_fallback_profile(self):
+        result = select_compute(SimpleNamespace(cuda=FakeCuda(False)), "intel-gpu")
+        self.assertEqual("gpu", result["mode"])
+        self.assertEqual("openvino-fp16", result["computeType"])
+        self.assertIsNone(result["fallbackReason"])
     def test_automatic_falls_back_to_cpu_with_reason(self) -> None:
         result = select_compute(SimpleNamespace(cuda=FakeCuda(False)), "automatic")
         self.assertEqual(("cpu", "int8", 2), (result["mode"], result["computeType"], result["batchSize"]))

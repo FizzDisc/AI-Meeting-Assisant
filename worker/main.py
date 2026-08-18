@@ -17,7 +17,7 @@ from transcription_jobs import TranscriptionJobManager
 from hardware import detect_hardware
 
 PROTOCOL_VERSION = "1.0"
-WORKER_VERSION = "0.4.0"
+WORKER_VERSION = "0.5.0"
 SUPPORTED_PYTHON = (3, 10) <= sys.version_info[:2] < (3, 14)
 JOBS = TranscriptionJobManager()
 
@@ -56,7 +56,7 @@ def runtime_diagnostics() -> dict[str, Any]:
                                "batchSize": 2, "cudaAvailable": False, "deviceName": None,
                                "totalVramBytes": None, "torchVersion": None, "torchCudaVersion": None,
                                "fallbackReason": "Torch is not installed.",
-                               "supportedPreferences": ["automatic", "prefer-cuda", "cpu-only"]}
+                               "supportedPreferences": ["automatic", "prefer-cuda", "cpu-only", "intel-gpu"]}
     if packages["torch"]["installed"]:
         try:
             compute = detect_hardware()

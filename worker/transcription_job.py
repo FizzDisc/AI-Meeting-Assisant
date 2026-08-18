@@ -66,19 +66,38 @@ def run(request_path: Path) -> int:
         normalized_path = output_path.parent / f"normalized_{label}.wav"
         normalize_audio(source, normalized_path)
         normalized.append((label, normalized_path))
-    write_atomic(status_path, {"status": "loading-model", "progress": 0.25})
-    import whisperx
+    preference = request.get("computePreference", "automatic")
+    write_atomic(status_path, {"status": "loading-openvino-model" if preference == "intel-gpu" else "loading-model", "progress": 0.25})
     import torch
-    compute = select_compute(torch, request.get("computePreference", "automatic"))
+    compute = select_compute(torch, preference)
     device, compute_type, batch_size = compute["mode"], compute["computeType"], compute["batchSize"]
-    model = whisperx.load_model(str(model_path), device, compute_type=compute_type, language=request.get("language"))
+    if preference == "intel-gpu":
+        from openvino_backend import OpenVinoTranscriber
+        vad_model = Path(sys.executable).resolve().parent.parent / "Lib/site-packages/whisperx/assets/pytorch_model.bin"
+        model = OpenVinoTranscriber(Path(request["openVinoRuntimePath"]), Path(request["openVinoModelPath"]),
+                                    vad_model, request.get("language") or "de")
+    else:
+        import whisperx
+        model = whisperx.load_model(str(model_path), device, compute_type=compute_type, language=request.get("language"))
     results = []
     for index, (label, normalized_path) in enumerate(normalized):
-        write_atomic(status_path, {"status": "transcribing", "progress": 0.4 + 0.5 * index / len(normalized),
-                                   "source": label, "device": device, "computeType": compute_type,
-                                   "batchSize": batch_size, "fallbackReason": compute["fallbackReason"]})
-        audio = whisperx.load_audio(str(normalized_path))
-        results.append((label, model.transcribe(audio, batch_size=batch_size)))
+        base, span = 0.35 + 0.5 * index / len(normalized), 0.5 / len(normalized)
+        if preference == "intel-gpu":
+            write_atomic(status_path, {"status": "detecting-speech", "progress": base,
+                                       "source": label, "device": device, "computeType": compute_type})
+            def progress(window_index, window_count, _start, _end):
+                fraction = (window_index - 1) / max(window_count, 1)
+                write_atomic(status_path, {"status": "transcribing", "progress": base + span * fraction,
+                                           "source": label, "device": device, "computeType": compute_type,
+                                           "currentWindow": window_index, "totalWindows": window_count})
+            results.append((label, model.transcribe(normalized_path, progress)))
+        else:
+            write_atomic(status_path, {"status": "transcribing", "progress": base,
+                                       "source": label, "device": device, "computeType": compute_type,
+                                       "batchSize": batch_size, "fallbackReason": compute["fallbackReason"]})
+            import whisperx
+            audio = whisperx.load_audio(str(normalized_path))
+            results.append((label, model.transcribe(audio, batch_size=batch_size)))
     detected_languages = {source: result.get("language") for source, result in results}
     languages = {language for language in detected_languages.values() if language}
     segments = merge_segments(results)

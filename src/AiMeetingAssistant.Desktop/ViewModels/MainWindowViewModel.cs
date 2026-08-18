@@ -543,7 +543,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var outputPath = Path.Combine(_latestSessionDirectory, "processing", $"transcript_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{selectedModel.Id}.json");
             TranscriptionStatusMessage = "Queuing local transcription...";
             var job = await _workerClient.StartTranscriptionAsync([microphone, systemAudio], selectedModel.ModelPath!, outputPath,
-                computePreference: _computePreference, diarizationModelPath: _diarizationModelPath, modelId: selectedModel.Id, cancellationToken: token);
+                computePreference: _computePreference, diarizationModelPath: _diarizationModelPath, modelId: selectedModel.Id,
+                openVinoModelPath: LocalModelResolver.ResolveOpenVinoSpeechModel(selectedModel.Id),
+                openVinoRuntimePath: LocalModelResolver.ResolveOpenVinoRuntime(), cancellationToken: token);
             activeJobId = job.JobId;
             while (true)
             {
@@ -551,7 +553,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 job = await _workerClient.GetTranscriptionStatusAsync(job.JobId, token);
                 TranscriptionProgress = Math.Clamp(job.Progress * 100, 0, 100);
                 TranscriptionStatusMessage = FormatTranscriptionStatus(job);
-                IsTranscriptionIndeterminate = job.Status is "queued" or "normalizing" or "loading-model" or "loading-diarization-model";
+                IsTranscriptionIndeterminate = job.Status is "queued" or "normalizing" or "loading-model" or "loading-openvino-model" or "detecting-speech" or "loading-diarization-model";
                 TranscriptionActivityDetail = FormatTranscriptionActivity(job.Status, _transcriptionStopwatch.Elapsed);
                 if (!modelLoadNoticeLogged && job.Status == "loading-model" && _transcriptionStopwatch.Elapsed >= TimeSpan.FromSeconds(15))
                 {
@@ -624,6 +626,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         "queued" => "Transcription queued...",
         "normalizing" => "Mixing and normalizing audio...",
         "loading-model" => "Loading local speech model...",
+        "loading-openvino-model" => "Loading Whisper on Intel GPU...",
+        "detecting-speech" => $"Detecting speech in {FormatSource(job.Source)}...",
         "transcribing" => $"Transcribing {FormatSource(job.Source)} on {job.Device?.ToUpperInvariant() ?? "local hardware"}...",
         "loading-diarization-model" => "Loading local speaker model...",
         "diarizing" => "Detecting speakers in system audio...",
@@ -645,6 +649,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var phase = status switch
         {
             "loading-model" => "Worker active · loading the local model on CPU; a cold start can take several minutes",
+            "loading-openvino-model" => "Worker active · compiling Whisper for the Intel GPU",
+            "detecting-speech" => "Worker active · detecting speech before Intel GPU transcription",
             "loading-diarization-model" => "Worker active · loading the local speaker model",
             "normalizing" => "Worker active · preparing audio",
             "transcribing" => "Worker active · decoding speech",

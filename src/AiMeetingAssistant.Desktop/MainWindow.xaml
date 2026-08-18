@@ -120,6 +120,6 @@
             </StackPanel>
             </ScrollViewer>
         </Grid>
-        <Grid Grid.Row="4"><TextBlock Text="Local capture, transcription and speaker analysis" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 3.4.3 · Comparable transcript runs" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+        <Grid Grid.Row="4"><TextBlock Text="Local capture, transcription and speaker analysis" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 3.5.2 · Intel GPU transcription" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
     </Grid>
 </Window>

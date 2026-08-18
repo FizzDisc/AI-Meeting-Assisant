@@ -18,5 +18,6 @@
     <Content Include="..\..\worker\speaker_reconciliation.py" Link="worker\speaker_reconciliation.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\manage_speech_model.py" Link="worker\manage_speech_model.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\hardware.py" Link="worker\hardware.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\worker\openvino_backend.py" Link="worker\openvino_backend.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

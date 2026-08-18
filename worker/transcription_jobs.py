@@ -12,10 +12,20 @@ class TranscriptionJobManager:
     def start(self, payload: dict[str, Any]) -> dict[str, Any]:
         audio_paths = [Path(item).resolve() for item in payload.get("audioPaths", [])]
         model_path, output_text = Path(payload.get("modelPath", "")).resolve(), str(payload.get("outputPath", "")).strip()
+        preference = str(payload.get("computePreference", "automatic"))
         if not audio_paths or len(audio_paths) > 2: raise ValueError("One or two audioPaths are required.")
         missing = next((path for path in audio_paths if not path.is_file()), None)
         if missing: raise FileNotFoundError(f"Audio input not found: {missing}")
         if not model_path.is_dir(): raise FileNotFoundError(f"Local model directory not found: {model_path}")
+        openvino_model_text = str(payload.get("openVinoModelPath") or "").strip()
+        openvino_runtime_text = str(payload.get("openVinoRuntimePath") or "").strip()
+        openvino_model = Path(openvino_model_text).resolve() if openvino_model_text else None
+        openvino_runtime = Path(openvino_runtime_text).resolve() if openvino_runtime_text else None
+        if preference == "intel-gpu":
+            if openvino_model is None or not openvino_model.is_dir():
+                raise FileNotFoundError("The selected OpenVINO speech model is not installed.")
+            if openvino_runtime is None or not openvino_runtime.is_dir():
+                raise FileNotFoundError("The local OpenVINO runtime is not installed.")
         if not output_text: raise ValueError("outputPath is required.")
         output_path, job_id = Path(output_text).resolve(), uuid.uuid4().hex
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -27,7 +37,9 @@ class TranscriptionJobManager:
             raise FileNotFoundError(f"Local diarization model is invalid: {diarization_path}")
         request = {"audioPaths": [str(p) for p in audio_paths], "modelPath": str(model_path),
                    "outputPath": str(output_path), "statusPath": str(status_path), "language": payload.get("language"),
-                   "computePreference": payload.get("computePreference", "automatic"),
+                   "computePreference": preference,
+                   "openVinoModelPath": str(openvino_model) if openvino_model else None,
+                   "openVinoRuntimePath": str(openvino_runtime) if openvino_runtime else None,
                    "modelId": payload.get("modelId"),
                    "diarizationModelPath": str(diarization_path) if diarization_path else None}
         request_path.write_text(json.dumps(request), encoding="utf-8")

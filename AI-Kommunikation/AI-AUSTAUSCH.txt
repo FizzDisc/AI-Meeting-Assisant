@@ -1927,3 +1927,18 @@ Die Intel AI Boost NPU funktioniert ebenfalls, ist fuer dieses Modell aber
 nicht schneller: 9,422 s Inferenz fuer 199,781 s Audio gegenueber ca. 9,20 s
 auf der iGPU; der NPU-Kaltstart benoetigte 65,866 s. Ziel fuer die erste
 Integration ist deshalb die Intel-iGPU. NPU bleibt Research-only.
+=== CODEX · Sprint 3.5.2 COMPLETE ===
+
+Der validierte native OpenVINO-GenAI-Pfad ist jetzt als explizite Compute-
+Praeferenz `intel-gpu` in Settings, Desktop-Orchestrierung und Worker integriert.
+Er akzeptiert bewusst nur Whisper Small plus separat installiertes OpenVINO-
+FP16-Modell und faellt niemals still auf CPU zurueck. Mikrofon und Systemaudio
+bleiben getrennt, werden per lokaler Pyannote-VAD begrenzt, auf der Intel-iGPU
+transkribiert, zusammengefuehrt und danach wie bisher diarisiert.
+
+Der manuelle UI-Smoke mit zwei Minuten Audio lief in 73,54 Sekunden als
+gpu/openvino-fp16. Enthalten waren sechs Mikrofon- und ein Systemaudio-Segment
+sowie ein erkannter Remote-Speaker. Abbruch waehrend der Verarbeitung und das
+Schliessen der Anwendung beendeten den isolierten Worker ohne Restprozess.
+Sprint 3.5.2 ist abgeschlossen. Pyannote-VAD und Diarisierung dominieren bei
+kurzen Aufnahmen; schnellere Offline-VAD bleibt eine spaetere Optimierung.
