@@ -1911,3 +1911,19 @@ Intel-GPU-Ausfuehrung ist technisch bewiesen, der getestete Optimum/OpenVINO-
 Decoder wird aber nicht in die UI integriert. Sprint 3.5.1 ist abgeschlossen;
 3.5.2 bleibt fuer diesen Backendpfad abgelehnt. Der produktive CPU/CUDA-Worker
 bleibt unveraendert.
+=== CODEX · Sprint 3.5.1 NATIVE GENAI FOLLOW-UP ===
+
+Der abgelehnte Optimum/Transformers-Adapter bleibt abgelehnt. Ein zweiter,
+nativer Intel-OpenVINO-GenAI-Pfad wurde mit der lokalen WhisperX/Pyannote-VAD
+getestet. Das repraesentative 39:54-Meeting benoetigte 207,106 s VAD und
+103,773 s Intel-iGPU-Inferenz. Das Ergebnis umfasst 15.931 Zeichen gegenueber
+16.503 Zeichen der validierten WhisperX-Systemspur; angrenzende exakte
+Dubletten fielen von 120 ohne VAD auf drei. Damit ist eine begrenzte
+Produktintegration fuer Sprint 3.5.2 freigegeben, jedoch erst mit Cancellation,
+Fortschritt, atomarem Output, Modellverwaltung, Source-Merging und sauberer
+Grenzsegment-Reconciliation.
+
+Die Intel AI Boost NPU funktioniert ebenfalls, ist fuer dieses Modell aber
+nicht schneller: 9,422 s Inferenz fuer 199,781 s Audio gegenueber ca. 9,20 s
+auf der iGPU; der NPU-Kaltstart benoetigte 65,866 s. Ziel fuer die erste
+Integration ist deshalb die Intel-iGPU. NPU bleibt Research-only.
