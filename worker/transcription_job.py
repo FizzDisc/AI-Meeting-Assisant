@@ -31,7 +31,37 @@ def merge_segments(results: list[tuple[str, dict[str, Any]]]) -> list[dict[str, 
                         for item in result.get("segments", []) if str(item["text"]).strip())
     return sorted(segments, key=lambda item: (item["start"], item["end"], item["source"]))
 
-def diarize_system_audio(model_path: Path, normalized: list[tuple[str, Path]], status_path: Path) -> tuple[list[dict[str, Any]], int]:
+def compress_speech_audio(audio: dict[str, Any], windows: list[dict[str, Any]], separator_seconds: float = 0.25):
+    import torch
+    rate, waveform = int(audio["sample_rate"]), audio["waveform"]
+    pieces, mapping, cursor = [], [], 0.0
+    for index, window in enumerate(windows):
+        start, end = float(window["start"]), float(window["end"])
+        piece = waveform[:, round(start*rate):round(end*rate)]
+        piece_seconds = piece.shape[1]/rate
+        if piece_seconds <= 0: continue
+        pieces.append(piece)
+        mapping.append({"compressedStart": cursor, "compressedEnd": cursor+piece_seconds,
+                        "originalStart": start, "originalEnd": end})
+        cursor += piece_seconds
+        if index < len(windows)-1:
+            pieces.append(torch.zeros((waveform.shape[0], round(separator_seconds*rate)), dtype=waveform.dtype))
+            cursor += separator_seconds
+    return {"waveform": torch.cat(pieces, dim=1), "sample_rate": rate}, mapping
+
+def restore_turn_timestamps(turns: list[dict[str, Any]], mapping: list[dict[str, float]]) -> list[dict[str, Any]]:
+    restored = []
+    for turn in turns:
+        for item in mapping:
+            start=max(float(turn["start"]),item["compressedStart"]);end=min(float(turn["end"]),item["compressedEnd"])
+            if end<=start: continue
+            restored.append({"start":item["originalStart"]+(start-item["compressedStart"]),
+                             "end":min(item["originalStart"]+(end-item["compressedStart"]),item["originalEnd"]),
+                             "speaker":turn["speaker"]})
+    return restored
+
+def diarize_system_audio(model_path: Path, normalized: list[tuple[str, Path]], status_path: Path,
+                         speech_windows: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, Any]], int]:
     from diarization_job import extract, load_pcm16
     from pyannote.audio import Pipeline
     system_path = next((path for label, path in normalized if label == "system_audio"), None)
@@ -39,7 +69,12 @@ def diarize_system_audio(model_path: Path, normalized: list[tuple[str, Path]], s
     write_atomic(status_path, {"status": "loading-diarization-model", "progress": 0.91})
     pipeline = Pipeline.from_pretrained(model_path)
     write_atomic(status_path, {"status": "diarizing", "progress": 0.94, "source": "system_audio"})
-    turns = extract(pipeline(load_pcm16(system_path)))
+    audio = load_pcm16(system_path)
+    mapping = None
+    if speech_windows:
+        audio, mapping = compress_speech_audio(audio, speech_windows)
+    turns = extract(pipeline(audio))
+    if mapping is not None: turns = restore_turn_timestamps(turns, mapping)
     return turns, len({turn["speaker"] for turn in turns})
 
 def reconcile_without_diarization(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -59,6 +94,7 @@ def run(request_path: Path) -> int:
     inputs = [Path(item).resolve() for item in request["audioPaths"]]
     model_path, output_path = Path(request["modelPath"]).resolve(), Path(request["outputPath"]).resolve()
     status_path = Path(request["statusPath"]).resolve()
+    phase_started = time.monotonic()
     write_atomic(status_path, {"status": "normalizing", "progress": 0.1})
     normalized = []
     for index, source in enumerate(inputs):
@@ -66,19 +102,23 @@ def run(request_path: Path) -> int:
         normalized_path = output_path.parent / f"normalized_{label}.wav"
         normalize_audio(source, normalized_path)
         normalized.append((label, normalized_path))
+    normalization_seconds = time.monotonic()-phase_started
     preference = request.get("computePreference", "automatic")
     write_atomic(status_path, {"status": "loading-openvino-model" if preference == "intel-gpu" else "loading-model", "progress": 0.25})
     import torch
     compute = select_compute(torch, preference)
     device, compute_type, batch_size = compute["mode"], compute["computeType"], compute["batchSize"]
+    model_started = time.monotonic()
     if preference == "intel-gpu":
         from openvino_backend import OpenVinoTranscriber
         vad_model = Path(sys.executable).resolve().parent.parent / "Lib/site-packages/whisperx/assets/pytorch_model.bin"
         model = OpenVinoTranscriber(Path(request["openVinoRuntimePath"]), Path(request["openVinoModelPath"]),
-                                    vad_model, request.get("language") or "de")
+                                    vad_model, request.get("language") or "de",
+                                    silero_repository=Path(request["sileroVadPath"]))
     else:
         import whisperx
         model = whisperx.load_model(str(model_path), device, compute_type=compute_type, language=request.get("language"))
+    model_seconds = time.monotonic()-model_started
     results = []
     for index, (label, normalized_path) in enumerate(normalized):
         base, span = 0.35 + 0.5 * index / len(normalized), 0.5 / len(normalized)
@@ -103,21 +143,38 @@ def run(request_path: Path) -> int:
     segments = merge_segments(results)
     diarization_path_text = request.get("diarizationModelPath")
     speaker_count = 0
-    if diarization_path_text:
+    diarization_seconds = 0.0
+    diarization_skipped_reason = None
+    system_result = next((result for source, result in results if source == "system_audio"), None)
+    system_speech_seconds = float(system_result.get("speechSeconds", 0.0)) if system_result else 0.0
+    if diarization_path_text and preference == "intel-gpu" and system_speech_seconds < 2.0:
+        diarization_skipped_reason = f"System audio contains only {system_speech_seconds:.2f} seconds of detected speech."
+        segments = reconcile_without_diarization(segments)
+    elif diarization_path_text:
         from speaker_reconciliation import reconcile
-        turns, speaker_count = diarize_system_audio(Path(diarization_path_text).resolve(), normalized, status_path)
+        diarization_started = time.monotonic()
+        windows = system_result.get("speechWindows") if preference == "intel-gpu" and system_result else None
+        turns, speaker_count = diarize_system_audio(Path(diarization_path_text).resolve(), normalized, status_path, windows)
         write_atomic(status_path, {"status": "assigning-speakers", "progress": 0.98})
         segments = reconcile(segments, turns)
+        diarization_seconds = time.monotonic()-diarization_started
     else:
         segments = reconcile_without_diarization(segments)
+    performance = {"normalizationSeconds": round(normalization_seconds, 3),
+                   "modelLoadSeconds": round(model_seconds, 3),
+                   "diarizationSeconds": round(diarization_seconds, 3)}
+    if preference == "intel-gpu": performance["openVino"] = model.metrics
     transcript = {"schemaVersion": 3, "createdAtUtc": datetime.now(timezone.utc).isoformat(),
                   "language": next(iter(languages)) if len(languages) == 1 else None,
                   "detectedLanguages": detected_languages, "device": device, "computeType": compute_type,
                   "batchSize": batch_size, "computePreference": compute["preference"],
                   "fallbackReason": compute["fallbackReason"],
-                  "diarizationEnabled": bool(diarization_path_text), "speakerCount": speaker_count,
+                  "diarizationRequested": bool(diarization_path_text),
+                  "diarizationEnabled": bool(diarization_path_text) and diarization_skipped_reason is None,
+                  "diarizationSkippedReason": diarization_skipped_reason, "speakerCount": speaker_count,
                   "modelId": request.get("modelId") or model_path.name,
                   "processingDurationMilliseconds": int((time.monotonic() - started) * 1000),
+                  "performance": performance,
                   "segments": segments}
     write_atomic(output_path, transcript)
     write_atomic(status_path, {"status": "completed", "progress": 1.0,

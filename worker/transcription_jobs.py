@@ -19,13 +19,17 @@ class TranscriptionJobManager:
         if not model_path.is_dir(): raise FileNotFoundError(f"Local model directory not found: {model_path}")
         openvino_model_text = str(payload.get("openVinoModelPath") or "").strip()
         openvino_runtime_text = str(payload.get("openVinoRuntimePath") or "").strip()
+        silero_text = str(payload.get("sileroVadPath") or "").strip()
         openvino_model = Path(openvino_model_text).resolve() if openvino_model_text else None
         openvino_runtime = Path(openvino_runtime_text).resolve() if openvino_runtime_text else None
+        silero_path = Path(silero_text).resolve() if silero_text else None
         if preference == "intel-gpu":
             if openvino_model is None or not openvino_model.is_dir():
                 raise FileNotFoundError("The selected OpenVINO speech model is not installed.")
             if openvino_runtime is None or not openvino_runtime.is_dir():
                 raise FileNotFoundError("The local OpenVINO runtime is not installed.")
+            if silero_path is None or not silero_path.is_dir():
+                raise FileNotFoundError("The optimized local Silero VAD is not installed.")
         if not output_text: raise ValueError("outputPath is required.")
         output_path, job_id = Path(output_text).resolve(), uuid.uuid4().hex
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,6 +44,7 @@ class TranscriptionJobManager:
                    "computePreference": preference,
                    "openVinoModelPath": str(openvino_model) if openvino_model else None,
                    "openVinoRuntimePath": str(openvino_runtime) if openvino_runtime else None,
+                   "sileroVadPath": str(silero_path) if silero_path else None,
                    "modelId": payload.get("modelId"),
                    "diarizationModelPath": str(diarization_path) if diarization_path else None}
         request_path.write_text(json.dumps(request), encoding="utf-8")

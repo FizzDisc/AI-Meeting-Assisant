@@ -545,7 +545,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var job = await _workerClient.StartTranscriptionAsync([microphone, systemAudio], selectedModel.ModelPath!, outputPath,
                 computePreference: _computePreference, diarizationModelPath: _diarizationModelPath, modelId: selectedModel.Id,
                 openVinoModelPath: LocalModelResolver.ResolveOpenVinoSpeechModel(selectedModel.Id),
-                openVinoRuntimePath: LocalModelResolver.ResolveOpenVinoRuntime(), cancellationToken: token);
+                openVinoRuntimePath: LocalModelResolver.ResolveOpenVinoRuntime(),
+                sileroVadPath: LocalModelResolver.ResolveSileroVad(), cancellationToken: token);
             activeJobId = job.JobId;
             while (true)
             {

@@ -51,6 +51,13 @@ public static class LocalModelResolver
         return null;
     }
 
+    public static string? ResolveSileroVad()
+    {
+        var candidate = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cache", "torch", "hub", "snakers4_silero-vad_master");
+        return Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "hubconf.py")) ? candidate : null;
+    }
+
     private static string? ResolveModel(string directoryName, string? overrideVariable, string? baseDirectory)
     {
         var configured = overrideVariable is null ? null : Environment.GetEnvironmentVariable(overrideVariable);

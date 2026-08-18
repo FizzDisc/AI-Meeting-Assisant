@@ -8,6 +8,7 @@ __pycache__/
 *.py[cod]
 .venv/
 .openvino-spike/
+.torch-xpu-spike/
 worker/models/
 venv/
 .pytest_cache/

@@ -6,12 +6,12 @@ from pathlib import Path
 
 from openvino_spike import add_spike_packages, available_devices, directory_size, load_pcm16, with_heartbeat, write_report
 
-def detect_speech_windows(audio, chunk_seconds: float = 30.0):
-    from whisperx.vads import Pyannote
+def detect_speech_windows(audio, method: str, chunk_seconds: float = 30.0):
+    from openvino_backend import detect_speech_windows as detect, load_vad
     model_path = Path(__file__).resolve().parent / ".venv/Lib/site-packages/whisperx/assets/pytorch_model.bin"
-    vad = Pyannote("cpu", model_fp=str(model_path), vad_onset=0.5)
-    scores = vad({"waveform": vad.preprocess_audio(audio), "sample_rate": 16000})
-    return vad.merge_chunks(scores, chunk_seconds, onset=0.5, offset=0.363)
+    import torch
+    silero = Path(torch.hub.get_dir()) / "snakers4_silero-vad_master" if method == "silero" else None
+    return detect(audio, load_vad(method, model_path, silero), chunk_seconds)
 
 def run_once(model_path: Path, audio, duration: float, device: str, language: str | None, speech_windows=None):
     import openvino_genai as genai
@@ -30,15 +30,19 @@ def run_once(model_path: Path, audio, duration: float, device: str, language: st
         samples = audio[round(start * 16000):round(end * 16000)]
         result = with_heartbeat(device, lambda: pipeline.generate(samples, config))
         if result.texts and result.texts[0].strip(): texts.append(result.texts[0].strip())
-        chunks.extend({"start": start + float(item.start_ts), "end": min(start + float(item.end_ts), duration),
-                       "text": item.text.strip()}
-                      for item in (result.chunks or []) if item.text.strip())
+        for item in result.chunks or []:
+            absolute_start = start + float(item.start_ts)
+            absolute_end = min(start + float(item.end_ts), end, duration)
+            if item.text.strip() and absolute_start < end and absolute_end > absolute_start:
+                chunks.append({"start": absolute_start, "end": absolute_end, "text": item.text.strip()})
     finished = time.perf_counter()
     inference = finished - loaded
+    from openvino_backend import reconcile_segments
+    chunks = reconcile_segments(chunks)
     return {"device": device, "loadAndCompileSeconds": round(loaded - started, 3),
             "inferenceSeconds": round(inference, 3),
             "realTimeFactor": round(inference / duration, 4) if duration else None,
-            "text": " ".join(texts), "chunks": chunks,
+            "text": " ".join(item["text"] for item in chunks), "chunks": chunks,
             "speechWindowCount": len(inputs),
             "speechSeconds": round(sum(float(item["end"]) - float(item["start"]) for item in inputs), 3)}
 
@@ -49,6 +53,7 @@ def main() -> int:
     parser.add_argument("--devices", nargs="+", default=["CPU", "GPU"])
     parser.add_argument("--language", default="de")
     parser.add_argument("--vad", action="store_true")
+    parser.add_argument("--vad-method", choices=["pyannote", "silero"], default="pyannote")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     worker_dir = Path(__file__).resolve().parent
@@ -62,7 +67,7 @@ def main() -> int:
     if missing: raise RuntimeError(f"Requested OpenVINO device(s) unavailable: {', '.join(missing)}")
     audio, duration = load_pcm16(audio_path)
     vad_started = time.perf_counter()
-    speech_windows = detect_speech_windows(audio) if args.vad else None
+    speech_windows = detect_speech_windows(audio, args.vad_method) if args.vad else None
     vad_seconds = time.perf_counter() - vad_started
     output = args.output.resolve() if args.output else Path("artifacts/benchmarks/openvino-genai-spike.json").resolve()
     report = {"schemaVersion": 1, "engine": "openvino-genai", "status": "running",
@@ -70,6 +75,7 @@ def main() -> int:
               "audioDurationSeconds": round(duration, 3), "modelPath": str(model_path),
               "modelBytes": directory_size(model_path), "runtimeBytes": directory_size(packages),
               "availableDevices": detected, "vadEnabled": args.vad,
+              "vadMethod": args.vad_method if args.vad else None,
               "vadSeconds": round(vad_seconds, 3), "detectedSpeechWindows": len(speech_windows or []),
               "results": []}
     write_report(output, report)
