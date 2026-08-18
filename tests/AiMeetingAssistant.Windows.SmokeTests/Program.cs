@@ -1,9 +1,33 @@
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Windows.Capture;
+using AiMeetingAssistant.Windows.Worker;
 using System.Text.Json;
 
 var failures = 0;
+
+try
+{
+    var workerPath = Path.Combine(Environment.CurrentDirectory, "worker", "main.py");
+    await using var worker = new PythonWorkerClient("python", workerPath);
+    var firstHealth = await worker.CheckHealthAsync();
+    var secondHealth = await worker.CheckHealthAsync();
+    if (firstHealth.Status != "ready" || firstHealth.WorkerVersion != "0.1.0" ||
+        !firstHealth.Capabilities.Contains("health.check") || secondHealth.PythonVersion != firstHealth.PythonVersion)
+    {
+        Console.Error.WriteLine("FAIL Python worker health/capability negotiation is inconsistent.");
+        failures++;
+    }
+    else
+    {
+        Console.WriteLine($"PASS Python worker protocol handshake: worker {firstHealth.WorkerVersion}, Python {firstHealth.PythonVersion}, ML runtime supported={firstHealth.RuntimeSupported}.");
+    }
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Python worker supervisor: {exception.Message}");
+    failures++;
+}
 
 // Test 1: Source Discovery
 try

@@ -10,4 +10,7 @@
     <ProjectReference Include="..\AiMeetingAssistant.Contracts\AiMeetingAssistant.Contracts.csproj" />
     <ProjectReference Include="..\AiMeetingAssistant.Windows\AiMeetingAssistant.Windows.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\worker\main.py" Link="worker\main.py" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

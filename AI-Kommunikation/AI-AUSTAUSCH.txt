@@ -1404,3 +1404,49 @@ intelligence (Sprint 4) und Knowledge base (Later). Badge und Footer markieren
 Sprint 1 ebenfalls als abgeschlossen.
 
 Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.1 bereit fuer UI-Smoke-Test
+Status: READY FOR MANUAL TEST
+
+Nachricht:
+Die Desktop-App startet und ueberwacht nun einen langlebigen lokalen Python-
+Worker. JSON-lines-Anfragen werden per Protokoll 1.0 und Request-ID validiert,
+haben Timeout sowie begrenzte stderr-Diagnostik und der Worker endet mit der
+App. main.py wird in den Desktop-Build kopiert.
+
+Der Healthcheck meldet Worker 0.1.0, Python-Version und Capabilities. Lokal ist
+Python 3.13.14 installiert: Transport erfolgreich, ML-Runtime erwartungsgemaess
+nicht unterstuetzt. Fuer WhisperX/pyannote gilt Python 3.11 oder 3.12.
+
+Build: 0 Warnungen/Fehler. 28/28 Core-Tests und alle Windows-Smoke-Tests inkl.
+echtem .NET-zu-Python-Handshake bestanden. Offen: UI-Anzeige und sauberer
+Worker-Shutdown beim App-Ende.
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.1 abgeschlossen
+Status: DONE
+
+Nachricht:
+Der manuelle Worker-Smoke-Test ist erfolgreich: Prozessstart, Healthcheck,
+erwarteter Hinweis fuer die aktuell installierte Python-3.13-Runtime und
+sauberer Worker-Shutdown funktionieren.
+
+Der Worker ist bereits ein echter ueberwachter Python-Prozess mit produktiver
+Transport-, Protokoll- und Lifecycle-Infrastruktur. Noch nicht enthalten ist
+ein AI/ML-Modell; einzige Capability ist derzeit health.check. WhisperX folgt
+in einem spaeteren Sprint-2-Slice nach Einrichtung von Python 3.11/3.12.
+
+Neues Backlog-Item AMA-111: Release-Roadmap im Dashboard mittelfristig durch
+ein Status Center fuer Jobs, Fortschritt, Warnungen und technisches Log ersetzen.
+
+Sprint 2.1 ist abgeschlossen. Commit und Push bleiben bei Kevin.

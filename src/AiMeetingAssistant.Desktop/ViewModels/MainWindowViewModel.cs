@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Threading;
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
+using AiMeetingAssistant.Windows.Worker;
 
 namespace AiMeetingAssistant.Desktop.ViewModels;
 
@@ -12,6 +13,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ICaptureSourceDiscovery _sourceDiscovery;
     private readonly RecordingSession _recordingSession;
     private readonly ICaptureCoordinator _captureCoordinator;
+    private readonly PythonWorkerClient? _workerClient;
     private readonly Stopwatch _recordingStopwatch = new();
     private readonly DispatcherTimer _recordingTimer;
     private Dispatcher? _uiDispatcher;
@@ -27,10 +29,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private double _microphoneLevel;
     private string? _statusMessage;
 
-    public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator)
+    public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator, PythonWorkerClient? workerClient = null)
     {
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
+        _workerClient = workerClient;
         _recordingSession = new(captureCoordinator);
         _recordingTimer = new(DispatcherPriority.Background)
         {
@@ -153,7 +156,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<PipelineStep> PipelineSteps { get; } =
     [
         new("Capture foundation", "Complete"),
-        new("Local transcription", "Sprint 2"),
+        new("Local transcription", "Sprint 2.1"),
         new("Speaker diarization", "Sprint 3"),
         new("Meeting intelligence", "Sprint 4"),
         new("Knowledge base", "Later")
@@ -173,6 +176,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         await RefreshSourcesAsync();
         if (recovery?.RecoveredSessions > 0) StatusMessage = $"Recovered {recovery.RecoveredSessions} interrupted recording(s).";
         if (recovery?.Issues.Count > 0) ErrorMessage = $"Session recovery found {recovery.Issues.Count} issue(s): {recovery.Issues[0]}";
+        if (_workerClient is not null)
+        {
+            try
+            {
+                var health = await _workerClient.CheckHealthAsync();
+                StatusMessage = health.RuntimeSupported
+                    ? $"AI worker ready · Python {health.PythonVersion} · protocol {AiMeetingAssistant.Contracts.WorkerProtocol.CurrentVersion}"
+                    : $"AI worker connected · Python {health.PythonVersion} is unsupported for ML; install Python 3.11 or 3.12.";
+            }
+            catch (Exception exception)
+            {
+                ErrorMessage = $"AI worker unavailable: {exception.Message}";
+            }
+        }
     }
 
     public async Task ShutdownAsync()
@@ -186,6 +203,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         catch
         {
             // Ignore shutdown errors
+        }
+        if (_workerClient is not null)
+        {
+            try { await _workerClient.DisposeAsync(); } catch { }
         }
     }
 

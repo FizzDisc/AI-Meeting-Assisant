@@ -27,7 +27,7 @@ docs/                            Architecture, decisions and backlog
 
 - Windows 10 version 2004 or newer
 - .NET 8 SDK (the desktop workload is included in the Windows SDK)
-- Python 3.11 for the worker; ML dependencies are intentionally deferred
+- Python 3.11 or 3.12 for the worker ML runtime; protocol health checks also report unsupported runtimes clearly. ML dependencies are intentionally deferred.
 
 ## Run the desktop shell
 

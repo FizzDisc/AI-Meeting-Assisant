@@ -26,10 +26,14 @@
 
 ## Sprint 2 — local transcription
 
-- Package and supervise the Python worker and negotiate capabilities.
+- **Sprint 2.1 complete:** package the Python entry script with the desktop build, supervise one long-lived hidden process, exchange correlated JSON-lines requests, enforce protocol version/timeouts, retain bounded stderr diagnostics, negotiate worker/runtime capabilities and stop the process with the app. Manual validation confirmed worker startup, the expected Python 3.13 ML-runtime warning and clean worker shutdown. Python 3.11/3.12 is the supported ML runtime.
 - Add media normalization and cancellable WhisperX transcription.
 - Report model download, progress, hardware mode and actionable failures.
 - Persist aligned timestamped transcript segments; add viewer and Markdown/JSON export.
+
+### Cross-cutting UI
+
+- **AMA-111: Status Center** — Replace the dashboard's release-roadmap card with an operational status surface for current jobs, progress, warnings, recoveries and a collapsible bounded technical log. Move the product roadmap to a separate secondary view rather than mixing planned releases with live application state.
 
 ## Sprint 3 — speakers
 

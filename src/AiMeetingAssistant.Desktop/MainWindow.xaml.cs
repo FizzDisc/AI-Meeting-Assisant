@@ -1,7 +1,9 @@
+using System.IO;
 using System.Windows;
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Desktop.ViewModels;
 using AiMeetingAssistant.Windows.Capture;
+using AiMeetingAssistant.Windows.Worker;
 
 namespace AiMeetingAssistant.Desktop;
 
@@ -14,7 +16,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator())
+        var workerPath = Path.Combine(AppContext.BaseDirectory, "worker", "main.py");
+        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(), new PythonWorkerClient("python", workerPath))
         {
             UIDispatcher = Dispatcher
         };

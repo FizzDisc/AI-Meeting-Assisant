@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AiMeetingAssistant.Core\AiMeetingAssistant.Core.csproj" />
+    <ProjectReference Include="..\AiMeetingAssistant.Contracts\AiMeetingAssistant.Contracts.csproj" />
     <PackageReference Include="ScreenRecorderLib" Version="6.6.0" GeneratePathProperty="true" ExcludeAssets="build" />
     <Reference Include="ScreenRecorderLib">
       <HintPath>$(PkgScreenRecorderLib)\build\x64\ScreenRecorderLib.dll</HintPath>

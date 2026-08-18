@@ -27,8 +27,16 @@ def handle(message: dict[str, Any]) -> dict[str, Any]:
     if message.get("protocolVersion") != PROTOCOL_VERSION:
         return error(request_id, "unsupported_protocol", "Expected protocol version 1.0")
     if message.get("type") == "health.check":
-        return response(request_id, "health.result", {"status": "ready", "capabilities": []})
-    return error(request_id, "unsupported_request", "Only health.check is available in Sprint 0")
+        version = sys.version_info
+        runtime_supported = version.major == 3 and version.minor in (11, 12)
+        return response(request_id, "health.result", {
+            "status": "ready",
+            "workerVersion": "0.1.0",
+            "pythonVersion": f"{version.major}.{version.minor}.{version.micro}",
+            "runtimeSupported": runtime_supported,
+            "capabilities": ["health.check"],
+        })
+    return error(request_id, "unsupported_request", "Only health.check is available in Sprint 2.1")
 
 
 def main() -> int:
@@ -43,4 +51,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

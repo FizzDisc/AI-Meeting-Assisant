@@ -24,6 +24,8 @@ The Python process owns media preprocessing, WhisperX transcription/alignment, p
 
 The processes initially exchange newline-delimited JSON over redirected standard input/output. Every message carries a protocol version and request ID. Large media and result artifacts travel through scoped filesystem paths. This is inspectable today and permits a later move to named pipes or gRPC.
 
+Sprint 2.1 packages `worker/main.py` into the desktop output and supervises it as one hidden, long-lived child process with redirected standard streams. Requests are serialized through a lifecycle lock, correlated by request ID, constrained by a ten-second timeout and checked against protocol 1.0. Stdout is protocol-only; the last ten stderr lines are retained for actionable exit diagnostics. Health negotiation returns worker/Python versions, runtime support and capabilities. Python 3.11 and 3.12 are accepted for the ML stack; other versions can exercise the protocol but are reported unsupported for WhisperX/pyannote.
+
 ## Layering
 
 ```text
