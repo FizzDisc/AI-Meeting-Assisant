@@ -12,9 +12,10 @@ try
     await using var worker = new PythonWorkerClient("python", workerPath);
     var firstHealth = await worker.CheckHealthAsync();
     var secondHealth = await worker.CheckHealthAsync();
-    if (firstHealth.Status is not ("ready" or "setup-required") || firstHealth.WorkerVersion != "0.3.0" ||
+    if (firstHealth.Status is not ("ready" or "setup-required") || firstHealth.WorkerVersion != "0.4.0" ||
         !firstHealth.Capabilities.Contains("transcription.jobs") || secondHealth.PythonVersion != firstHealth.PythonVersion ||
-        firstHealth.Diagnostics.Packages.Count != 3)
+        firstHealth.Diagnostics.Packages.Count != 3 || firstHealth.Diagnostics.Compute.BatchSize < 1 ||
+        !firstHealth.Diagnostics.Compute.SupportedPreferences.Contains("cpu-only"))
     {
         Console.Error.WriteLine("FAIL Python worker health/capability negotiation is inconsistent.");
         failures++;

@@ -1596,3 +1596,40 @@ Diagnose, sichere Compute-Typen, automatische Batch-Groesse, CPU-Fallback und
 spaetere getrennte Bewertung von DirectML fuer AMD/Intel.
 
 Sprint 2.3 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.4 Hardwareprofile implementiert
+Status: READY FOR MANUAL UI SMOKE
+
+Nachricht:
+Worker 0.4.0 erkennt Torch-/CUDA-Build, NVIDIA-Geraet und VRAM und unterstuetzt
+automatic, prefer-cuda und cpu-only. CUDA nutzt float16 mit VRAM-basierter
+Batch-Groesse; CPU nutzt int8/Batch 2. Fallbacks werden begruendet und im
+Transkript persistiert.
+
+Referenzrechner: Intel Graphics, kein NVIDIA/nvidia-smi, Torch 2.8.0+cpu.
+Automatic waehlt daher korrekt CPU/int8/Batch 2. Simulierte CUDA-/VRAM-Tests,
+erzwungener CPU-Modus und Prefer-CUDA-Fehlerpfad sind gruen. Ein realer
+Zwei-Spur-Re-Smoke wurde completed und speichert den Hardware-Fallback.
+
+Build: 0 Warnungen, 0 Fehler. Windows-Smokes, 28 Core-Tests und sechs Python-
+Lifecycle-/Hardwaretests bestanden. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.4 manueller UI-Smoke erfolgreich
+Status: DONE
+
+Nachricht:
+Der manuelle Desktop-Smoke ist erfolgreich. Die App meldet
+`AI runtime ready - CPU/int8 - Python 3.13.14`; Geraeteerkennung und
+Aufnahmesteuerung funktionieren weiterhin.
+
+Sprint 2.4 ist abgeschlossen. Commit und Push bleiben bei Kevin.

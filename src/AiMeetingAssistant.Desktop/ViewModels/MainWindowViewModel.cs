@@ -182,7 +182,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 var health = await _workerClient.CheckHealthAsync();
                 StatusMessage = health.MlReady
-                    ? $"AI runtime ready · {health.Diagnostics.Compute.Mode.ToUpperInvariant()} · Python {health.PythonVersion}"
+                    ? $"AI runtime ready · {health.Diagnostics.Compute.Mode.ToUpperInvariant()}/{health.Diagnostics.Compute.ComputeType} · Python {health.PythonVersion}"
                     : health.RuntimeSupported
                         ? $"AI worker connected · setup required: {string.Join(", ", health.Diagnostics.MissingRequirements)}"
                         : $"AI worker connected · Python {health.PythonVersion} is unsupported; use Python 3.10 through 3.13.";

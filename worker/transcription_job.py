@@ -4,6 +4,7 @@ import json, subprocess, sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from hardware import select_compute
 
 def write_atomic(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -31,15 +32,18 @@ def run(request_path: Path) -> int:
     write_atomic(status_path, {"status": "loading-model", "progress": 0.25})
     import whisperx
     import torch
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    compute_type = "float16" if device == "cuda" else "int8"
+    compute = select_compute(torch, request.get("computePreference", "automatic"))
+    device, compute_type, batch_size = compute["mode"], compute["computeType"], compute["batchSize"]
     model = whisperx.load_model(str(model_path), device, compute_type=compute_type, language=request.get("language"))
     audio = whisperx.load_audio(str(normalized_path))
     write_atomic(status_path, {"status": "transcribing", "progress": 0.4,
-                               "device": device, "computeType": compute_type})
-    result = model.transcribe(audio, batch_size=8 if device == "cuda" else 2)
+                               "device": device, "computeType": compute_type, "batchSize": batch_size,
+                               "fallbackReason": compute["fallbackReason"]})
+    result = model.transcribe(audio, batch_size=batch_size)
     transcript = {"schemaVersion": 1, "createdAtUtc": datetime.now(timezone.utc).isoformat(),
                   "language": result.get("language"), "device": device, "computeType": compute_type,
+                  "batchSize": batch_size, "computePreference": compute["preference"],
+                  "fallbackReason": compute["fallbackReason"],
                   "segments": [{"start": float(s["start"]), "end": float(s["end"]),
                                 "text": str(s["text"]).strip()} for s in result.get("segments", [])]}
     write_atomic(output_path, transcript)

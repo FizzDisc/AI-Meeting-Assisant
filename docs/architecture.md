@@ -34,6 +34,8 @@ Sprint 2.2 adds an isolated repository-local `worker/.venv`, a reproducible boot
 
 Sprint 2.3 runs each transcription in an isolated child process supervised by the long-lived worker. The UI-side client starts a job, polls bounded status and can cancel it; cancellation terminates native inference without killing the worker. FFmpeg normalizes one or mixes two finalized WAV tracks to mono PCM16/16 kHz. WhisperX accepts only an existing local model directory and atomically writes `processing/transcript.json`; no job call may trigger an implicit model download. Transcript alignment, speaker diarization and automatic post-recording orchestration remain later slices.
 
+Sprint 2.4 adds deterministic hardware profiles. `automatic` selects CUDA/float16 only when Torch confirms a compatible NVIDIA device and otherwise records an explicit CPU/int8 fallback reason. `prefer-cuda` fails when unavailable; `cpu-only` overrides a GPU. CUDA batch size scales conservatively with total VRAM, while CPU remains batch 2. Health and transcript metadata expose the actual Torch build, CUDA build, device, VRAM, compute type and batch size. The current Intel-only reference machine therefore remains on the validated CPU path without installing unused CUDA packages.
+
 ## Layering
 
 ```text

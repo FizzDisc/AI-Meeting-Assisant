@@ -22,7 +22,8 @@ class TranscriptionJobManager:
         status_path = output_path.parent / f"transcription-{job_id}.status.json"
         request_path = output_path.parent / f"transcription-{job_id}.request.json"
         request = {"audioPaths": [str(p) for p in audio_paths], "modelPath": str(model_path),
-                   "outputPath": str(output_path), "statusPath": str(status_path), "language": payload.get("language")}
+                   "outputPath": str(output_path), "statusPath": str(status_path), "language": payload.get("language"),
+                   "computePreference": payload.get("computePreference", "automatic")}
         request_path.write_text(json.dumps(request), encoding="utf-8")
         process = subprocess.Popen([sys.executable, "-u", str(self._job_script), str(request_path)],
                                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,

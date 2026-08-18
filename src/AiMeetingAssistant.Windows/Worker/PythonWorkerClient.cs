@@ -5,7 +5,9 @@ using AiMeetingAssistant.Contracts;
 namespace AiMeetingAssistant.Windows.Worker;
 
 public sealed record WorkerPackageStatus(bool Installed, string? Version);
-public sealed record WorkerComputeStatus(string Mode, bool CudaAvailable, string? CudaVersion, string? DeviceName, string? Error);
+public sealed record WorkerComputeStatus(string Preference, string Mode, string ComputeType, int BatchSize,
+    bool CudaAvailable, string? DeviceName, long? TotalVramBytes, string? TorchVersion,
+    string? TorchCudaVersion, string? FallbackReason, IReadOnlyList<string> SupportedPreferences, string? Error);
 public sealed record WorkerRuntimeDiagnostics(string PythonExecutable, string Platform,
     IReadOnlyDictionary<string, WorkerPackageStatus> Packages, WorkerComputeStatus Compute,
     bool FfmpegAvailable, bool MlReady, IReadOnlyList<string> MissingRequirements);
@@ -48,10 +50,17 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
                 diagnostics.GetProperty("platform").GetString() ?? "unknown",
                 packages,
                 new(
+                    compute.GetProperty("preference").GetString() ?? "automatic",
                     compute.GetProperty("mode").GetString() ?? "unknown",
+                    compute.GetProperty("computeType").GetString() ?? "unknown",
+                    compute.GetProperty("batchSize").GetInt32(),
                     compute.GetProperty("cudaAvailable").GetBoolean(),
-                    compute.GetProperty("cudaVersion").ValueKind == JsonValueKind.Null ? null : compute.GetProperty("cudaVersion").GetString(),
                     compute.GetProperty("deviceName").ValueKind == JsonValueKind.Null ? null : compute.GetProperty("deviceName").GetString(),
+                    compute.GetProperty("totalVramBytes").ValueKind == JsonValueKind.Null ? null : compute.GetProperty("totalVramBytes").GetInt64(),
+                    compute.GetProperty("torchVersion").ValueKind == JsonValueKind.Null ? null : compute.GetProperty("torchVersion").GetString(),
+                    compute.GetProperty("torchCudaVersion").ValueKind == JsonValueKind.Null ? null : compute.GetProperty("torchCudaVersion").GetString(),
+                    compute.GetProperty("fallbackReason").ValueKind == JsonValueKind.Null ? null : compute.GetProperty("fallbackReason").GetString(),
+                    compute.GetProperty("supportedPreferences").EnumerateArray().Select(item => item.GetString() ?? "unknown").ToArray(),
                     compute.TryGetProperty("error", out var computeError) ? computeError.GetString() : null),
                 diagnostics.GetProperty("ffmpegAvailable").GetBoolean(),
                 diagnostics.GetProperty("mlReady").GetBoolean(),
@@ -59,9 +68,10 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
     }
 
     public async Task<TranscriptionJobStatus> StartTranscriptionAsync(IReadOnlyList<string> audioPaths,
-        string modelPath, string outputPath, string? language = null, CancellationToken cancellationToken = default)
+        string modelPath, string outputPath, string? language = null, string computePreference = "automatic",
+        CancellationToken cancellationToken = default)
     {
-        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language }, cancellationToken).ConfigureAwait(false);
+        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language, computePreference }, cancellationToken).ConfigureAwait(false);
         return ParseTranscriptionStatus(response.Payload);
     }
 

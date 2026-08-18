@@ -14,9 +14,10 @@ import shutil
 import sys
 from typing import Any
 from transcription_jobs import TranscriptionJobManager
+from hardware import detect_hardware
 
 PROTOCOL_VERSION = "1.0"
-WORKER_VERSION = "0.3.0"
+WORKER_VERSION = "0.4.0"
 SUPPORTED_PYTHON = (3, 10) <= sys.version_info[:2] < (3, 14)
 JOBS = TranscriptionJobManager()
 
@@ -51,16 +52,14 @@ def runtime_diagnostics() -> dict[str, Any]:
         "torch": package_status("torch"),
         "pyannoteAudio": package_status("pyannote-audio", "pyannote.audio"),
     }
-    compute: dict[str, Any] = {"mode": "cpu", "cudaAvailable": False,
-                               "cudaVersion": None, "deviceName": None}
+    compute: dict[str, Any] = {"preference": "automatic", "mode": "cpu", "computeType": "int8",
+                               "batchSize": 2, "cudaAvailable": False, "deviceName": None,
+                               "totalVramBytes": None, "torchVersion": None, "torchCudaVersion": None,
+                               "fallbackReason": "Torch is not installed.",
+                               "supportedPreferences": ["automatic", "prefer-cuda", "cpu-only"]}
     if packages["torch"]["installed"]:
         try:
-            import torch
-            compute["cudaAvailable"] = bool(torch.cuda.is_available())
-            compute["cudaVersion"] = torch.version.cuda
-            if compute["cudaAvailable"]:
-                compute["mode"] = "cuda"
-                compute["deviceName"] = torch.cuda.get_device_name(0)
+            compute = detect_hardware()
         except Exception as exc:
             compute["error"] = str(exc)
 

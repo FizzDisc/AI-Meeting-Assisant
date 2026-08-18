@@ -14,5 +14,6 @@
     <Content Include="..\..\worker\main.py" Link="worker\main.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\transcription_jobs.py" Link="worker\transcription_jobs.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\transcription_job.py" Link="worker\transcription_job.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\worker\hardware.py" Link="worker\hardware.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
