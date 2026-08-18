@@ -13,10 +13,12 @@ import platform
 import shutil
 import sys
 from typing import Any
+from transcription_jobs import TranscriptionJobManager
 
 PROTOCOL_VERSION = "1.0"
-WORKER_VERSION = "0.2.0"
+WORKER_VERSION = "0.3.0"
 SUPPORTED_PYTHON = (3, 10) <= sys.version_info[:2] < (3, 14)
+JOBS = TranscriptionJobManager()
 
 
 def response(request_id: str, message_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -85,9 +87,9 @@ def handle(message: dict[str, Any]) -> dict[str, Any]:
     if message.get("type") == "health.check":
         version = sys.version_info
         diagnostics = runtime_diagnostics()
-        capabilities = ["health.check", "runtime.diagnostics"]
+        capabilities = ["health.check", "runtime.diagnostics", "transcription.jobs"]
         if diagnostics["mlReady"]:
-            capabilities.append("transcription.prepare")
+            capabilities.append("transcription.run")
         return response(request_id, "health.result", {
             "status": "ready" if diagnostics["mlReady"] else "setup-required",
             "workerVersion": WORKER_VERSION,
@@ -97,16 +99,29 @@ def handle(message: dict[str, Any]) -> dict[str, Any]:
             "capabilities": capabilities,
             "diagnostics": diagnostics,
         })
-    return error(request_id, "unsupported_request", "Only health.check is available in Sprint 2.2")
+    payload = message.get("payload") or {}
+    try:
+        if message.get("type") == "transcription.start":
+            return response(request_id, "transcription.accepted", JOBS.start(payload))
+        if message.get("type") == "transcription.status":
+            return response(request_id, "transcription.status", JOBS.status(str(payload.get("jobId", ""))))
+        if message.get("type") == "transcription.cancel":
+            return response(request_id, "transcription.cancelled", JOBS.cancel(str(payload.get("jobId", ""))))
+    except (ValueError, FileNotFoundError, KeyError) as exc:
+        return error(request_id, "invalid_transcription_job", str(exc))
+    return error(request_id, "unsupported_request", "Unsupported worker request type.")
 
 
 def main() -> int:
-    for line in sys.stdin:
-        try:
-            result = handle(json.loads(line))
-        except (json.JSONDecodeError, TypeError, ValueError) as exc:
-            result = error("unknown", "invalid_request", str(exc))
-        print(json.dumps(result, separators=(",", ":")), flush=True)
+    try:
+        for line in sys.stdin:
+            try:
+                result = handle(json.loads(line))
+            except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                result = error("unknown", "invalid_request", str(exc))
+            print(json.dumps(result, separators=(",", ":")), flush=True)
+    finally:
+        JOBS.shutdown()
     return 0
 
 

@@ -1534,3 +1534,65 @@ Pruefung und `AI runtime ready` anzeigen. Ein Torch/CUDA-Kaltstart darf fuer
 den Nutzer nicht wie eine eingefrorene Anwendung wirken.
 
 Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.3 echte, abbrechbare WhisperX-Jobs implementiert
+Status: READY FOR MANUAL MODEL / MEDIA SMOKE
+
+Nachricht:
+Der Worker 0.3.0 bietet transcription.start/status/cancel. Jeder ML-Job laeuft
+in einem eigenen Kindprozess und kann auch waehrend nativer Inferenz wirklich
+beendet werden. Ein oder zwei WAV-Tracks werden per FFmpeg auf PCM16/16 kHz
+normalisiert beziehungsweise gemischt. WhisperX akzeptiert nur einen bereits
+lokal vorhandenen Modellordner und schreibt transcript.json atomar.
+
+Ein explizites Development-Skript kann fuer den manuellen Test das kleine
+Systran/faster-whisper-tiny-Modell laden; worker/models bleibt Git-ignoriert.
+Es gibt weiterhin keinen automatischen Modell-Download in der Anwendung.
+
+Build: 0 Warnungen, 0 Fehler. Windows-Smokes, 28 Core-Tests sowie Job-Abbruch-
+und Eingabevalidierungstests bestanden. Reale Transkription ist manueller
+Sign-off. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Firmen-CA beim Development-Modell-Download unterstuetzt
+Status: READY FOR RE-SMOKE
+
+Nachricht:
+Der Modell-Download scheiterte sicher reproduzierbar an CERTIFICATE_VERIFY_FAILED:
+Python/certifi kannte den lokalen Zertifikatsaussteller der HTTPS-Inspection
+nicht. Die TLS-Pruefung wird nicht deaktiviert. Stattdessen nutzt die Runtime
+mit gepinntem truststore 0.10.4 den nativen Windows-Zertifikatsspeicher samt
+organisationsverwalteter Root-CAs. Runtime-Setup und Modellinstaller wurden
+entsprechend aktualisiert.
+
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.3 reale Transkription erfolgreich
+Status: DONE
+
+Nachricht:
+Der Zwei-Spur-Smoke mit dem explizit installierten faster-whisper-tiny-Modell
+ist completed. Strukturpruefung von processing/transcript.json: Schema 1,
+Sprache Deutsch, CPU/int8, vier Segmente, keine ungueltigen oder nicht-monotonen
+Zeitstempel, abgedeckter Zeitraum 0,031 bis 96,725 Sekunden. normalized.wav,
+Statusdatei und atomisches Transkript sind vorhanden.
+
+AMA-116 dokumentiert den naechsten Hardware-Slice: NVIDIA CUDA, VRAM-/Treiber-
+Diagnose, sichere Compute-Typen, automatische Batch-Groesse, CPU-Fallback und
+spaetere getrennte Bewertung von DirectML fuer AMD/Intel.
+
+Sprint 2.3 ist abgeschlossen. Commit und Push bleiben bei Kevin.

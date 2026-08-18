@@ -11,6 +11,8 @@ public sealed record WorkerRuntimeDiagnostics(string PythonExecutable, string Pl
     bool FfmpegAvailable, bool MlReady, IReadOnlyList<string> MissingRequirements);
 public sealed record WorkerHealthResult(string Status, string WorkerVersion, string PythonVersion,
     bool RuntimeSupported, bool MlReady, IReadOnlyList<string> Capabilities, WorkerRuntimeDiagnostics Diagnostics);
+public sealed record TranscriptionJobStatus(string JobId, string Status, double Progress,
+    string? OutputPath, int? SegmentCount, string? Device, string? Error);
 
 public sealed class PythonWorkerClient(string pythonExecutable, string scriptPath, TimeSpan? requestTimeout = null) : IAsyncDisposable
 {
@@ -55,6 +57,53 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
                 diagnostics.GetProperty("mlReady").GetBoolean(),
                 diagnostics.GetProperty("missingRequirements").EnumerateArray().Select(item => item.GetString() ?? "unknown").ToArray()));
     }
+
+    public async Task<TranscriptionJobStatus> StartTranscriptionAsync(IReadOnlyList<string> audioPaths,
+        string modelPath, string outputPath, string? language = null, CancellationToken cancellationToken = default)
+    {
+        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language }, cancellationToken).ConfigureAwait(false);
+        return ParseTranscriptionStatus(response.Payload);
+    }
+
+    public async Task<TranscriptionJobStatus> GetTranscriptionStatusAsync(string jobId, CancellationToken cancellationToken = default)
+    {
+        var response = await SendAsync("transcription.status", new { jobId }, cancellationToken).ConfigureAwait(false);
+        return ParseTranscriptionStatus(response.Payload);
+    }
+
+    public async Task<TranscriptionJobStatus> CancelTranscriptionAsync(string jobId, CancellationToken cancellationToken = default)
+    {
+        var response = await SendAsync("transcription.cancel", new { jobId }, cancellationToken).ConfigureAwait(false);
+        return ParseTranscriptionStatus(response.Payload);
+    }
+
+    public async Task<TranscriptionJobStatus> WaitForTranscriptionAsync(string jobId, TimeSpan? pollInterval = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            while (true)
+            {
+                var status = await GetTranscriptionStatusAsync(jobId, cancellationToken).ConfigureAwait(false);
+                if (status.Status is "completed" or "failed" or "cancelled") return status;
+                await Task.Delay(pollInterval ?? TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            try { await CancelTranscriptionAsync(jobId, CancellationToken.None).ConfigureAwait(false); } catch { }
+            throw;
+        }
+    }
+
+    private static TranscriptionJobStatus ParseTranscriptionStatus(JsonElement payload) => new(
+        payload.GetProperty("jobId").GetString() ?? "unknown",
+        payload.GetProperty("status").GetString() ?? "unknown",
+        payload.GetProperty("progress").GetDouble(),
+        payload.TryGetProperty("outputPath", out var output) ? output.GetString() : null,
+        payload.TryGetProperty("segmentCount", out var count) ? count.GetInt32() : null,
+        payload.TryGetProperty("device", out var device) ? device.GetString() : null,
+        payload.TryGetProperty("error", out var error) ? error.GetString() : null);
 
     public async Task<WorkerResponse> SendAsync(string type, object payload, CancellationToken cancellationToken = default)
     {

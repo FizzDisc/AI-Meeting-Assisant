@@ -32,6 +32,8 @@ Sprint 2.1 packages `worker/main.py` into the desktop output and supervises it a
 
 Sprint 2.2 adds an isolated repository-local `worker/.venv`, a reproducible bootstrap pinned to stable WhisperX 3.8.6 and structured health diagnostics for Python, WhisperX, Torch, pyannote, FFmpeg and CUDA/CPU mode. Python 3.10 through 3.13 are accepted by the current stack. The desktop prefers an explicit `AI_MEETING_ASSISTANT_PYTHON` override, then discovers the local virtual environment and finally falls back to `python` on `PATH`. Health checks never load or download model weights; those remain an explicit Model Manager concern.
 
+Sprint 2.3 runs each transcription in an isolated child process supervised by the long-lived worker. The UI-side client starts a job, polls bounded status and can cancel it; cancellation terminates native inference without killing the worker. FFmpeg normalizes one or mixes two finalized WAV tracks to mono PCM16/16 kHz. WhisperX accepts only an existing local model directory and atomically writes `processing/transcript.json`; no job call may trigger an implicit model download. Transcript alignment, speaker diarization and automatic post-recording orchestration remain later slices.
+
 ## Layering
 
 ```text

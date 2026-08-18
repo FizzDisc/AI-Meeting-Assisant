@@ -14,7 +14,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Creating the AI virtual environment failed.' }
 & $runtimePython -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw 'Updating pip failed.' }
 
-& $runtimePython -m pip install "whisperx==3.8.6"
+& $runtimePython -m pip install "whisperx==3.8.6" "truststore==0.10.4"
 if ($LASTEXITCODE -ne 0) { throw 'Installing the WhisperX runtime failed.' }
 
 Write-Host "AI runtime installed at $virtualEnvironment"

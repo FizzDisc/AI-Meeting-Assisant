@@ -12,8 +12,8 @@ try
     await using var worker = new PythonWorkerClient("python", workerPath);
     var firstHealth = await worker.CheckHealthAsync();
     var secondHealth = await worker.CheckHealthAsync();
-    if (firstHealth.Status is not ("ready" or "setup-required") || firstHealth.WorkerVersion != "0.2.0" ||
-        !firstHealth.Capabilities.Contains("runtime.diagnostics") || secondHealth.PythonVersion != firstHealth.PythonVersion ||
+    if (firstHealth.Status is not ("ready" or "setup-required") || firstHealth.WorkerVersion != "0.3.0" ||
+        !firstHealth.Capabilities.Contains("transcription.jobs") || secondHealth.PythonVersion != firstHealth.PythonVersion ||
         firstHealth.Diagnostics.Packages.Count != 3)
     {
         Console.Error.WriteLine("FAIL Python worker health/capability negotiation is inconsistent.");
