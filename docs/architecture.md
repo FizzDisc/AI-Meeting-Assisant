@@ -91,6 +91,12 @@ The application targets x64 for this native adapter while Core remains platform-
 
 Live display handover is deferred. The UI should eventually offer one seamless switch; the adapter may update the source dynamically when dimensions and encoder state permit, otherwise the session workspace may retain internal timestamped video segments.
 
+### Combined screen and audio capture (Sprint 1.5.2)
+
+`CombinedCaptureCoordinator` composes the screen coordinator with the existing dual-audio coordinator. One session timestamp names all three independent artifacts: `screen_*.mp4`, `system_audio_*.wav` and `microphone_*.wav`. Screen capture starts first, followed by loopback and microphone. If any later start fails, every already-started provider is stopped and disposed. Stop finalizes audio and then the MP4 while preserving the first cleanup error.
+
+The composite forwards both live audio levels and all provider failures to the existing recording state machine. This slice establishes one atomic user-visible lifecycle, not sample-accurate synchronization; per-stream monotonic timestamps and alignment metadata remain Sprint 1.6.
+
 ## Privacy and quality guardrails
 
 - Show an unambiguous recording indicator and require consent confirmation.

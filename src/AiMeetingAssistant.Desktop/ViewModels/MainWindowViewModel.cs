@@ -60,9 +60,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         RecordingSessionState.Idle when IsDiscoveringSources => "Discovering Windows devices...",
         RecordingSessionState.Idle => "Ready",
-        RecordingSessionState.Preparing => "Preparing screen capture...",
-        RecordingSessionState.Recording => "Recording selected screen",
-        RecordingSessionState.Stopping => "Finalizing screen recording...",
+        RecordingSessionState.Preparing => "Preparing video and audio streams...",
+        RecordingSessionState.Recording => "Recording screen and audio",
+        RecordingSessionState.Stopping => "Finalizing video and audio...",
         RecordingSessionState.Completed => "Recording completed",
         RecordingSessionState.Failed => "Recording failed",
         _ => State.ToString()
@@ -206,7 +206,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool CanToggleRecording() => IsRecording || (CanChangeSources && SelectedScreen is not null);
+    private bool CanToggleRecording() => IsRecording ||
+        (CanChangeSources && SelectedScreen is not null && SelectedSystemAudio is not null && SelectedMicrophone is not null);
 
     private async Task ToggleRecordingAsync()
     {
@@ -219,10 +220,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 return;
             }
 
-            if (SelectedScreen is null)
-                throw new InvalidOperationException("Select a display first.");
+            if (SelectedScreen is null || SelectedSystemAudio is null || SelectedMicrophone is null)
+                throw new InvalidOperationException("Select one display, output, and microphone first.");
 
-            var plan = new CapturePlan(SelectedScreen.Id, SelectedSystemAudio?.Id ?? "", SelectedMicrophone?.Id ?? "");
+            if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)
+            {
+                combinedCoordinator.SystemAudioLevelChanged += OnSystemAudioLevelChanged;
+                combinedCoordinator.SystemAudioFaulted += OnSystemAudioFaulted;
+                combinedCoordinator.MicrophoneLevelChanged += OnMicrophoneLevelChanged;
+                combinedCoordinator.MicrophoneFaulted += OnMicrophoneFaulted;
+            }
+
+            var plan = new CapturePlan(SelectedScreen.Id, SelectedSystemAudio.Id, SelectedMicrophone.Id);
             await _recordingSession.StartAsync(plan);
         }
         catch (Exception exception)
@@ -311,11 +320,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(RecordingElapsedLabel));
             SystemAudioLevel = 0;
             MicrophoneLevel = 0;
-            StatusMessage = eventArgs.ErrorMessage ?? (eventArgs.CurrentState == RecordingSessionState.Completed ? "Screen recording saved to artifacts/captures/" : "Recording failed");
+            StatusMessage = eventArgs.ErrorMessage ?? (eventArgs.CurrentState == RecordingSessionState.Completed ? "Video and audio saved to artifacts/captures/" : "Recording failed");
+
+            if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)
+            {
+                combinedCoordinator.SystemAudioLevelChanged -= OnSystemAudioLevelChanged;
+                combinedCoordinator.SystemAudioFaulted -= OnSystemAudioFaulted;
+                combinedCoordinator.MicrophoneLevelChanged -= OnMicrophoneLevelChanged;
+                combinedCoordinator.MicrophoneFaulted -= OnMicrophoneFaulted;
+            }
         }
         else if (eventArgs.CurrentState == RecordingSessionState.Recording)
         {
-            StatusMessage = "Screen recording in progress...";
+            StatusMessage = "Screen and audio recording in progress...";
         }
 
         RaiseCommandStates();

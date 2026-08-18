@@ -238,7 +238,9 @@ try
         static string GetTimestamp(string path)
         {
             var name = Path.GetFileNameWithoutExtension(path);
-            var prefixLength = name.StartsWith("system_audio_", StringComparison.Ordinal) ? "system_audio_".Length : "microphone_".Length;
+            var prefixLength = name.StartsWith("system_audio_", StringComparison.Ordinal)
+                ? "system_audio_".Length
+                : name.StartsWith("microphone_", StringComparison.Ordinal) ? "microphone_".Length : "screen_".Length;
             return name.Substring(prefixLength, 19);
         }
 
@@ -269,6 +271,64 @@ try
             else
             {
                 Console.WriteLine("PASS Screen coordinator uses the selected display, MP4 naming and exactly-once cleanup.");
+            }
+
+            var combinedPaths = new List<string>();
+            var combinedAudio = new List<FakeAudioProvider>();
+            var combinedScreen = new FakeScreenProvider();
+            var combined = new CombinedCaptureCoordinator(
+                testDir,
+                (_, path) => { combinedPaths.Add(path); return combinedScreen; },
+                (_, path, _) =>
+                {
+                    var provider = new FakeAudioProvider();
+                    combinedPaths.Add(path);
+                    combinedAudio.Add(provider);
+                    return provider;
+                });
+            await combined.StartAsync(new("screen:\\\\.\\DISPLAY1", "output", "microphone"));
+            await combined.StopAsync();
+            if (combinedPaths.Count != 3 || combinedPaths.Select(GetTimestamp).Distinct().Count() != 1 ||
+                combinedScreen.StartCount != 1 || combinedScreen.StopCount != 1 || combinedScreen.DisposeCount != 1 ||
+                combinedAudio.Any(provider => provider.StartCount != 1 || provider.StopCount != 1 || provider.DisposeCount != 1))
+            {
+                Console.Error.WriteLine("FAIL Combined capture did not use one timestamp and exactly-once lifecycle for all three streams.");
+                failures++;
+            }
+            else
+            {
+                Console.WriteLine("PASS Combined capture uses one timestamp and exactly-once lifecycle for all three streams.");
+            }
+
+            var rollbackAudio = new List<FakeAudioProvider>();
+            var rollbackScreen = new FakeScreenProvider();
+            var rollback = new CombinedCaptureCoordinator(
+                testDir,
+                (_, _) => rollbackScreen,
+                (_, _, _) =>
+                {
+                    var provider = new FakeAudioProvider(failOnStart: rollbackAudio.Count == 1);
+                    rollbackAudio.Add(provider);
+                    return provider;
+                });
+            try
+            {
+                await rollback.StartAsync(new("screen:\\\\.\\DISPLAY1", "output", "microphone"));
+                Console.Error.WriteLine("FAIL Combined partial start should have thrown.");
+                failures++;
+            }
+            catch (InvalidOperationException)
+            {
+                if (rollbackScreen.StopCount != 1 || rollbackScreen.DisposeCount != 1 ||
+                    rollbackAudio.Count != 2 || rollbackAudio.Any(provider => provider.DisposeCount != 1))
+                {
+                    Console.Error.WriteLine("FAIL Combined partial start did not roll back screen and audio providers.");
+                    failures++;
+                }
+                else
+                {
+                    Console.WriteLine("PASS Combined audio start failure rolls back screen and both audio providers.");
+                }
             }
         }
         finally

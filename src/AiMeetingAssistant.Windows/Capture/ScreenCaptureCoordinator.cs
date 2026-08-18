@@ -6,15 +6,18 @@ public sealed class ScreenCaptureCoordinator : ICaptureCoordinator
 {
     private readonly string _captureBaseDirectory;
     private readonly Func<string, string, IScreenCaptureProvider> _providerFactory;
+    private readonly Func<DateTime> _timestampFactory;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private IScreenCaptureProvider? _capture;
 
     public ScreenCaptureCoordinator(
         string captureBaseDirectory = "artifacts/captures",
-        Func<string, string, IScreenCaptureProvider>? providerFactory = null)
+        Func<string, string, IScreenCaptureProvider>? providerFactory = null,
+        Func<DateTime>? timestampFactory = null)
     {
         _captureBaseDirectory = captureBaseDirectory ?? throw new ArgumentNullException(nameof(captureBaseDirectory));
         _providerFactory = providerFactory ?? ((id, path) => new ScreenRecorderCaptureProvider(id, path));
+        _timestampFactory = timestampFactory ?? (() => DateTime.Now);
     }
 
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
@@ -28,7 +31,7 @@ public sealed class ScreenCaptureCoordinator : ICaptureCoordinator
             if (string.IsNullOrWhiteSpace(plan.ScreenSourceId)) throw new ArgumentException("A screen source ID is required.");
 
             Directory.CreateDirectory(_captureBaseDirectory);
-            var path = CaptureFileNaming.CreateUniqueMp4Path(_captureBaseDirectory, "screen", DateTime.Now);
+            var path = CaptureFileNaming.CreateUniqueMp4Path(_captureBaseDirectory, "screen", _timestampFactory());
             _capture = _providerFactory(plan.ScreenSourceId, path);
             _capture.CaptureFaulted += OnCaptureFaulted;
             await _capture.StartAsync(cancellationToken).ConfigureAwait(false);

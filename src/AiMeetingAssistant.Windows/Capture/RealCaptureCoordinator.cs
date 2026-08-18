@@ -6,6 +6,7 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
 {
     private readonly string _captureBaseDirectory;
     private readonly Func<string, string, WasapiCaptureMode, IAudioCaptureProvider> _providerFactory;
+    private readonly Func<DateTime> _timestampFactory;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private IAudioCaptureProvider? _systemAudioCapture;
     private IAudioCaptureProvider? _microphoneCapture;
@@ -19,10 +20,12 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
 
     public DualAudioCaptureCoordinator(
         string captureBaseDirectory = "artifacts/captures",
-        Func<string, string, WasapiCaptureMode, IAudioCaptureProvider>? providerFactory = null)
+        Func<string, string, WasapiCaptureMode, IAudioCaptureProvider>? providerFactory = null,
+        Func<DateTime>? timestampFactory = null)
     {
         _captureBaseDirectory = captureBaseDirectory ?? throw new ArgumentNullException(nameof(captureBaseDirectory));
         _providerFactory = providerFactory ?? ((id, path, mode) => new WasapiAudioCaptureProvider(id, path, mode));
+        _timestampFactory = timestampFactory ?? (() => DateTime.Now);
     }
 
     public async Task StartAsync(CapturePlan plan, CancellationToken cancellationToken = default)
@@ -36,7 +39,7 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
                 throw new ArgumentException("System audio and microphone source IDs are required.");
 
             Directory.CreateDirectory(_captureBaseDirectory);
-            var timestamp = DateTime.Now;
+            var timestamp = _timestampFactory();
             var systemPath = CaptureFileNaming.CreateUniqueWavPath(_captureBaseDirectory, "system_audio", timestamp);
             var microphonePath = CaptureFileNaming.CreateUniqueWavPath(_captureBaseDirectory, "microphone", timestamp);
 

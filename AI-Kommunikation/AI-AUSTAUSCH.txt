@@ -1184,3 +1184,43 @@ abspielbar.
 
 Automatisch: 23/23 Core-Tests und alle Windows-Smoke-Tests bestanden.
 Sprint 1.5.1 ist abgeschlossen. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.5.2 bereit fuer Hardware-Smoke-Test
+Status: READY FOR MANUAL TEST
+
+Nachricht:
+Ein Start erzeugt nun gemeinsam Bildschirm-MP4, Systemaudio-WAV und
+Mikrofon-WAV. Alle drei Dateien erhalten denselben Session-Zeitstempel. Die
+beiden Live-Pegel und der gemeinsame Timer sind wieder aktiv.
+
+Teilstartfehler rollen alle bereits gestarteten Provider zurueck. Automatisch:
+Build mit 0 Warnungen/Fehlern, 23/23 Core-Tests und alle Windows-Smoke-Tests
+inklusive Combined-Lifecycle und Rollback bestanden.
+
+Offen: manueller Dreifach-Capture-Test mit Wiedergabe aller Artefakte.
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 1.5.2 abgeschlossen
+Status: DONE
+
+Nachricht:
+Der manuelle Dreifach-Capture-Smoke-Test ist erfolgreich. Das MP4 enthaelt
+ftyp-, moov- und mdat-Atome und meldet 3440x1440 bei 30 fps. Beide WAV-Dateien
+sind konsistente PCM16-Dateien mit 48 kHz; RIFF-, fmt- und data-Groessen stimmen
+bytegenau mit den Dateigroessen ueberein.
+
+Gemessene Laufzeiten: Video 16,633 s, Systemaudio 16,559 s, Mikrofon 16,290 s.
+Versatz zum Video: 74 ms bzw. 343 ms. Fuer Sprint 1.5.2 akzeptiert; diese Werte
+sind konkrete Eingabe fuer Session-Clock und Alignment in Sprint 1.6.
+
+Sprint 1.5.2 ist abgeschlossen. Commit und Push bleiben bei Kevin.
