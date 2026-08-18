@@ -1,35 +1,24 @@
 using System.IO;
 using System.Text.Json;
-
 namespace AiMeetingAssistant.Desktop;
-
+internal sealed record AppSettings(int SchemaVersion, bool ScreenCaptureEnabled, string CaptureDirectory, string? ModelDirectory, string ComputePreference)
+{ public static AppSettings Defaults => new(1, true, Path.GetFullPath("artifacts/captures"), null, "automatic"); }
 internal static class AppPreferences
 {
-    private static readonly string DirectoryPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI Meeting Assistant");
-    private static readonly string FilePath = Path.Combine(DirectoryPath, "settings.json");
-
-    public static bool LoadScreenCaptureEnabled()
+    private static readonly string DirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI Meeting Assistant");
+    internal static readonly string FilePath = Path.Combine(DirectoryPath, "settings.json");
+    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
+    public static AppSettings Load() { try { if (!File.Exists(FilePath)) return AppSettings.Defaults; var v=JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath),Options)??AppSettings.Defaults; return v with { SchemaVersion=1, CaptureDirectory=Path.GetFullPath(string.IsNullOrWhiteSpace(v.CaptureDirectory)?AppSettings.Defaults.CaptureDirectory:v.CaptureDirectory), ComputePreference=Normalize(v.ComputePreference)}; } catch { return AppSettings.Defaults; } }
+    public static bool LoadScreenCaptureEnabled()=>Load().ScreenCaptureEnabled;
+    public static void SaveScreenCaptureEnabled(bool enabled)=>Save(Load() with { ScreenCaptureEnabled=enabled });
+    public static void Save(AppSettings value)
     {
-        try
-        {
-            if (!File.Exists(FilePath)) return true;
-            return JsonSerializer.Deserialize<Preferences>(File.ReadAllText(FilePath))?.ScreenCaptureEnabled ?? true;
-        }
-        catch { return true; }
+        if(value.SchemaVersion!=1) throw new InvalidDataException("Unsupported settings schema.");
+        var capture=Path.GetFullPath(value.CaptureDirectory); Directory.CreateDirectory(capture);
+        if(!string.IsNullOrWhiteSpace(value.ModelDirectory)&&!Directory.Exists(value.ModelDirectory)) throw new DirectoryNotFoundException("The selected model directory does not exist.");
+        value=value with { CaptureDirectory=capture, ModelDirectory=string.IsNullOrWhiteSpace(value.ModelDirectory)?null:Path.GetFullPath(value.ModelDirectory), ComputePreference=Normalize(value.ComputePreference)};
+        Directory.CreateDirectory(DirectoryPath); var temp=$"{FilePath}.{Guid.NewGuid():N}.tmp";
+        try { File.WriteAllText(temp,JsonSerializer.Serialize(value,Options)); File.Move(temp,FilePath,true); } finally { if(File.Exists(temp)) File.Delete(temp); }
     }
-
-    public static void SaveScreenCaptureEnabled(bool enabled)
-    {
-        Directory.CreateDirectory(DirectoryPath);
-        var temporaryPath = $"{FilePath}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(new Preferences(enabled), new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(temporaryPath, FilePath, true);
-        }
-        finally { if (File.Exists(temporaryPath)) File.Delete(temporaryPath); }
-    }
-
-    private sealed record Preferences(bool ScreenCaptureEnabled);
+    private static string Normalize(string? value)=>value is "automatic" or "cpu-only" or "prefer-cuda"?value:"automatic";
 }

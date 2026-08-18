@@ -1,5 +1,9 @@
 # Architecture
 
+## Sprint 2.9 settings boundary
+
+Desktop settings are local, schema-versioned and atomically replaced. The main composition root reads them once and injects storage/model/compute decisions into capture and transcription orchestration. This prevents different features from silently using different library roots.
+
 ## Sprint 2.8 operational status
 
 Core owns a thread-safe bounded `OperationalStatusLog`; WPF projects its immutable snapshots into the dashboard. Status producers remain the existing orchestration paths rather than a second event bus. Runtime initialization publishes a distinct loading/final state, while capture and transcription continue to own their domain-specific messages.

@@ -17,9 +17,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         var workerPath = Path.Combine(AppContext.BaseDirectory, "worker", "main.py");
+        var settings = AppPreferences.Load();
         var pythonExecutable = PythonRuntimeResolver.Resolve();
-        var modelPath = LocalModelResolver.ResolveDevelopmentModel();
-        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(), new PythonWorkerClient(pythonExecutable, workerPath), modelPath)
+        var modelPath = settings.ModelDirectory ?? LocalModelResolver.ResolveDevelopmentModel();
+        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(settings.CaptureDirectory), new PythonWorkerClient(pythonExecutable, workerPath), modelPath, settings.CaptureDirectory, settings.ComputePreference)
         {
             UIDispatcher = Dispatcher
         };
@@ -50,6 +51,12 @@ public partial class MainWindow : Window
 
     private void OnOpenMeetingLibrary(object sender, RoutedEventArgs eventArgs) =>
         new MeetingLibraryWindow(_viewModel) { Owner = this }.ShowDialog();
+
+    private void OnOpenSettings(object sender, RoutedEventArgs eventArgs)
+    {
+        if (new SettingsWindow { Owner = this }.ShowDialog() == true)
+            _viewModel.IsScreenCaptureEnabled = AppPreferences.Load().ScreenCaptureEnabled;
+    }
 
     private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {

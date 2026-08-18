@@ -18,6 +18,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ICaptureCoordinator _captureCoordinator;
     private readonly PythonWorkerClient? _workerClient;
     private readonly string? _modelPath;
+    private readonly string _captureBaseDirectory;
+    private readonly string _computePreference;
     private readonly Stopwatch _recordingStopwatch = new();
     private readonly Stopwatch _transcriptionStopwatch = new();
     private readonly DispatcherTimer _recordingTimer;
@@ -52,12 +54,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isTranscriptionIndeterminate;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
-        PythonWorkerClient? workerClient = null, string? modelPath = null)
+        PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic")
     {
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
         _workerClient = workerClient;
         _modelPath = modelPath;
+        _captureBaseDirectory = Path.GetFullPath(captureBaseDirectory);
+        _computePreference = computePreference;
         _recordingSession = new(captureCoordinator);
         _recordingTimer = new(DispatcherPriority.Background)
         {
@@ -423,7 +427,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private Task RefreshMeetingLibraryAsync()
     {
-        var result = MeetingLibrary.Discover("artifacts/captures");
+        var result = MeetingLibrary.Discover(_captureBaseDirectory);
         MeetingSessions = result.Sessions;
         SelectedMeetingSession = MeetingSessions.FirstOrDefault(session => session.SessionDirectory == SelectedMeetingSession?.SessionDirectory)
             ?? MeetingSessions.FirstOrDefault();
@@ -447,7 +451,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         if (!CanDeleteSelectedMeeting || SelectedMeetingSession is null) return;
         var deletedDirectory = SelectedMeetingSession.SessionDirectory;
-        MeetingLibrary.DeleteSession("artifacts/captures", deletedDirectory);
+        MeetingLibrary.DeleteSession(_captureBaseDirectory, deletedDirectory);
         if (_latestSessionDirectory is not null &&
             string.Equals(Path.GetFullPath(_latestSessionDirectory), Path.GetFullPath(deletedDirectory), StringComparison.OrdinalIgnoreCase))
         {
@@ -486,7 +490,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var outputPath = Path.Combine(_latestSessionDirectory, "processing", "transcript.json");
             TranscriptionStatusMessage = "Queuing local transcription...";
             var job = await _workerClient.StartTranscriptionAsync([microphone, systemAudio], _modelPath, outputPath,
-                computePreference: "automatic", cancellationToken: token);
+                computePreference: _computePreference, cancellationToken: token);
             activeJobId = job.JobId;
             while (true)
             {

@@ -1755,3 +1755,6 @@ Shutdown race fixed: closing during transcription now cancels UI polling, waits 
 === CODEX · Sprint 2.8 ===
 Operational Status Center replaces the release roadmap and Privacy First dashboard cards. Startup exposes AI runtime loading/readiness; capture, recovery, transcription and errors feed an expandable, newest-first, duplicate-suppressed 50-entry in-memory activity log with a clear action. Automated Core coverage validates ordering, capacity, deduplication and clearing. Manual UI/startup smoke pending.
 Real observation: a 2-second silent dual-track job completed normally with 0 segments, but CPU cold model loading took about two minutes and left status fixed at 25%. UI now uses indeterminate progress, elapsed time, an explicit CPU cold-start explanation and a 15-second still-active log notice for long pre-inference phases.
+
+=== CODEX · Sprint 2.9 ===
+Settings Center foundation: Recording, Storage, AI Model and Diagnostics sections; atomic schema-v1 local settings; validated capture/model paths; automatic/cpu-only/prefer-cuda profile; one injected capture root for recording, recovery, library and deletion. Manual smoke pending.
