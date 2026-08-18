@@ -4,12 +4,21 @@ using AiMeetingAssistant.Contracts;
 
 namespace AiMeetingAssistant.Windows.Worker;
 
-public sealed record WorkerHealthResult(string Status, string WorkerVersion, string PythonVersion, bool RuntimeSupported, IReadOnlyList<string> Capabilities);
+public sealed record WorkerPackageStatus(bool Installed, string? Version);
+public sealed record WorkerComputeStatus(string Mode, bool CudaAvailable, string? CudaVersion, string? DeviceName, string? Error);
+public sealed record WorkerRuntimeDiagnostics(string PythonExecutable, string Platform,
+    IReadOnlyDictionary<string, WorkerPackageStatus> Packages, WorkerComputeStatus Compute,
+    bool FfmpegAvailable, bool MlReady, IReadOnlyList<string> MissingRequirements);
+public sealed record WorkerHealthResult(string Status, string WorkerVersion, string PythonVersion,
+    bool RuntimeSupported, bool MlReady, IReadOnlyList<string> Capabilities, WorkerRuntimeDiagnostics Diagnostics);
 
 public sealed class PythonWorkerClient(string pythonExecutable, string scriptPath, TimeSpan? requestTimeout = null) : IAsyncDisposable
 {
     private readonly SemaphoreSlim _requestLock = new(1, 1);
-    private readonly TimeSpan _requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(10);
+    // Native Torch/CUDA discovery can exceed ten seconds on the first Windows
+    // start after installation or an antivirus scan. Protocol calls remain
+    // bounded, but the health diagnostic gets a realistic cold-start budget.
+    private readonly TimeSpan _requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(30);
     private readonly Queue<string> _diagnostics = new();
     private Process? _process;
     private Task? _stderrPump;
@@ -18,12 +27,33 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
     {
         var response = await SendAsync("health.check", new { }, cancellationToken).ConfigureAwait(false);
         var payload = response.Payload;
+        var diagnostics = payload.GetProperty("diagnostics");
+        var packages = diagnostics.GetProperty("packages").EnumerateObject().ToDictionary(
+            item => item.Name,
+            item => new WorkerPackageStatus(
+                item.Value.GetProperty("installed").GetBoolean(),
+                item.Value.GetProperty("version").ValueKind == JsonValueKind.Null ? null : item.Value.GetProperty("version").GetString()));
+        var compute = diagnostics.GetProperty("compute");
         return new(
             payload.GetProperty("status").GetString() ?? "unknown",
             payload.GetProperty("workerVersion").GetString() ?? "unknown",
             payload.GetProperty("pythonVersion").GetString() ?? "unknown",
             payload.GetProperty("runtimeSupported").GetBoolean(),
-            payload.GetProperty("capabilities").EnumerateArray().Select(item => item.GetString() ?? "").Where(item => item.Length > 0).ToArray());
+            payload.GetProperty("mlReady").GetBoolean(),
+            payload.GetProperty("capabilities").EnumerateArray().Select(item => item.GetString() ?? "").Where(item => item.Length > 0).ToArray(),
+            new(
+                diagnostics.GetProperty("pythonExecutable").GetString() ?? "unknown",
+                diagnostics.GetProperty("platform").GetString() ?? "unknown",
+                packages,
+                new(
+                    compute.GetProperty("mode").GetString() ?? "unknown",
+                    compute.GetProperty("cudaAvailable").GetBoolean(),
+                    compute.GetProperty("cudaVersion").ValueKind == JsonValueKind.Null ? null : compute.GetProperty("cudaVersion").GetString(),
+                    compute.GetProperty("deviceName").ValueKind == JsonValueKind.Null ? null : compute.GetProperty("deviceName").GetString(),
+                    compute.TryGetProperty("error", out var computeError) ? computeError.GetString() : null),
+                diagnostics.GetProperty("ffmpegAvailable").GetBoolean(),
+                diagnostics.GetProperty("mlReady").GetBoolean(),
+                diagnostics.GetProperty("missingRequirements").EnumerateArray().Select(item => item.GetString() ?? "unknown").ToArray()));
     }
 
     public async Task<WorkerResponse> SendAsync(string type, object payload, CancellationToken cancellationToken = default)

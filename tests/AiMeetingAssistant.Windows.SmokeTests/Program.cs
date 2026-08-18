@@ -12,20 +12,42 @@ try
     await using var worker = new PythonWorkerClient("python", workerPath);
     var firstHealth = await worker.CheckHealthAsync();
     var secondHealth = await worker.CheckHealthAsync();
-    if (firstHealth.Status != "ready" || firstHealth.WorkerVersion != "0.1.0" ||
-        !firstHealth.Capabilities.Contains("health.check") || secondHealth.PythonVersion != firstHealth.PythonVersion)
+    if (firstHealth.Status is not ("ready" or "setup-required") || firstHealth.WorkerVersion != "0.2.0" ||
+        !firstHealth.Capabilities.Contains("runtime.diagnostics") || secondHealth.PythonVersion != firstHealth.PythonVersion ||
+        firstHealth.Diagnostics.Packages.Count != 3)
     {
         Console.Error.WriteLine("FAIL Python worker health/capability negotiation is inconsistent.");
         failures++;
     }
     else
     {
-        Console.WriteLine($"PASS Python worker protocol handshake: worker {firstHealth.WorkerVersion}, Python {firstHealth.PythonVersion}, ML runtime supported={firstHealth.RuntimeSupported}.");
+        Console.WriteLine($"PASS Python worker runtime diagnostics: worker {firstHealth.WorkerVersion}, Python {firstHealth.PythonVersion}, ML ready={firstHealth.MlReady}, compute={firstHealth.Diagnostics.Compute.Mode}.");
     }
 }
 catch (Exception exception)
 {
     Console.Error.WriteLine($"FAIL Python worker supervisor: {exception.Message}");
+    failures++;
+}
+
+try
+{
+    var originalOverride = Environment.GetEnvironmentVariable(PythonRuntimeResolver.OverrideVariable);
+    try
+    {
+        Environment.SetEnvironmentVariable(PythonRuntimeResolver.OverrideVariable, "configured-python.exe");
+        if (PythonRuntimeResolver.Resolve() != "configured-python.exe")
+            throw new InvalidOperationException("Explicit Python runtime override was ignored.");
+        Console.WriteLine("PASS Python runtime resolver honors the explicit override.");
+    }
+    finally
+    {
+        Environment.SetEnvironmentVariable(PythonRuntimeResolver.OverrideVariable, originalOverride);
+    }
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Python runtime resolver: {exception.Message}");
     failures++;
 }
 

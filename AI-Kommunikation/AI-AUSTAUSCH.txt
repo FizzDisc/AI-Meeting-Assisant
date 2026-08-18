@@ -1474,3 +1474,63 @@ soll kompatible Modelle mit Groesse, Qualitaet, Sprachen, Hardwarebedarf und
 Lizenz anzeigen, explizit installieren, pruefen, auswaehlen und entfernen.
 
 Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.2 AI-Runtime-Bootstrap und Diagnose implementiert
+Status: READY FOR MANUAL SETUP / SMOKE TEST
+
+Nachricht:
+Der Worker 0.2.0 meldet jetzt getrennt Python-Kompatibilitaet, installierte
+WhisperX-/Torch-/pyannote-Pakete, FFmpeg sowie CPU/CUDA und GPU-Name. Die App
+bevorzugt worker/.venv, unterstuetzt einen expliziten Runtime-Pfad und faellt
+ansonsten auf Python im PATH zurueck.
+
+scripts/setup-ai-runtime.ps1 erzeugt eine isolierte virtuelle Umgebung und
+installiert reproduzierbar WhisperX 3.8.6. Es werden dabei keine Modellgewichte
+geladen. Aktuelle Upstream-Kompatibilitaet ist Python 3.10 bis 3.13; die alte
+3.11/3.12-Einschraenkung wurde korrigiert.
+
+Build: 0 Warnungen, 0 Fehler. Windows-Smokes und 28 Core-Tests bestanden.
+Lokaler Ausgangszustand: Python 3.13.14 und FFmpeg vorhanden; ML-Pakete fehlen
+erwartungsgemaess noch. Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.2 Runtime installiert, Kaltstart-Timeout korrigiert
+Status: READY FOR RE-SMOKE
+
+Nachricht:
+Das Runtime-Setup ist gesund: WhisperX 3.8.6, Torch 2.8.0, pyannote-audio
+4.0.7 und FFmpeg wurden erkannt; der Worker meldet ML ready im CPU-Modus.
+Der erste UI-Healthcheck lief dennoch in das alte 10-Sekunden-Limit. Native
+Torch/CUDA-Initialisierung kann nach Installation oder Virenscan laenger
+dauern. Das weiterhin begrenzte Standardlimit wurde deshalb auf 30 Sekunden
+angehoben. Direkte Kontrollmessung: 2,457 Sekunden nach dem Kaltstart.
+
+Commit und Push bleiben bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: Sprint 2.2 manueller Smoke-Test abgeschlossen
+Status: DONE
+
+Nachricht:
+Der Re-Smoke zeigt erfolgreich `AI runtime ready - CPU - Python 3.13.14`.
+Sprint 2.2 ist damit abgeschlossen.
+
+AMA-111 wurde konkretisiert: Das spaetere Status Center muss den Start der
+AI-Laufzeit mit sichtbaren Phasen wie `Loading AI runtime...`, Paket-/Compute-
+Pruefung und `AI runtime ready` anzeigen. Ein Torch/CUDA-Kaltstart darf fuer
+den Nutzer nicht wie eine eingefrorene Anwendung wirken.
+
+Commit und Push bleiben bei Kevin.

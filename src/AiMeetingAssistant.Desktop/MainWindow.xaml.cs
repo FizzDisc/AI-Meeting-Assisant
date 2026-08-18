@@ -17,7 +17,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         var workerPath = Path.Combine(AppContext.BaseDirectory, "worker", "main.py");
-        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(), new PythonWorkerClient("python", workerPath))
+        var pythonExecutable = PythonRuntimeResolver.Resolve();
+        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(), new PythonWorkerClient(pythonExecutable, workerPath))
         {
             UIDispatcher = Dispatcher
         };
