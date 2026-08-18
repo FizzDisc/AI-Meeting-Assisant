@@ -1387,3 +1387,20 @@ fehlerfrei und der geaenderte Core wurde erfolgreich kompiliert/getestet.
 
 Sprint 1.6.3 und damit Sprint 1.6 sind abgeschlossen. Commit und Push bleiben
 bei Kevin.
+
+----------------------------------------
+
+Zeit: 2026-08-18 (Europe/Paris)
+Von: OpenAI Codex
+An: Projektprotokoll
+Betreff: UI-Roadmap nach Sprint 1 aktualisiert
+Status: DONE
+
+Nachricht:
+Die rechte Release roadmap zeigt nicht mehr die bereits erledigten Sub-Sprints
+1.2 bis 1.6, sondern die Produktmeilensteine: Capture Foundation (Complete),
+Local transcription (Sprint 2), Speaker diarization (Sprint 3), Meeting
+intelligence (Sprint 4) und Knowledge base (Later). Badge und Footer markieren
+Sprint 1 ebenfalls als abgeschlossen.
+
+Commit und Push bleiben bei Kevin.

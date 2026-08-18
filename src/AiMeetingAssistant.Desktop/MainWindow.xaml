@@ -15,7 +15,7 @@
                 <TextBlock Text="Capture, transcribe and turn conversations into clear outcomes." Foreground="{StaticResource MutedBrush}" FontSize="15" Margin="0,8,0,0"/>
             </StackPanel>
             <Border HorizontalAlignment="Right" VerticalAlignment="Top" Background="#18352E" CornerRadius="12" Padding="14,8">
-                <TextBlock Text="SPRINT 1.6.3 · SESSION RECOVERY" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
+                <TextBlock Text="CAPTURE FOUNDATION · COMPLETE" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/>
             </Border>
         </Grid>
         <Grid Grid.Row="2">
@@ -89,6 +89,6 @@
                 </StackPanel></Border>
             </StackPanel>
         </Grid>
-        <Grid Grid.Row="4"><TextBlock Text="Interrupted-session recovery · 2 GiB storage preflight" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 1.6.3 · Recovery guardrails" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+        <Grid Grid.Row="4"><TextBlock Text="Screen · system audio · microphone · timing · recovery" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 1 · Complete" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
     </Grid>
 </Window>

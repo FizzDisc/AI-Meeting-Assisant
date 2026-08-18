@@ -152,11 +152,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public IReadOnlyList<PipelineStep> PipelineSteps { get; } =
     [
-        new("Discover capture sources", "Sprint 1.2"),
-        new("Microphone capture", "Sprint 1.3"),
-        new("System audio capture", "Sprint 1.4"),
-        new("Screen capture", "Sprint 1.5"),
-        new("Synchronized session", "Sprint 1.6")
+        new("Capture foundation", "Complete"),
+        new("Local transcription", "Sprint 2"),
+        new("Speaker diarization", "Sprint 3"),
+        new("Meeting intelligence", "Sprint 4"),
+        new("Knowledge base", "Later")
     ];
 
     public Dispatcher? UIDispatcher
