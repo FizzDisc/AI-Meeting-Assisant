@@ -39,6 +39,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("audio timeline fills missing silent frames", AudioTimelineFillsMissingFrames)
     ,("transcript parser validates and orders source segments", TranscriptParserValidatesAndOrders)
     ,("transcript Markdown and JSON exports are atomic", TranscriptExportsAreAtomic)
+    ,("speaker display names are validated and stored per meeting", SpeakerNamesAreMeetingScoped)
     ,("meeting library discovers valid and invalid sessions", MeetingLibraryDiscoversAllSessions)
     ,("meeting library deletion is scoped to direct session workspaces", MeetingLibraryDeletionIsScoped)
     ,("operational status log is bounded and deduplicated", OperationalStatusLogIsBounded)
@@ -607,6 +608,31 @@ static Task TranscriptExportsAreAtomic()
         Equal(1, TranscriptDocumentStore.Load(jsonPath).Segments.Count);
         if (Directory.GetFiles(directory, "*.tmp").Length != 0)
             throw new InvalidOperationException("Atomic transcript export left temporary files behind.");
+        return Task.CompletedTask;
+    }
+    finally { Directory.Delete(directory, true); }
+}
+
+static Task SpeakerNamesAreMeetingScoped()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_speakers_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var transcriptPath = Path.Combine(directory, "transcript.json");
+        File.WriteAllText(transcriptPath, "{}");
+        SpeakerNameStore.SaveForTranscript(transcriptPath, new Dictionary<string, string>
+        {
+            ["You"] = "Kevin",
+            ["SPEAKER_00"] = "Anna",
+            ["SPEAKER_01"] = "   "
+        });
+        var loaded = SpeakerNameStore.LoadForTranscript(transcriptPath);
+        Equal("Kevin", loaded["You"]);
+        Equal("Anna", loaded["SPEAKER_00"]);
+        Equal(2, loaded.Count);
+        Equal("Anna", TranscriptDocumentStore.FormatSpeaker(
+            new TranscriptSegment(0, 1, "Hallo", "system_audio", "SPEAKER_00", "assigned"), loaded));
         return Task.CompletedTask;
     }
     finally { Directory.Delete(directory, true); }

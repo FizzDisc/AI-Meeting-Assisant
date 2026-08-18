@@ -1788,3 +1788,21 @@ Der manuelle Realmeeting-Smoke ist erfolgreich. Ergebnis: Mikrofon korrekt als
 `Unknown Speaker`. Sprecherwechsel und Transcript-Anzeige sind brauchbar. Die
 vollstaendige CPU-Verarbeitung dauerte 31:18; diese Laufzeit wird als Baseline
 fuer spaetere GPU-/Performance-Arbeit dokumentiert. Sprint 3.2 ist abgeschlossen.
+=== CODEX · Sprint 3.3.1 ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Meeting-spezifische Speaker-Namen sind implementiert. Der Transcript-Viewer
+enthaelt `Manage speakers`, listet `You` und erkannte SPEAKER_XX-IDs und speichert
+Anzeigenamen atomar in `processing/speaker-names.json`. Transcript-JSON und
+technische IDs bleiben unveraendert; Viewer und Markdown-Export verwenden das
+Mapping. Unknown/Ambiguous werden bewusst nicht global benannt. Build ohne
+Warnungen sowie Core- und Windows-Smoke-Tests sind erfolgreich. Manueller UI-
+Smoke steht aus.
+=== CODEX · Sprint 3.3.1 ACCEPTED ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Manueller Smoke erfolgreich: Speaker-Namen lassen sich bearbeiten, speichern
+und erneut laden. Der fehlerhafte nicht vorhandene PrimaryButtonStyle wurde
+korrigiert. Nach einem festhaengenden Altprozess beendet der neue Shutdown-Pfad
+die WPF-Anwendung explizit und begrenzt das Warten auf den Worker. Sprint 3.3.1
+ist abgeschlossen; als naechstes folgt Sprint 3.4.1 Modellkatalog/-auswahl.

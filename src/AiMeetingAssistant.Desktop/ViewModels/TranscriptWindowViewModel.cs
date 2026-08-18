@@ -6,24 +6,39 @@ namespace AiMeetingAssistant.Desktop.ViewModels;
 
 public sealed class TranscriptWindowViewModel : INotifyPropertyChanged
 {
-    private readonly IReadOnlyList<TranscriptSegmentViewModel> _allSegments;
+    private IReadOnlyList<TranscriptSegmentViewModel> _allSegments = [];
+    private IReadOnlyDictionary<string, string> _speakerNames;
     private bool _showMicrophone = true;
     private bool _showSystemAudio = true;
-    private IReadOnlyList<TranscriptSegmentViewModel> _segments;
+    private IReadOnlyList<TranscriptSegmentViewModel> _segments = [];
 
-    public TranscriptWindowViewModel(TranscriptDocument document, string sourcePath)
+    public TranscriptWindowViewModel(TranscriptDocument document, string sourcePath,
+        IReadOnlyDictionary<string, string>? speakerNames = null)
     {
         Document = document;
         SourcePath = sourcePath;
-        _allSegments = document.Segments.Select(segment => new TranscriptSegmentViewModel(
+        _speakerNames = speakerNames ?? new Dictionary<string, string>();
+        RebuildSegments();
+    }
+
+    public void UpdateSpeakerNames(IReadOnlyDictionary<string, string> speakerNames)
+    {
+        _speakerNames = speakerNames;
+        RebuildSegments();
+    }
+
+    private void RebuildSegments()
+    {
+        _allSegments = Document.Segments.Select(segment => new TranscriptSegmentViewModel(
             TranscriptDocumentStore.FormatTimestamp(segment.Start),
-            TranscriptDocumentStore.FormatSpeaker(segment), TranscriptDocumentStore.FormatSource(segment.Source),
+            TranscriptDocumentStore.FormatSpeaker(segment, _speakerNames), TranscriptDocumentStore.FormatSource(segment.Source),
             segment.Source, segment.SpeakerAssignment, segment.Text)).ToArray();
-        _segments = _allSegments;
+        ApplyFilter();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public TranscriptDocument Document { get; }
+    public IReadOnlyDictionary<string, string> SpeakerNames => _speakerNames;
     public string SourcePath { get; }
     public string Summary => $"{Document.Segments.Count} segments · {Document.SpeakerCount ?? 0} detected system speaker(s) · {Document.Language ?? "multiple/unknown"} · {Document.Device ?? "unknown"}/{Document.ComputeType ?? "unknown"}";
     public IReadOnlyList<TranscriptSegmentViewModel> Segments { get => _segments; private set { _segments = value; OnPropertyChanged(); } }

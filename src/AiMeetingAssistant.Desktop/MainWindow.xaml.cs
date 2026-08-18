@@ -79,7 +79,7 @@ public partial class MainWindow : Window
         {
             _shutdownComplete = true;
             if (!Dispatcher.HasShutdownStarted)
-                _ = Dispatcher.BeginInvoke(Close);
+                _ = Dispatcher.BeginInvoke(() => Application.Current.Shutdown());
         }
     }
 }

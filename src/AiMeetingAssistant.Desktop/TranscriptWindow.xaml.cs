@@ -13,7 +13,8 @@ public partial class TranscriptWindow : Window
     public TranscriptWindow(string transcriptPath)
     {
         InitializeComponent();
-        _viewModel = new(TranscriptDocumentStore.Load(transcriptPath), Path.GetFullPath(transcriptPath));
+        var fullPath = Path.GetFullPath(transcriptPath);
+        _viewModel = new(TranscriptDocumentStore.Load(fullPath), fullPath, SpeakerNameStore.LoadForTranscript(fullPath));
         DataContext = _viewModel;
     }
 
@@ -22,9 +23,21 @@ public partial class TranscriptWindow : Window
         var dialog = CreateDialog("Markdown document|*.md", ".md");
         if (dialog.ShowDialog(this) == true)
         {
-            TranscriptDocumentStore.ExportMarkdownAtomic(dialog.FileName, _viewModel.Document);
+            TranscriptDocumentStore.ExportMarkdownAtomic(dialog.FileName, _viewModel.Document, _viewModel.SpeakerNames);
             MessageBox.Show(this, "Markdown export completed.", "Export", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+    }
+
+    private void OnManageSpeakers(object sender, RoutedEventArgs e)
+    {
+        var speakerIds = _viewModel.Document.Segments
+            .Select(segment => segment.Speaker)
+            .Where(speaker => speaker == "You" || (speaker?.StartsWith("SPEAKER_", StringComparison.Ordinal) ?? false))
+            .Cast<string>().Distinct(StringComparer.Ordinal).OrderBy(speaker => speaker == "You" ? "" : speaker).ToArray();
+        var dialog = new SpeakerNamesWindow(speakerIds, _viewModel.SpeakerNames) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        SpeakerNameStore.SaveForTranscript(_viewModel.SourcePath, dialog.SpeakerNames);
+        _viewModel.UpdateSpeakerNames(SpeakerNameStore.LoadForTranscript(_viewModel.SourcePath));
     }
 
     private void OnExportJson(object sender, RoutedEventArgs e)

@@ -1,5 +1,9 @@
 # Architecture
 
+## Sprint 3.3.1 meeting speaker names
+
+Manual speaker names are presentation metadata, not AI evidence. `processing/speaker-names.json` maps stable technical IDs to meeting-local display names and is written atomically. The transcript viewer and Markdown exporter resolve this sidecar at read time; `transcript.json` is never rewritten. Unknown and ambiguous assignments cannot receive a global name because a shared uncertainty label may cover multiple people.
+
 ## Sprint 3.2 speaker reconciliation
 
 The isolated transcription process now owns a complete transcript pipeline: normalize both tracks, transcribe them independently, diarize only normalized system audio, then reconcile speaker turns by timestamp overlap. Microphone segments are deterministically `You`. A system segment receives an anonymous pyannote speaker only when one candidate has sufficient coverage and separation from the runner-up; all other outcomes remain explicitly ambiguous or unassigned. Transcript schema 3 stores these diagnostics, while schema 1 and 2 remain readable.

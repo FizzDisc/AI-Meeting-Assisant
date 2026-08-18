@@ -178,8 +178,15 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
         if (process is null) return;
         try { process.StandardInput.Close(); } catch { }
         try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
-        catch { if (!process.HasExited) process.Kill(entireProcessTree: true); }
-        if (_stderrPump is not null) { try { await _stderrPump.ConfigureAwait(false); } catch { } }
+        catch
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); } catch { }
+        }
+        if (_stderrPump is not null)
+        {
+            try { await _stderrPump.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); } catch { }
+        }
         process.Dispose();
         _requestLock.Dispose();
     }

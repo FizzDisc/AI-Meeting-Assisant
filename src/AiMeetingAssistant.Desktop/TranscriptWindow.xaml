@@ -44,6 +44,7 @@
         <Grid Grid.Row="4">
             <TextBlock Text="{Binding SourcePath}" Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="520"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Manage speakers" Click="OnManageSpeakers" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/>
                 <Button Content="Export Markdown" Click="OnExportMarkdown" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/>
                 <Button Content="Export JSON" Click="OnExportJson" Style="{StaticResource SecondaryButtonStyle}"/>
             </StackPanel>

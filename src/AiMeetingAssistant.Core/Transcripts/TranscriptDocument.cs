@@ -46,7 +46,8 @@ public static class TranscriptDocumentStore
     public static void ExportJsonAtomic(string path, TranscriptDocument document) =>
         WriteAtomic(path, JsonSerializer.Serialize(document, WriteOptions));
 
-    public static void ExportMarkdownAtomic(string path, TranscriptDocument document)
+    public static void ExportMarkdownAtomic(string path, TranscriptDocument document,
+        IReadOnlyDictionary<string, string>? speakerNames = null)
     {
         var markdown = new StringBuilder()
             .AppendLine("# Meeting transcript")
@@ -58,7 +59,7 @@ public static class TranscriptDocumentStore
         foreach (var segment in document.Segments)
         {
             markdown.Append("## ").Append(FormatTimestamp(segment.Start)).Append(" · ")
-                .Append(FormatSpeaker(segment)).Append(" · ").AppendLine(FormatSource(segment.Source))
+                .Append(FormatSpeaker(segment, speakerNames)).Append(" · ").AppendLine(FormatSource(segment.Source))
                 .AppendLine().AppendLine(segment.Text.Trim()).AppendLine();
         }
         WriteAtomic(path, markdown.ToString());
@@ -86,6 +87,14 @@ public static class TranscriptDocumentStore
         _ when !string.IsNullOrWhiteSpace(segment.Speaker) => segment.Speaker,
         _ => "Unknown speaker"
     };
+
+    public static string FormatSpeaker(TranscriptSegment segment, IReadOnlyDictionary<string, string>? speakerNames)
+    {
+        var technicalLabel = FormatSpeaker(segment);
+        return segment.Speaker is not null && speakerNames is not null && speakerNames.TryGetValue(segment.Speaker, out var displayName)
+            ? displayName
+            : technicalLabel;
+    }
 
     private static void WriteAtomic(string path, string content)
     {
