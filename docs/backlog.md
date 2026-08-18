@@ -59,7 +59,11 @@
 - **Sprint 3.4.1: Model catalog and default selection — Complete.** Settings expose curated Tiny, Small and Medium profiles with installation state, quality, indicative size and hardware guidance. The stable model ID is persisted and resolved to an installed local folder at startup. Unavailable choices cannot be saved before installation support exists; an advanced custom-directory override remains compatible. Manual validation confirmed catalog readability, unavailable-model protection, Tiny persistence and clean application shutdown.
 - **Sprint 3.4.2: In-app installation and removal.** Download verified model snapshots with progress/cancellation, validate their contents and remove only managed model directories.
 - **Sprint 3.4.3: Per-transcription model choice and comparison.** Override the default for one meeting, re-transcribe existing recordings and compare model/runtime metadata.
-- **AMA-124: Windows GPU backend evaluation.** The current WhisperX/CTranslate2 path accelerates only compatible NVIDIA CUDA devices; Intel and AMD adapters intentionally fall back to CPU. Benchmark supported alternatives such as a DirectML-capable inference backend without implying feature parity, and expose the detected reason clearly. Do not install a second backend until transcript quality, alignment/diarization compatibility, packaging size and maintenance cost are validated.
+
+## Sprint 3.5 — Intel GPU acceleration evaluation
+
+- **Sprint 3.5.1: Backend spike and benchmark.** The current WhisperX/CTranslate2 path accelerates only compatible NVIDIA CUDA devices; Intel and AMD adapters intentionally fall back to CPU. Prototype viable Windows backends such as OpenVINO or DirectML on the Intel reference laptop and compare one sanitized recording against the CPU baseline for runtime, transcript quality, timestamps, memory and packaging cost.
+- **Sprint 3.5.2: Production integration — conditional.** Integrate Intel-GPU selection, diagnostics, cancellation and fallback only if the prototype produces a material end-to-end improvement without breaking alignment or diarization. Otherwise retain optimized CPU execution and document the measured blocker.
 
 ## Sprint 4 — meeting intelligence
 

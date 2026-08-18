@@ -1825,3 +1825,12 @@ Testers aufgenommen: Die aktuelle GPU-Option bedeutet ausschliesslich NVIDIA
 CUDA; die Intel-GPU des Referenzgeraets faellt bewusst auf CPU zurueck. Eine
 separate Windows-GPU-Backend-Evaluierung fuer Intel/AMD wurde als AMA-124 in den
 Backlog aufgenommen. Sprint 3.4.1 ist abgeschlossen.
+=== PRODUCT DECISION · Sprint 3.5 ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Nach Abschluss der 3.4.x-Modellverwaltung wird Intel-GPU-Beschleunigung als
+Sprint 3.5 untersucht. Grund: Viele Zielnutzer arbeiten auf Dienstlaptops mit
+Intel-iGPU; reine NVIDIA-CUDA-Unterstuetzung reicht fuer den internen Rollout
+nicht aus. 3.5 beginnt als messbarer OpenVINO/DirectML-Backend-Spike. Eine
+Produktintegration erfolgt nur bei besserer End-to-End-Laufzeit und erhaltener
+Transcript-, Timestamp-, Alignment- und Diarisierungsqualitaet.
