@@ -1859,3 +1859,23 @@ Finaler manueller Re-Smoke erfolgreich. Live-Bytes/Gesamt/Transfergeschwindigkei
 werden angezeigt; Abbruch und Temp-Cleanup funktionieren. Install, Remove und
 Reinstall wurden geprueft. Tiny/Small-Wechsel wird nach Save ohne Neustart in die
 laufende App uebernommen. Sprint 3.4.2 ist abgeschlossen und commitbereit.
+=== CODEX · Sprint 3.4.3 ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Installierte Modelle sind pro Transkriptionsjob auf Hauptscreen und Meeting
+Library waehlbar. Erfolgreiche Re-Transkriptionen ueberschreiben nichts mehr,
+sondern erzeugen versionierte transcript_TIMESTAMP_MODEL.json-Dateien mit
+Model-ID, realem Compute-Modus und Gesamtlaufzeit. transcript.json bleibt als
+atomar aktualisierter Latest-Pointer kompatibel. Die Library listet Runs zur
+Auswahl, erhaelt Legacy-Transkripte und dedupliziert den Latest-Pointer. Build,
+Core/Windows und 16 Python-Tests sind erfolgreich; manueller Multi-Run-Smoke offen.
+
+=== CODEX · Sprint 3.4.3 ACCEPTED ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Der manuelle Multi-Run-Smoke ist erfolgreich. Tiny/Small-Laeufe werden getrennt
+mit Modell und Laufzeit angeboten; bestehende Transkripte bleiben bewusst als
+legacy/unknown sichtbar. Ein beim ersten Library-Smoke entdeckter harter WPF-
+Absturz durch TwoWay-Bindings auf schreibgeschuetzte Run-Anzeigefelder wurde
+auf explizite OneWay-Bindings korrigiert. Sprint 3.4.3 ist abgeschlossen und
+commitbereit.

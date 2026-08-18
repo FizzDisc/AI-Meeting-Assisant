@@ -1,6 +1,6 @@
 """Isolated WhisperX job; process isolation makes native inference cancellable."""
 from __future__ import annotations
-import json, subprocess, sys
+import json, subprocess, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -54,6 +54,7 @@ def reconcile_without_diarization(segments: list[dict[str, Any]]) -> list[dict[s
     return result
 
 def run(request_path: Path) -> int:
+    started = time.monotonic()
     request = json.loads(request_path.read_text(encoding="utf-8"))
     inputs = [Path(item).resolve() for item in request["audioPaths"]]
     model_path, output_path = Path(request["modelPath"]).resolve(), Path(request["outputPath"]).resolve()
@@ -96,6 +97,8 @@ def run(request_path: Path) -> int:
                   "batchSize": batch_size, "computePreference": compute["preference"],
                   "fallbackReason": compute["fallbackReason"],
                   "diarizationEnabled": bool(diarization_path_text), "speakerCount": speaker_count,
+                  "modelId": request.get("modelId") or model_path.name,
+                  "processingDurationMilliseconds": int((time.monotonic() - started) * 1000),
                   "segments": segments}
     write_atomic(output_path, transcript)
     write_atomic(status_path, {"status": "completed", "progress": 1.0,

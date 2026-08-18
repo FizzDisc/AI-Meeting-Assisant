@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AiMeetingAssistant.Core.Capture;
+using AiMeetingAssistant.Core.Transcripts;
 
 namespace AiMeetingAssistant.Core.Meetings;
 
@@ -13,13 +14,14 @@ public sealed record MeetingLibraryEntry(
     string AlignmentStatus,
     string? Diagnostic,
     string? TranscriptPath,
-    bool CanTranscribe)
+    bool CanTranscribe,
+    int TranscriptCount = 0)
 {
     public string StartedLabel => StartedAtUtc.ToLocalTime().ToString("g");
     public string DurationLabel => DurationMilliseconds is double duration
         ? TimeSpan.FromMilliseconds(duration).ToString(@"hh\:mm\:ss")
         : "--:--:--";
-    public string TranscriptStatus => TranscriptPath is null ? "Not transcribed" : "Transcript ready";
+    public string TranscriptStatus => TranscriptPath is null ? "Not transcribed" : $"{Math.Max(TranscriptCount, 1)} run(s)";
 }
 
 public sealed record MeetingLibraryResult(IReadOnlyList<MeetingLibraryEntry> Sessions, IReadOnlyList<string> Issues);
@@ -53,10 +55,11 @@ public static class MeetingLibrary
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var transcript = Path.Combine(directory, "processing", "transcript.json");
                 var hasTranscript = File.Exists(transcript);
+                var transcriptCount = TranscriptRunCatalog.Discover(directory).Count;
                 sessions.Add(new(directory, manifest.SessionId, manifest.StartedAtUtc, manifest.DurationMilliseconds,
                     manifest.Status, FormatSources(availableStreams), manifest.Alignment?.Status ?? "unavailable",
                     manifest.Alignment?.Detail, hasTranscript ? transcript : null,
-                    manifest.Status == "completed" && availableStreams.Contains("microphone") && availableStreams.Contains("system_audio")));
+                    manifest.Status == "completed" && availableStreams.Contains("microphone") && availableStreams.Contains("system_audio"), transcriptCount));
             }
             catch (Exception exception)
             {

@@ -7,6 +7,7 @@ using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Meetings;
 using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Core.Status;
+using AiMeetingAssistant.Core.Transcripts;
 using AiMeetingAssistant.Windows.Worker;
 
 namespace AiMeetingAssistant.Desktop.ViewModels;
@@ -53,9 +54,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _runtimeStatus = "AI runtime not loaded yet.";
     private string _transcriptionActivityDetail = "The worker is idle.";
     private bool _isTranscriptionIndeterminate;
+    private IReadOnlyList<SpeechModelOption> _installedSpeechModels = [];
+    private SpeechModelOption? _selectedSpeechModel;
+    private IReadOnlyList<TranscriptRunInfo> _selectedTranscriptRuns = [];
+    private TranscriptRunInfo? _selectedTranscriptRun;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
-        PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic", string? diarizationModelPath = null)
+        PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic", string? diarizationModelPath = null, string? modelId = null)
     {
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
@@ -77,6 +82,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         RefreshMeetingLibraryCommand = new AsyncRelayCommand(RefreshMeetingLibraryAsync, () => !IsRecording && !IsTranscribing);
         TranscribeSelectedCommand = new AsyncRelayCommand(TranscribeSelectedAsync, () => CanTranscribeSelected);
         ClearStatusLogCommand = new AsyncRelayCommand(ClearStatusLogAsync);
+        RefreshInstalledSpeechModels(modelId, modelPath);
         _recordingSession.StateChanged += OnRecordingStateChanged;
     }
 
@@ -98,6 +104,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool CanChangeSources => !_isDiscoveringSources && !IsTranscribing && State is RecordingSessionState.Idle
         or RecordingSessionState.Completed
         or RecordingSessionState.Failed;
+
+    public IReadOnlyList<SpeechModelOption> InstalledSpeechModels { get => _installedSpeechModels; private set { _installedSpeechModels = value; OnPropertyChanged(); } }
+    public SpeechModelOption? SelectedSpeechModel { get => _selectedSpeechModel; set { _selectedSpeechModel = value; _modelPath = value?.ModelPath; OnPropertyChanged(); OnPropertyChanged(nameof(CanTranscribeLatest)); OnPropertyChanged(nameof(CanTranscribeSelected)); TranscribeLatestCommand.RaiseCanExecuteChanged(); TranscribeSelectedCommand.RaiseCanExecuteChanged(); } }
 
     public bool CanTranscribeLatest => !IsTranscribing && _workerClient is not null &&
         _latestSessionDirectory is not null && Directory.Exists(_latestSessionDirectory) &&
@@ -135,6 +144,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CanTranscribeSelected));
             OnPropertyChanged(nameof(CanDeleteSelectedMeeting));
             TranscribeSelectedCommand.RaiseCanExecuteChanged();
+            RefreshSelectedTranscriptRuns();
         }
     }
 
@@ -144,7 +154,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set { _meetingLibraryStatus = value; OnPropertyChanged(); }
     }
 
-    public bool CanOpenSelectedTranscript => SelectedMeetingSession?.TranscriptPath is not null;
+    public IReadOnlyList<TranscriptRunInfo> SelectedTranscriptRuns { get => _selectedTranscriptRuns; private set { _selectedTranscriptRuns = value; OnPropertyChanged(); } }
+    public TranscriptRunInfo? SelectedTranscriptRun { get => _selectedTranscriptRun; set { _selectedTranscriptRun = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanOpenSelectedTranscript)); } }
+
+    public bool CanOpenSelectedTranscript => SelectedTranscriptRun is not null;
     public bool CanDeleteSelectedMeeting => SelectedMeetingSession is not null && !IsRecording && !IsTranscribing;
     public bool CanTranscribeSelected => !IsTranscribing && SelectedMeetingSession?.CanTranscribe == true &&
         _workerClient is not null && _modelPath is not null && Directory.Exists(_modelPath);
@@ -399,11 +412,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public void ApplyProcessingSettings(string? modelPath, string computePreference)
+    public void ApplyProcessingSettings(string? modelPath, string computePreference, string? modelId = null)
     {
         if (IsTranscribing) throw new InvalidOperationException("Processing settings cannot change during transcription.");
         _modelPath = modelPath is null ? null : Path.GetFullPath(modelPath);
         _computePreference = computePreference;
+        RefreshInstalledSpeechModels(modelId, modelPath);
         TranscriptionStatusMessage = _modelPath is null
             ? "The selected speech model is not installed."
             : $"Processing settings updated · {Path.GetFileName(_modelPath)} · {computePreference}";
@@ -412,6 +426,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         TranscribeLatestCommand.RaiseCanExecuteChanged();
         TranscribeSelectedCommand.RaiseCanExecuteChanged();
         AddStatus("AI", TranscriptionStatusMessage);
+    }
+
+    private void RefreshInstalledSpeechModels(string? selectedId, string? customPath)
+    {
+        var models = LocalModelResolver.SpeechModels
+            .Select(model => new SpeechModelOption(model.Id, model.DisplayName, LocalModelResolver.ResolveSpeechModel(model.Id)))
+            .Where(model => model.ModelPath is not null && Directory.Exists(model.ModelPath)).ToList();
+        if (!string.IsNullOrWhiteSpace(customPath) && models.All(model => !string.Equals(model.ModelPath, customPath, StringComparison.OrdinalIgnoreCase)))
+            models.Add(new("custom", $"Custom · {Path.GetFileName(customPath)}", Path.GetFullPath(customPath)));
+        InstalledSpeechModels = models;
+        SelectedSpeechModel = models.FirstOrDefault(model => model.Id == selectedId)
+            ?? models.FirstOrDefault(model => string.Equals(model.ModelPath, customPath, StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault();
+    }
+
+    private void RefreshSelectedTranscriptRuns()
+    {
+        SelectedTranscriptRuns = SelectedMeetingSession is null ? [] : TranscriptRunCatalog.Discover(SelectedMeetingSession.SessionDirectory);
+        SelectedTranscriptRun = SelectedTranscriptRuns.FirstOrDefault();
     }
 
     private async Task RefreshSourcesAsync()
@@ -506,10 +539,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (microphone is null || systemAudio is null)
                 throw new InvalidDataException("The latest session does not contain exactly one microphone and system-audio WAV file.");
 
-            var outputPath = Path.Combine(_latestSessionDirectory, "processing", "transcript.json");
+            var selectedModel = SelectedSpeechModel ?? throw new InvalidOperationException("Select an installed speech model.");
+            var outputPath = Path.Combine(_latestSessionDirectory, "processing", $"transcript_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{selectedModel.Id}.json");
             TranscriptionStatusMessage = "Queuing local transcription...";
-            var job = await _workerClient.StartTranscriptionAsync([microphone, systemAudio], _modelPath, outputPath,
-                computePreference: _computePreference, diarizationModelPath: _diarizationModelPath, cancellationToken: token);
+            var job = await _workerClient.StartTranscriptionAsync([microphone, systemAudio], selectedModel.ModelPath!, outputPath,
+                computePreference: _computePreference, diarizationModelPath: _diarizationModelPath, modelId: selectedModel.Id, cancellationToken: token);
             activeJobId = job.JobId;
             while (true)
             {
@@ -527,6 +561,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 if (job.Status == "completed")
                 {
                     TranscriptPath = job.OutputPath ?? outputPath;
+                    CopyAtomic(TranscriptPath, Path.Combine(_latestSessionDirectory, "processing", "transcript.json"));
                     break;
                 }
                 if (job.Status == "failed") throw new InvalidOperationException(job.Error ?? "Local transcription failed.");
@@ -575,6 +610,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         _transcriptionCancellation?.Cancel();
         return Task.CompletedTask;
+    }
+
+    private static void CopyAtomic(string source, string destination)
+    {
+        var temporary = $"{destination}.{Guid.NewGuid():N}.tmp";
+        try { File.Copy(source, temporary, true); File.Move(temporary, destination, true); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
     private static string FormatTranscriptionStatus(TranscriptionJobStatus job) => job.Status switch
@@ -814,3 +856,5 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 }
+
+public sealed record SpeechModelOption(string Id, string DisplayName, string? ModelPath);

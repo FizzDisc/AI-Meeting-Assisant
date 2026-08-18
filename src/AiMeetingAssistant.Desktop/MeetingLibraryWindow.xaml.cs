@@ -16,7 +16,7 @@ public partial class MeetingLibraryWindow : Window
 
     private void OnOpenSelectedTranscript(object sender, RoutedEventArgs e)
     {
-        var path = _viewModel.SelectedMeetingSession?.TranscriptPath;
+        var path = _viewModel.SelectedTranscriptRun?.Path;
         if (path is null) return;
         try { new TranscriptWindow(path) { Owner = this }.ShowDialog(); }
         catch (Exception exception)

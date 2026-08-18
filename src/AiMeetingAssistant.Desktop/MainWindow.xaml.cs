@@ -21,7 +21,7 @@ public partial class MainWindow : Window
         var pythonExecutable = PythonRuntimeResolver.Resolve();
         var modelPath = settings.ModelDirectory ?? LocalModelResolver.ResolveSpeechModel(settings.SpeechModelId);
         var diarizationModelPath = LocalModelResolver.ResolveDiarizationModel();
-        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(settings.CaptureDirectory), new PythonWorkerClient(pythonExecutable, workerPath), modelPath, settings.CaptureDirectory, settings.ComputePreference, diarizationModelPath)
+        _viewModel = new(new WindowsCaptureSourceDiscovery(), new CombinedCaptureCoordinator(settings.CaptureDirectory), new PythonWorkerClient(pythonExecutable, workerPath), modelPath, settings.CaptureDirectory, settings.ComputePreference, diarizationModelPath, settings.SpeechModelId)
         {
             UIDispatcher = Dispatcher
         };
@@ -60,7 +60,7 @@ public partial class MainWindow : Window
             var settings = AppPreferences.Load();
             _viewModel.IsScreenCaptureEnabled = settings.ScreenCaptureEnabled;
             var modelPath = settings.ModelDirectory ?? LocalModelResolver.ResolveSpeechModel(settings.SpeechModelId);
-            _viewModel.ApplyProcessingSettings(modelPath, settings.ComputePreference);
+            _viewModel.ApplyProcessingSettings(modelPath, settings.ComputePreference, settings.SpeechModelId);
         }
     }
 

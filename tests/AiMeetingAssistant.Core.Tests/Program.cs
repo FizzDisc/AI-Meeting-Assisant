@@ -40,6 +40,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("transcript parser validates and orders source segments", TranscriptParserValidatesAndOrders)
     ,("transcript Markdown and JSON exports are atomic", TranscriptExportsAreAtomic)
     ,("speaker display names are validated and stored per meeting", SpeakerNamesAreMeetingScoped)
+    ,("transcript run catalog preserves comparable model runs", TranscriptRunCatalogPreservesRuns)
     ,("meeting library discovers valid and invalid sessions", MeetingLibraryDiscoversAllSessions)
     ,("meeting library deletion is scoped to direct session workspaces", MeetingLibraryDeletionIsScoped)
     ,("operational status log is bounded and deduplicated", OperationalStatusLogIsBounded)
@@ -636,6 +637,22 @@ static Task SpeakerNamesAreMeetingScoped()
         return Task.CompletedTask;
     }
     finally { Directory.Delete(directory, true); }
+}
+
+static Task TranscriptRunCatalogPreservesRuns()
+{
+    var directory=Path.Combine(Path.GetTempPath(),$"aima_runs_{Guid.NewGuid():N}");var processing=Path.Combine(directory,"processing");Directory.CreateDirectory(processing);
+    try
+    {
+        foreach(var item in new[]{new{Id="tiny",Ms=1200L,Hour=-2},new{Id="small",Ms=2400L,Hour=-1}})
+        {
+            var document=new TranscriptDocument(3,DateTimeOffset.UtcNow.AddHours(item.Hour),"de",null,"cpu","int8",2,"automatic",null,[new(0,1,"Text","system_audio","SPEAKER_00","assigned")],true,1,item.Id,item.Ms);
+            TranscriptDocumentStore.ExportJsonAtomic(Path.Combine(processing,$"transcript_run_{item.Id}.json"),document);
+        }
+        File.Copy(Path.Combine(processing,"transcript_run_small.json"),Path.Combine(processing,"transcript.json"));
+        var runs=TranscriptRunCatalog.Discover(directory);Equal(2,runs.Count);Equal("small",runs[0].ModelId);Equal("00:00:02",runs[0].ProcessingDurationLabel);return Task.CompletedTask;
+    }
+    finally{Directory.Delete(directory,true);}
 }
 
 static Task MeetingLibraryDiscoversAllSessions()

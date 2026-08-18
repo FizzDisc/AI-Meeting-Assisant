@@ -15,7 +15,9 @@ public sealed record TranscriptDocument(
     string? FallbackReason,
     IReadOnlyList<TranscriptSegment> Segments,
     bool? DiarizationEnabled = null,
-    int? SpeakerCount = null);
+    int? SpeakerCount = null,
+    string? ModelId = null,
+    long? ProcessingDurationMilliseconds = null);
 
 public sealed record TranscriptSegment(double Start, double End, string Text, string? Source = null,
     string? Speaker = null, string? SpeakerAssignment = null, double? SpeakerOverlapRatio = null);

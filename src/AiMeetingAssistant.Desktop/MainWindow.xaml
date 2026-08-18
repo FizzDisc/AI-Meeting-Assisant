@@ -14,7 +14,7 @@
                 <TextBlock Text="{Binding StateLabel}" FontSize="30" FontWeight="SemiBold" Margin="0,7,0,0"/>
                 <TextBlock Text="Capture, transcribe and turn conversations into clear outcomes." Foreground="{StaticResource MutedBrush}" FontSize="15" Margin="0,8,0,0"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"><Button Content="Settings" Click="OnOpenSettings" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/><Border Background="#18352E" CornerRadius="12" Padding="14,8"><TextBlock Text="SPRINT 3.4.2 · MODEL INSTALLER" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/></Border></StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"><Button Content="Settings" Click="OnOpenSettings" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/><Border Background="#18352E" CornerRadius="12" Padding="14,8"><TextBlock Text="SPRINT 3.4.3 · MODEL COMPARISON" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/></Border></StackPanel>
         </Grid>
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="0.75*"/></Grid.ColumnDefinitions>
@@ -97,6 +97,8 @@
                 <Border Style="{StaticResource CardStyle}" Margin="0,0,0,20">
                     <StackPanel>
                         <TextBlock Text="Local transcription" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock Text="Model for next transcription" Foreground="{StaticResource MutedBrush}" Margin="0,9,0,4"/>
+                        <ComboBox ItemsSource="{Binding InstalledSpeechModels}" SelectedItem="{Binding SelectedSpeechModel}" SelectedValuePath="Id"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" Foreground="#111827"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                         <TextBlock Text="{Binding TranscriptionStatusMessage}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,9,0,0"/>
                         <TextBlock Text="{Binding TranscriptionActivityDetail}" Foreground="{StaticResource AccentBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
                         <ProgressBar Height="7" Minimum="0" Maximum="100" Value="{Binding TranscriptionProgress, Mode=OneWay}" IsIndeterminate="{Binding IsTranscriptionIndeterminate}" Foreground="{StaticResource AccentBrush}" Background="#1A3A35" Margin="0,12,0,0"/>
@@ -118,6 +120,6 @@
             </StackPanel>
             </ScrollViewer>
         </Grid>
-        <Grid Grid.Row="4"><TextBlock Text="Local capture, transcription and speaker analysis" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 3.4.2 · Managed model installation" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
+        <Grid Grid.Row="4"><TextBlock Text="Local capture, transcription and speaker analysis" Foreground="{StaticResource MutedBrush}" FontSize="12"/><TextBlock Text="Sprint 3.4.3 · Comparable transcript runs" Foreground="{StaticResource AccentBrush}" FontSize="12" HorizontalAlignment="Right"/></Grid>
     </Grid>
 </Window>
