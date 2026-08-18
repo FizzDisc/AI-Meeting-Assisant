@@ -57,7 +57,7 @@
 ## Sprint 3.4 — local speech models
 
 - **Sprint 3.4.1: Model catalog and default selection — Complete.** Settings expose curated Tiny, Small and Medium profiles with installation state, quality, indicative size and hardware guidance. The stable model ID is persisted and resolved to an installed local folder at startup. Unavailable choices cannot be saved before installation support exists; an advanced custom-directory override remains compatible. Manual validation confirmed catalog readability, unavailable-model protection, Tiny persistence and clean application shutdown.
-- **Sprint 3.4.2: In-app installation and removal.** Download verified model snapshots with progress/cancellation, validate their contents and remove only managed model directories.
+- **Sprint 3.4.2: In-app installation and removal — Complete.** Settings install catalog snapshots in an isolated process with downloaded/total bytes, transfer speed and cancellation, validate required CTranslate2 artifacts, atomically promote completed downloads and clean partial directories. Removal is allow-listed to managed non-linked catalog folders and blocks the active default model; custom paths are never deleted. Saved model and compute changes are applied immediately to the running desktop; only a changed capture-library location requires restart. Manual validation passed for install, cancellation/cleanup, removal/reinstall, live progress and hot Tiny/Small switching.
 - **Sprint 3.4.3: Per-transcription model choice and comparison.** Override the default for one meeting, re-transcribe existing recordings and compare model/runtime metadata.
 
 ## Sprint 3.5 — Intel GPU acceleration evaluation

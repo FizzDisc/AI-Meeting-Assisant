@@ -1834,3 +1834,28 @@ Intel-iGPU; reine NVIDIA-CUDA-Unterstuetzung reicht fuer den internen Rollout
 nicht aus. 3.5 beginnt als messbarer OpenVINO/DirectML-Backend-Spike. Eine
 Produktintegration erfolgt nur bei besserer End-to-End-Laufzeit und erhaltener
 Transcript-, Timestamp-, Alignment- und Diarisierungsqualitaet.
+=== CODEX · Sprint 3.4.2 ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+In-App-Installation und Entfernung fuer Tiny/Small/Medium sind implementiert.
+Downloads laufen isoliert, zeigen Aktivitaet, sind abbrechbar, validieren die
+CTranslate2-Artefakte und werden erst danach atomar als installiert sichtbar.
+Abbruch raeumt eng begrenzte Temp-Ordner auf. Entfernen ist auf nicht verlinkte
+Katalogordner unter worker/models beschraenkt; aktives Default- und Custom-Modell
+werden nicht geloescht. Build, C#-Suites und 16 Python-Tests sind erfolgreich.
+Manueller Download-/Cancel-/Remove-Smoke steht aus.
+=== CODEX · Sprint 3.4.2 UX-Nacharbeit ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Nach Smoke-Feedback zeigt der Downloader nun heruntergeladene/Gesamtbytes und
+aktuelle mittlere Transfergeschwindigkeit. Gespeicherte Modell- und Compute-
+Aenderungen werden ohne App-Neustart in den naechsten Transkriptionsjob injiziert.
+Nur eine geaenderte Capture-Library bleibt restartpflichtig. Vollstaendiger
+Rebuild sowie C#- und 16 Python-Tests bleiben erfolgreich; kurzer Re-Smoke offen.
+=== CODEX · Sprint 3.4.2 ACCEPTED ===
+Zeit: 2026-08-18 (Europe/Paris)
+
+Finaler manueller Re-Smoke erfolgreich. Live-Bytes/Gesamt/Transfergeschwindigkeit
+werden angezeigt; Abbruch und Temp-Cleanup funktionieren. Install, Remove und
+Reinstall wurden geprueft. Tiny/Small-Wechsel wird nach Save ohne Neustart in die
+laufende App uebernommen. Sprint 3.4.2 ist abgeschlossen und commitbereit.

@@ -56,7 +56,12 @@ public partial class MainWindow : Window
     private void OnOpenSettings(object sender, RoutedEventArgs eventArgs)
     {
         if (new SettingsWindow { Owner = this }.ShowDialog() == true)
-            _viewModel.IsScreenCaptureEnabled = AppPreferences.Load().ScreenCaptureEnabled;
+        {
+            var settings = AppPreferences.Load();
+            _viewModel.IsScreenCaptureEnabled = settings.ScreenCaptureEnabled;
+            var modelPath = settings.ModelDirectory ?? LocalModelResolver.ResolveSpeechModel(settings.SpeechModelId);
+            _viewModel.ApplyProcessingSettings(modelPath, settings.ComputePreference);
+        }
     }
 
     private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)

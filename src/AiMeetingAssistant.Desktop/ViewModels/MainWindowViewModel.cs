@@ -17,10 +17,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly RecordingSession _recordingSession;
     private readonly ICaptureCoordinator _captureCoordinator;
     private readonly PythonWorkerClient? _workerClient;
-    private readonly string? _modelPath;
+    private string? _modelPath;
     private readonly string? _diarizationModelPath;
     private readonly string _captureBaseDirectory;
-    private readonly string _computePreference;
+    private string _computePreference;
     private readonly Stopwatch _recordingStopwatch = new();
     private readonly Stopwatch _transcriptionStopwatch = new();
     private readonly DispatcherTimer _recordingTimer;
@@ -397,6 +397,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             try { await _workerClient.DisposeAsync(); } catch { }
         }
+    }
+
+    public void ApplyProcessingSettings(string? modelPath, string computePreference)
+    {
+        if (IsTranscribing) throw new InvalidOperationException("Processing settings cannot change during transcription.");
+        _modelPath = modelPath is null ? null : Path.GetFullPath(modelPath);
+        _computePreference = computePreference;
+        TranscriptionStatusMessage = _modelPath is null
+            ? "The selected speech model is not installed."
+            : $"Processing settings updated · {Path.GetFileName(_modelPath)} · {computePreference}";
+        OnPropertyChanged(nameof(CanTranscribeLatest));
+        OnPropertyChanged(nameof(CanTranscribeSelected));
+        TranscribeLatestCommand.RaiseCanExecuteChanged();
+        TranscribeSelectedCommand.RaiseCanExecuteChanged();
+        AddStatus("AI", TranscriptionStatusMessage);
     }
 
     private async Task RefreshSourcesAsync()

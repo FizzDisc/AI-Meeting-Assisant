@@ -1,5 +1,9 @@
 # Architecture
 
+## Sprint 3.4.2 managed model lifecycle
+
+Speech-model installation/removal runs in a short-lived Python process separate from both WPF and the long-lived AI worker. Model IDs, upstream repositories and local directory names are allow-listed in the script. Installation downloads to a unique hidden sibling, reports repository byte totals and live aggregate throughput, validates CTranslate2 artifacts and atomically renames it; cancellation is process-tree termination followed by narrowly scoped partial-directory cleanup. Removal rejects links, paths outside the managed root and the active desktop default. The long-lived worker does not cache a speech model: each isolated transcription child receives its explicit path, so the desktop can hot-apply saved model and compute settings between jobs. Capture-library relocation remains restart-bound because capture and library services own that root for their lifetime.
+
 ## Sprint 3.4.1 local speech-model catalog
 
 Settings persist a stable curated model ID rather than a catalog-specific absolute path. At application composition time, `LocalModelResolver` maps that ID to an existing folder under `worker/models`; the worker still receives only an explicit local path and never downloads implicitly. The advanced custom-directory and environment overrides remain escape hatches. Catalog entries expose indicative quality, size and hardware guidance, while installation state is derived from the filesystem.
