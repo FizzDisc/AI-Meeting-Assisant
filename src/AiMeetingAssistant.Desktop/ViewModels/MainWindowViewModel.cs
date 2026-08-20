@@ -845,6 +845,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             AddStatus(eventArgs.Level, eventArgs.Message);
             _processingPhase = eventArgs.Message;
             TranscriptionActivityDetail = $"{_processingPhase} · elapsed {_transcriptionStopwatch.Elapsed.ToString(@"hh\:mm\:ss")}";
+            if (eventArgs.OutputPath is string path && File.Exists(path))
+            {
+                TranscriptPath = path;
+                if (eventArgs.Message.StartsWith("Preliminary transcript", StringComparison.Ordinal))
+                    TranscriptionStatusMessage = "Transcript ready; identifying speakers in background...";
+                _ = RefreshMeetingLibraryAsync();
+            }
         }
         var dispatcher = _uiDispatcher ?? Dispatcher.CurrentDispatcher;
         if (dispatcher.CheckAccess()) Update(); else dispatcher.BeginInvoke(Update);

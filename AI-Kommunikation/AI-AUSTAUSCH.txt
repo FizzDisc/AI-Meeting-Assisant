@@ -2069,3 +2069,20 @@ erhalten. Ein False Merge zerstoert dagegen die Trennbarkeit. Fuer nur 15
 Sekunden Gewinn bleibt deshalb 0.15 der konservative Produktionsstandard;
 0.20 bleibt Benchmark-only. Overrides bleiben XPU-only, whitelisted und hart
 auf sichere Batch-/Step-Bereiche begrenzt.
+
+=== CODEX · SPRINT 3.8.4/3.8.5 TWO-PHASE FINISH ===
+
+Nach Catch-up und Timeline-Reconciliation wird jetzt sofort ein vollstaendiges
+source-labelled Preliminary-Transkript atomar als canonical transcript.json
+publiziert. UI und Library koennen es oeffnen, waehrend Pyannote die Speaker im
+Hintergrund anreichert. Erfolg ersetzt den Pointer atomar durch die finale
+Version; Fehler/Cancel lassen das nutzbare Preliminary bestehen.
+
+Erst nach erfolgreicher Final-Publikation entfernt ein session_*-begrenztes,
+best-effort Cleanup reproduzierbare Grossdaten: live-chunks, Batch-Scratch,
+normalisierte temporaere WAVs und Preliminary-Kopie. Capture-Master, finale und
+versionierte Transkripte, incremental-transcript-merged.json sowie per-source
+chunk_*.json bleiben erhalten. Cleanup-Warnungen machen ein erfolgreiches
+Transkript niemals nachtraeglich zu Failed. 39 Core- und alle Windows-Smokes
+sind gruen. Der Hardware-Smoke bestaetigte Preliminary-Zugriff waehrend der
+Speaker-Analyse, finale atomare Ersetzung und anschliessende Bereinigung.

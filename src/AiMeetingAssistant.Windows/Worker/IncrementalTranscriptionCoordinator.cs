@@ -81,6 +81,12 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
         var processing = Path.Combine(sessionDirectory, "processing");
         var mergedPath = Path.Combine(processing, "incremental-transcript-merged.json");
         TranscriptDocumentStore.ExportJsonAtomic(mergedPath, merged);
+        var canonicalPath = Path.Combine(processing, "transcript.json");
+        var preliminaryPath = Path.Combine(processing, "preliminary", "transcript.json");
+        TranscriptDocumentStore.ExportJsonAtomic(preliminaryPath, merged);
+        CopyAtomic(preliminaryPath, canonicalPath);
+        Publish("READY", $"Preliminary transcript ready · {merged.Segments.Count} segment(s); identifying speakers in background.",
+            SessionEvent(sessionDirectory), canonicalPath);
         var systemAudio = Directory.GetFiles(sessionDirectory, "system_audio_*.wav").SingleOrDefault()
             ?? throw new InvalidDataException("Final system-audio master is missing.");
         var outputPath = Path.Combine(processing, $"transcript_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{options.ModelId}_incremental.json");
@@ -95,9 +101,14 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
             Publish("AI", $"Incremental finalization: {DisplayPhase(status.Status)}", SessionEvent(sessionDirectory));
         }, cancellationToken).ConfigureAwait(false);
         if (job.Status != "completed") throw new InvalidOperationException(job.Error ?? $"Incremental finalization ended as {job.Status}.");
-        CopyAtomic(outputPath, Path.Combine(processing, "transcript.json"));
-        Publish("AI", $"Incremental transcript completed · {job.SegmentCount ?? 0} segment(s).", SessionEvent(sessionDirectory), outputPath);
-        return outputPath;
+        CopyAtomic(outputPath, canonicalPath);
+        Publish("READY", $"Speaker-enriched transcript completed · {job.SegmentCount ?? 0} segment(s).",
+            SessionEvent(sessionDirectory), canonicalPath);
+        var cleanup = await Task.Run(() => IncrementalProcessingCleanup.AfterSuccessfulFinalization(sessionDirectory)).ConfigureAwait(false);
+        Publish("INFO", $"Processing cleanup reclaimed {FormatBytes(cleanup.ReclaimedBytes)} across {cleanup.DeletedFiles} temporary file(s).",
+            SessionEvent(sessionDirectory));
+        foreach (var warning in cleanup.Warnings) Publish("WARNING", warning, SessionEvent(sessionDirectory));
+        return canonicalPath;
     }
 
     public async ValueTask DisposeAsync()
@@ -247,6 +258,15 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
         var temporary = $"{destination}.{Guid.NewGuid():N}.tmp";
         try { File.Copy(source, temporary, true); File.Move(temporary, destination, true); }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KiB", "MiB", "GiB"];
+        var value = (double)Math.Max(0, bytes);
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
+        return $"{value:0.##} {units[unit]}";
     }
 
     private static string DisplayPhase(string status) => status switch

@@ -47,6 +47,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("incremental audio chunks are finalized atomically", IncrementalAudioChunksAreFinalizedAtomically)
     ,("incremental transcripts reconcile meeting timestamps and boundary overlap", IncrementalTranscriptsReconcileTimeline)
     ,("paired incremental transcripts split into source artifacts", PairedIncrementalTranscriptsSplitBySource)
+    ,("successful incremental cleanup removes only reproducible processing data", IncrementalCleanupIsSafelyScoped)
 };
 
 var failures = 0;
@@ -718,6 +719,46 @@ static Task PairedIncrementalTranscriptsSplitBySource()
         return Task.CompletedTask;
     }
     finally { Directory.Delete(directory, true); }
+}
+
+static Task IncrementalCleanupIsSafelyScoped()
+{
+    var root = Path.Combine(Path.GetTempPath(), $"aima_cleanup_{Guid.NewGuid():N}");
+    var session = Path.Combine(root, "session_test");
+    var processing = Path.Combine(session, "processing");
+    Directory.CreateDirectory(Path.Combine(processing, "live-chunks", "microphone"));
+    Directory.CreateDirectory(Path.Combine(processing, "live-transcripts", ".batches"));
+    Directory.CreateDirectory(Path.Combine(processing, "live-transcripts", "microphone"));
+    Directory.CreateDirectory(Path.Combine(processing, "preliminary"));
+    try
+    {
+        File.WriteAllBytes(Path.Combine(session, "microphone_master.wav"), new byte[13]);
+        File.WriteAllBytes(Path.Combine(processing, "live-chunks", "microphone", "chunk.wav"), new byte[17]);
+        File.WriteAllText(Path.Combine(processing, "live-transcripts", ".batches", "batch.json"), "{}");
+        var chunkTranscript = Path.Combine(processing, "live-transcripts", "microphone", "chunk_000000.json");
+        File.WriteAllText(chunkTranscript, "{}");
+        File.WriteAllBytes(Path.Combine(processing, "live-transcripts", "microphone", "normalized_microphone.wav"), new byte[19]);
+        File.WriteAllText(Path.Combine(processing, "preliminary", "transcript.json"), "{}");
+        File.WriteAllBytes(Path.Combine(processing, "normalized_incremental_system_audio.wav"), new byte[23]);
+        File.WriteAllText(Path.Combine(processing, "transcript.json"), "{}");
+        File.WriteAllText(Path.Combine(processing, "incremental-transcript-merged.json"), "{}");
+
+        var result = IncrementalProcessingCleanup.AfterSuccessfulFinalization(session);
+        if (result.DeletedFiles < 5 || result.ReclaimedBytes < 59) throw new InvalidOperationException("Cleanup did not report reclaimed evidence.");
+        if (Directory.Exists(Path.Combine(processing, "live-chunks"))) throw new InvalidOperationException("Live chunks survived successful cleanup.");
+        if (!File.Exists(Path.Combine(session, "microphone_master.wav")) || !File.Exists(chunkTranscript)
+            || !File.Exists(Path.Combine(processing, "transcript.json"))
+            || !File.Exists(Path.Combine(processing, "incremental-transcript-merged.json")))
+            throw new InvalidOperationException("Cleanup removed retained meeting evidence.");
+        try
+        {
+            IncrementalProcessingCleanup.AfterSuccessfulFinalization(root);
+            throw new InvalidOperationException("Cleanup accepted a non-session directory.");
+        }
+        catch (InvalidOperationException exception) when (exception.Message.Contains("session_*")) { }
+        return Task.CompletedTask;
+    }
+    finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }
 
 static Task SpeakerNamesAreMeetingScoped()
