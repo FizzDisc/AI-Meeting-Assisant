@@ -342,6 +342,8 @@ static async Task IncrementalAudioChunksAreFinalizedAtomically()
     {
         const int sampleRate = 100;
         await using var writer = new IncrementalAudioChunkWriter(directory, "microphone", sampleRate, 1, targetChunkSeconds: 1);
+        var finalized = new List<IncrementalAudioChunkReadyEventArgs>();
+        writer.ChunkFinalized += (_, chunk) => finalized.Add(chunk);
         writer.TryEnqueue(new(AudioLevel.Silent, 0, 75, new byte[75 * 2]));
         writer.TryEnqueue(new(AudioLevel.Silent, 75, 75, new byte[75 * 2]));
         writer.TryEnqueue(new(AudioLevel.Silent, 150, 100, new byte[100 * 2]));
@@ -361,6 +363,9 @@ static async Task IncrementalAudioChunksAreFinalizedAtomically()
         Equal("completed", manifest.Status);
         Equal(3, manifest.Chunks.Count);
         Equal(0L, manifest.DroppedBufferCount);
+        Equal(3, finalized.Count);
+        Equal("microphone", finalized[0].Source);
+        Equal(Path.GetFullPath(chunks[0]), finalized[0].AudioPath);
     }
     finally
     {

@@ -72,9 +72,10 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
         string? diarizationModelPath = null, string? modelId = null,
         string? openVinoModelPath = null, string? openVinoRuntimePath = null, string? sileroVadPath = null,
         string? torchXpuRuntimePath = null,
+        IReadOnlyList<string>? sourceLabels = null, bool lowPriority = false,
         CancellationToken cancellationToken = default)
     {
-        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language, computePreference, diarizationModelPath, modelId, openVinoModelPath, openVinoRuntimePath, sileroVadPath, torchXpuRuntimePath }, cancellationToken).ConfigureAwait(false);
+        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language, computePreference, diarizationModelPath, modelId, openVinoModelPath, openVinoRuntimePath, sileroVadPath, torchXpuRuntimePath, sourceLabels, lowPriority }, cancellationToken).ConfigureAwait(false);
         return ParseTranscriptionStatus(response.Payload);
     }
 
@@ -91,6 +92,7 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
     }
 
     public async Task<TranscriptionJobStatus> WaitForTranscriptionAsync(string jobId, TimeSpan? pollInterval = null,
+        Action<TranscriptionJobStatus>? statusChanged = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -98,6 +100,7 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
             while (true)
             {
                 var status = await GetTranscriptionStatusAsync(jobId, cancellationToken).ConfigureAwait(false);
+                statusChanged?.Invoke(status);
                 if (status.Status is "completed" or "failed" or "cancelled") return status;
                 await Task.Delay(pollInterval ?? TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
             }

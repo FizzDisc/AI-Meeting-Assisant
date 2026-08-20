@@ -23,6 +23,18 @@ public sealed record IncrementalAudioChunkManifest(
     IReadOnlyList<IncrementalAudioChunk> Chunks,
     string? ErrorMessage = null);
 
+public sealed class IncrementalAudioChunkReadyEventArgs(
+    string sessionDirectory, string source, int index, string audioPath,
+    double startSeconds, double durationSeconds) : EventArgs
+{
+    public string SessionDirectory { get; } = sessionDirectory;
+    public string Source { get; } = source;
+    public int Index { get; } = index;
+    public string AudioPath { get; } = audioPath;
+    public double StartSeconds { get; } = startSeconds;
+    public double DurationSeconds { get; } = durationSeconds;
+}
+
 /// <summary>
 /// Creates immutable PCM16 WAV chunks without ever blocking the capture callback.
 /// A bounded queue protects recording stability; missing buffers are represented as silence.
@@ -33,6 +45,7 @@ public sealed class IncrementalAudioChunkWriter : IAsyncDisposable
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly string _source;
+    private readonly string _sessionDirectory;
     private readonly string _directory;
     private readonly string _manifestPath;
     private readonly int _sampleRate;
@@ -63,6 +76,7 @@ public sealed class IncrementalAudioChunkWriter : IAsyncDisposable
         if (queueCapacity <= 0) throw new ArgumentOutOfRangeException(nameof(queueCapacity));
 
         _source = source;
+        _sessionDirectory = Path.GetFullPath(sessionDirectory);
         _sampleRate = sampleRate;
         _channelCount = channelCount;
         _bytesPerFrame = checked(channelCount * 2);
@@ -84,6 +98,7 @@ public sealed class IncrementalAudioChunkWriter : IAsyncDisposable
     }
 
     public long DroppedBufferCount => Interlocked.Read(ref _droppedBufferCount);
+    public event EventHandler<IncrementalAudioChunkReadyEventArgs>? ChunkFinalized;
 
     public bool TryEnqueue(AudioFrameCapturedEventArgs frame)
     {
@@ -189,10 +204,20 @@ public sealed class IncrementalAudioChunkWriter : IAsyncDisposable
             File.Move(temporaryPath, Path.Combine(_directory, fileName), true);
             _chunks.Add(new(_chunks.Count, fileName, chunkStartFrame, framesInChunk,
                 chunkStartFrame / (double)_sampleRate, framesInChunk / (double)_sampleRate));
+            var completed = _chunks[^1];
             writer = null;
             temporaryPath = null;
             framesInChunk = 0;
             WriteManifest("recording");
+            try
+            {
+                ChunkFinalized?.Invoke(this, new(_sessionDirectory, _source, completed.Index,
+                    Path.Combine(_directory, fileName), completed.StartSeconds, completed.DurationSeconds));
+            }
+            catch
+            {
+                // Optional consumers must never fail the durable chunk writer.
+            }
         }
     }
 

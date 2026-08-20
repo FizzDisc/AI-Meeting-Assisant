@@ -38,6 +38,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     public event EventHandler<AudioFrameCapturedEventArgs>? MicrophoneLevelChanged;
     public event EventHandler<AudioCaptureFaultEventArgs>? MicrophoneFaulted;
     public event EventHandler<CaptureErrorEventArgs>? CaptureFailed;
+    public event EventHandler<IncrementalAudioChunkReadyEventArgs>? IncrementalAudioChunkReady;
     public CaptureAlignmentManifest? LastAlignment { get; private set; }
     public string? LastCompletedSessionDirectory { get; private set; }
     public CaptureRecoveryReport RecoverInterruptedSessions() => CaptureSessionRecovery.RecoverInterrupted(_baseDirectory);
@@ -130,14 +131,22 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     {
         _systemOffset ??= _clock.Elapsed.TotalMilliseconds;
         if (_sessionDirectory is not null)
+        {
             _systemChunkWriter ??= new(_sessionDirectory, "system_audio", e.SampleRate, e.ChannelCount);
+            _systemChunkWriter.ChunkFinalized -= OnChunkFinalized;
+            _systemChunkWriter.ChunkFinalized += OnChunkFinalized;
+        }
     }
 
     private void OnMicrophoneStarted(object? s, AudioCaptureStartedEventArgs e)
     {
         _microphoneOffset ??= _clock.Elapsed.TotalMilliseconds;
         if (_sessionDirectory is not null)
+        {
             _microphoneChunkWriter ??= new(_sessionDirectory, "microphone", e.SampleRate, e.ChannelCount);
+            _microphoneChunkWriter.ChunkFinalized -= OnChunkFinalized;
+            _microphoneChunkWriter.ChunkFinalized += OnChunkFinalized;
+        }
     }
     private void OnCaptureFailed(object? s, CaptureErrorEventArgs e) => CaptureFailed?.Invoke(this, e);
     private void OnSystemLevel(object? s, AudioFrameCapturedEventArgs e)
@@ -152,6 +161,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         MicrophoneLevelChanged?.Invoke(this, e);
     }
     private void OnMicrophoneFault(object? s, AudioCaptureFaultEventArgs e) => MicrophoneFaulted?.Invoke(this, e);
+    private void OnChunkFinalized(object? s, IncrementalAudioChunkReadyEventArgs e) => IncrementalAudioChunkReady?.Invoke(this, e);
 
     private CaptureSessionManifest BuildManifest(string status, DateTimeOffset? completedAt)
     {

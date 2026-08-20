@@ -178,8 +178,9 @@ def run(request_path: Path) -> int:
     cached_raw = load_stage_cache(raw_cache_path, raw_key)
     phase_started = time.monotonic()
     normalized = []
+    source_labels = request.get("sourceLabels")
     for index, source in enumerate(inputs):
-        label = source_name(source, index)
+        label = source_labels[index] if source_labels else source_name(source, index)
         normalized_path = output_path.parent / f"normalized_{label}.wav"
         if cached_raw is None or not normalized_path.is_file():
             write_atomic(status_path, {"status": "normalizing", "progress": 0.1})

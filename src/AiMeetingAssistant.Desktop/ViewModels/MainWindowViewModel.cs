@@ -18,6 +18,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly RecordingSession _recordingSession;
     private readonly ICaptureCoordinator _captureCoordinator;
     private readonly PythonWorkerClient? _workerClient;
+    private readonly IncrementalTranscriptionCoordinator? _incrementalTranscription;
     private string? _modelPath;
     private readonly string? _diarizationModelPath;
     private readonly string _captureBaseDirectory;
@@ -65,6 +66,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
         _workerClient = workerClient;
+        if (workerClient is not null)
+        {
+            _incrementalTranscription = new(workerClient);
+            _incrementalTranscription.StatusChanged += OnIncrementalTranscriptionStatusChanged;
+        }
         _modelPath = modelPath;
         _diarizationModelPath = diarizationModelPath;
         _captureBaseDirectory = Path.GetFullPath(captureBaseDirectory);
@@ -84,6 +90,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ClearStatusLogCommand = new AsyncRelayCommand(ClearStatusLogAsync);
         RefreshInstalledSpeechModels(modelId, modelPath);
         _recordingSession.StateChanged += OnRecordingStateChanged;
+        if (captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
+            combined.IncrementalAudioChunkReady += OnIncrementalAudioChunkReady;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -405,6 +413,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         catch
         {
             // Ignore shutdown errors
+        }
+        if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
+            combined.IncrementalAudioChunkReady -= OnIncrementalAudioChunkReady;
+        if (_incrementalTranscription is not null)
+        {
+            _incrementalTranscription.StatusChanged -= OnIncrementalTranscriptionStatusChanged;
+            try { await _incrementalTranscription.DisposeAsync(); } catch { }
         }
         if (_workerClient is not null)
         {
@@ -732,6 +747,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ErrorMessage = $"Microphone error: {eventArgs.ErrorMessage}";
     }
 
+    private void OnIncrementalAudioChunkReady(object? sender, IncrementalAudioChunkReadyEventArgs eventArgs)
+    {
+        var selected = SelectedSpeechModel;
+        if (_incrementalTranscription is null || selected?.ModelPath is null || !Directory.Exists(selected.ModelPath)) return;
+        var options = new IncrementalTranscriptionOptions(selected.ModelPath, selected.Id, _computePreference,
+            LocalModelResolver.ResolveOpenVinoSpeechModel(selected.Id), LocalModelResolver.ResolveOpenVinoRuntime(),
+            LocalModelResolver.ResolveSileroVad(), LocalModelResolver.ResolveTorchXpuRuntime());
+        _incrementalTranscription.TryQueue(eventArgs, options);
+    }
+
+    private void OnIncrementalTranscriptionStatusChanged(object? sender, IncrementalTranscriptionStatusEventArgs eventArgs)
+    {
+        void Update()
+        {
+            AddStatus(eventArgs.Level, eventArgs.Message);
+            TranscriptionActivityDetail = eventArgs.Message;
+        }
+        var dispatcher = _uiDispatcher ?? Dispatcher.CurrentDispatcher;
+        if (dispatcher.CheckAccess()) Update(); else dispatcher.BeginInvoke(Update);
+    }
+
     private static double NormalizeLevel(double rmsDb) => Math.Max(0, Math.Min(100, (rmsDb + 80) / 0.8));
 
     private void OnRecordingStateChanged(object? sender, RecordingStateChangedEventArgs eventArgs)
@@ -805,6 +841,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         else if (eventArgs.CurrentState == RecordingSessionState.Recording)
         {
             StatusMessage = IsScreenCaptureEnabled ? "Screen and audio recording in progress..." : "Audio-only recording in progress...";
+            AddStatus("AI", _incrementalTranscription is not null && SelectedSpeechModel?.ModelPath is not null
+                ? "Live transcription armed; finalized audio chunks will be processed in the background."
+                : "Live transcription unavailable because no local speech model is selected.");
         }
 
         RaiseCommandStates();

@@ -1956,3 +1956,27 @@ bleibt die Hauptaufnahme korrekt; die Chunk-Timeline ergaenzt fehlende Frames
 als Stille und markiert ihr Manifest als `degraded`. Live-Whisper folgt erst in
 3.6.2, nachdem diese Capture-Grundlage manuell validiert ist. Eine optionale,
 nicht aufdringliche Speaker-Namensabfrage ist als spaetere Ausbaustufe notiert.
+
+=== CODEX · Sprint 3.6.2 IMPLEMENTATION ===
+
+Fertige Live-Chunks werden jetzt waehrend der Aufnahme an genau eine begrenzte
+FIFO uebergeben und nacheinander mit niedriger Windows-Prozessprioritaet
+transkribiert. Ergebnisse landen dauerhaft unter
+`processing/live-transcripts/<source>/chunk_*.json`. Explizite Source-Labels
+stellen sicher, dass generische Chunk-Dateinamen weiterhin als Mikrofon bzw.
+Systemaudio erscheinen.
+
+Die Verarbeitung ist absichtlich best effort: Queue-Druck oder Worker-Fehler
+erscheinen nur als Warnung im Status Center. Die Hauptaufnahme und Stop duerfen
+davon nicht scheitern; nicht verarbeitete WAV-Chunks bleiben fuer den finalen
+Catch-up in Sprint 3.6.3 erhalten. Sprecher-Diarisierung laeuft noch nicht pro
+Chunk, sondern bleibt der finalen Reconciliation vorbehalten.
+
+=== CODEX · Sprint 3.6.2 COMPLETE ===
+
+Der manuelle Hardware-Smoke ist erfolgreich. Capture, Pegel, Timer und Stop
+blieben waehrend der niedrig priorisierten Live-Transkription stabil; die
+Capture-Master waren abspielbar und mindestens ein persistentes, korrekt
+source-gelabeltes Chunk-Transkript wurde erzeugt. Sprint 3.6.2 ist damit
+abgeschlossen. Der finale Catch-up, Grenzabgleich und die einmalige
+Sprecheranalyse folgen in Sprint 3.6.3.

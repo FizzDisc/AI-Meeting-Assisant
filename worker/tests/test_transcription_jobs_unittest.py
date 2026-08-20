@@ -26,6 +26,20 @@ class TranscriptionJobTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             manager.start({"audioPaths": ["missing.wav"], "modelPath": "missing", "outputPath": "out.json"})
 
+    def test_source_labels_must_match_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            audio, model = root / "input.wav", root / "model"
+            audio.write_bytes(b"not-real-audio")
+            model.mkdir()
+            manager = TranscriptionJobManager()
+            with self.assertRaisesRegex(ValueError, "sourceLabels must match"):
+                manager.start({"audioPaths": [str(audio)], "modelPath": str(model),
+                               "outputPath": str(root / "out.json"), "sourceLabels": []})
+            with self.assertRaisesRegex(ValueError, "unsupported source"):
+                manager.start({"audioPaths": [str(audio)], "modelPath": str(model),
+                               "outputPath": str(root / "out.json"), "sourceLabels": ["unknown"]})
+
     def test_failed_child_persists_exit_code_and_diagnostic_log(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

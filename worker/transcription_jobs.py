@@ -43,6 +43,12 @@ class TranscriptionJobManager:
         diarization_path = Path(diarization_text).resolve() if diarization_text else None
         if diarization_path is not None and not (diarization_path / "config.yaml").is_file():
             raise FileNotFoundError(f"Local diarization model is invalid: {diarization_path}")
+        source_labels = payload.get("sourceLabels")
+        if source_labels is not None:
+            if not isinstance(source_labels, list) or len(source_labels) != len(audio_paths):
+                raise ValueError("sourceLabels must match audioPaths.")
+            if any(label not in ("microphone", "system_audio") for label in source_labels):
+                raise ValueError("sourceLabels contains an unsupported source.")
         request = {"audioPaths": [str(p) for p in audio_paths], "modelPath": str(model_path),
                    "outputPath": str(output_path), "statusPath": str(status_path), "language": payload.get("language"),
                    "computePreference": preference,
@@ -51,14 +57,16 @@ class TranscriptionJobManager:
                    "sileroVadPath": str(silero_path) if silero_path else None,
                    "torchXpuRuntimePath": str(torch_xpu_path) if torch_xpu_path else None,
                    "modelId": payload.get("modelId"),
-                   "diarizationModelPath": str(diarization_path) if diarization_path else None}
+                   "diarizationModelPath": str(diarization_path) if diarization_path else None,
+                   "sourceLabels": source_labels}
         request_path.write_text(json.dumps(request), encoding="utf-8")
         log_path = output_path.parent / f"transcription-{job_id}.worker.log"
         log_handle = log_path.open("w", encoding="utf-8")
         try:
+            creationflags = 0x00004000 if sys.platform == "win32" and payload.get("lowPriority") else 0
             process = subprocess.Popen([sys.executable, "-u", str(self._job_script), str(request_path)],
                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                       stderr=log_handle, text=True)
+                                       stderr=log_handle, text=True, creationflags=creationflags)
         except Exception:
             log_handle.close()
             raise
