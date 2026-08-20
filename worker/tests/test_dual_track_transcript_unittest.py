@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from transcription_job import merge_segments, restore_turn_timestamps, source_name
+from transcription_job import activate_torch_xpu, configure_diarization_profile, load_stage_cache, merge_segments, restore_turn_timestamps, source_name, stage_key, write_stage_cache
 from openvino_backend import reconcile_segments
 
 class DualTrackTranscriptTests(unittest.TestCase):
@@ -29,5 +29,35 @@ class DualTrackTranscriptTests(unittest.TestCase):
             ("system_audio", {"segments": [{"start": 0.5, "end": 1.5, "text": "remote voice"}]})])
         self.assertEqual(["system_audio", "microphone"], [item["source"] for item in merged])
         self.assertEqual(["remote voice", "own voice"], [item["text"] for item in merged])
+
+    def test_xpu_runtime_is_prepended_to_module_search_path(self):
+        import sys
+        with self.subTest("isolated runtime activation"):
+            original = list(sys.path)
+            try:
+                activate_torch_xpu(Path("nonexistent-xpu-test-runtime"))
+                self.assertEqual(str(Path("nonexistent-xpu-test-runtime")), sys.path[0])
+            finally:
+                sys.path[:] = original
+
+    def test_xpu_diarization_profile_uses_benchmarked_batches_and_step(self):
+        class Segmentation:
+            duration = 5.0
+            step = 0.5
+        class Pipeline:
+            segmentation_batch_size = 32
+            embedding_batch_size = 32
+            _segmentation = Segmentation()
+        profile = configure_diarization_profile(Pipeline(), "xpu")
+        self.assertEqual({"segmentation": 32, "embedding": 8, "segmentationStep": 0.15}, profile)
+
+    def test_stage_cache_requires_exact_key_and_round_trips_payload(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "cache.json"
+            key = stage_key({"source": "meeting", "model": "small"})
+            write_stage_cache(path, key, results=[{"text": "hello"}])
+            self.assertEqual("hello", load_stage_cache(path, key)["results"][0]["text"])
+            self.assertIsNone(load_stage_cache(path, stage_key({"source": "changed"})))
 
 if __name__ == "__main__": unittest.main()

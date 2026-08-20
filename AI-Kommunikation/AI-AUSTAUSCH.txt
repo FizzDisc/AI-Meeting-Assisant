@@ -1942,3 +1942,17 @@ sowie ein erkannter Remote-Speaker. Abbruch waehrend der Verarbeitung und das
 Schliessen der Anwendung beendeten den isolierten Worker ohne Restprozess.
 Sprint 3.5.2 ist abgeschlossen. Pyannote-VAD und Diarisierung dominieren bei
 kurzen Aufnahmen; schnellere Offline-VAD bleibt eine spaetere Optimierung.
+
+=== CODEX · Sprint 3.6.1 IMPLEMENTATION ===
+
+Die Grundlage fuer Verarbeitung waehrend einer laufenden Aufnahme ist gebaut.
+WASAPI reicht die ohnehin erzeugten PCM16-Buffer jetzt optional an zwei
+begrenzte Hintergrund-Queues weiter. Diese schreiben Systemaudio und Mikrofon
+als atomar sichtbare 30-Sekunden-Chunks nach
+`processing/live-chunks/<source>/` und pflegen je Spur ein `chunks.json`.
+
+Der Capture-Callback wartet niemals auf die Nebenverarbeitung. Bei Queue-Druck
+bleibt die Hauptaufnahme korrekt; die Chunk-Timeline ergaenzt fehlende Frames
+als Stille und markiert ihr Manifest als `degraded`. Live-Whisper folgt erst in
+3.6.2, nachdem diese Capture-Grundlage manuell validiert ist. Eine optionale,
+nicht aufdringliche Speaker-Namensabfrage ist als spaetere Ausbaustufe notiert.

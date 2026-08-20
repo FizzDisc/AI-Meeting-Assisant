@@ -291,7 +291,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
                             var level = CalculateAudioLevel(pcm16Buffer);
                             _framePosition += (long)numFrames;
 
-                            FrameCaptured?.Invoke(this, new(level, _framePosition - (long)numFrames, (int)numFrames));
+                            FrameCaptured?.Invoke(this, new(level, _framePosition - (long)numFrames, (int)numFrames, pcm16Buffer));
                         }
                         else if ((bufferFlags & AudioClientBufferFlags.Silent) != 0)
                         {
@@ -302,7 +302,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
 
                             var level = AudioLevel.Silent;
                             _framePosition += (long)numFrames;
-                            FrameCaptured?.Invoke(this, new(level, _framePosition - (long)numFrames, (int)numFrames));
+                            FrameCaptured?.Invoke(this, new(level, _framePosition - (long)numFrames, (int)numFrames, silentBuffer));
                         }
                     }
                     finally

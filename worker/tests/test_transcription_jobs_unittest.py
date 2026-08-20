@@ -26,6 +26,24 @@ class TranscriptionJobTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             manager.start({"audioPaths": ["missing.wav"], "modelPath": "missing", "outputPath": "out.json"})
 
+    def test_failed_child_persists_exit_code_and_diagnostic_log(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            audio, model, output = root / "input.wav", root / "model", root / "processing" / "transcript.json"
+            audio.write_bytes(b"not-real-audio")
+            model.mkdir()
+            fake_job = root / "failed_job.py"
+            fake_job.write_text("import sys\nprint('durable diagnostic', file=sys.stderr)\nraise SystemExit(7)\n", encoding="utf-8")
+            manager = TranscriptionJobManager(fake_job)
+            started = manager.start({"audioPaths": [str(audio)], "modelPath": str(model), "outputPath": str(output)})
+            for _ in range(100):
+                status = manager.status(started["jobId"])
+                if status["status"] == "failed": break
+                time.sleep(0.01)
+            self.assertEqual(7, status["exitCode"])
+            self.assertIn("durable diagnostic", status["error"])
+            self.assertTrue(Path(status["diagnosticLogPath"]).is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

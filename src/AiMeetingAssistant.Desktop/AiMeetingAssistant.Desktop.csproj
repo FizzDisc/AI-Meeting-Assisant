@@ -14,6 +14,7 @@
     <Content Include="..\..\worker\main.py" Link="worker\main.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\transcription_jobs.py" Link="worker\transcription_jobs.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\transcription_job.py" Link="worker\transcription_job.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\worker\xpu_diarization_stage.py" Link="worker\xpu_diarization_stage.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\diarization_job.py" Link="worker\diarization_job.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\speaker_reconciliation.py" Link="worker\speaker_reconciliation.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\manage_speech_model.py" Link="worker\manage_speech_model.py" CopyToOutputDirectory="PreserveNewest" />

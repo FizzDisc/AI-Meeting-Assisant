@@ -51,6 +51,19 @@ public static class LocalModelResolver
         return null;
     }
 
+    public static string? ResolveTorchXpuRuntime(string? baseDirectory = null)
+    {
+        foreach (var start in new[] { baseDirectory ?? AppContext.BaseDirectory, Environment.CurrentDirectory }.Distinct())
+            for (var directory = new DirectoryInfo(start); directory is not null; directory = directory.Parent)
+            {
+                var candidate = Path.Combine(directory.FullName, "worker", ".torch-xpu-spike");
+                if (File.Exists(Path.Combine(candidate, "torch", "lib", "c10_xpu.dll")) &&
+                    Directory.Exists(Path.Combine(candidate, "Library", "bin")))
+                    return candidate;
+            }
+        return null;
+    }
+
     public static string? ResolveSileroVad()
     {
         var candidate = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),

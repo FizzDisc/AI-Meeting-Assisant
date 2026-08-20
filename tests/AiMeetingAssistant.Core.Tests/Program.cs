@@ -44,6 +44,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("meeting library discovers valid and invalid sessions", MeetingLibraryDiscoversAllSessions)
     ,("meeting library deletion is scoped to direct session workspaces", MeetingLibraryDeletionIsScoped)
     ,("operational status log is bounded and deduplicated", OperationalStatusLogIsBounded)
+    ,("incremental audio chunks are finalized atomically", IncrementalAudioChunksAreFinalizedAtomically)
 };
 
 var failures = 0;
@@ -331,6 +332,39 @@ static Task WavHeaderConsistency()
                     throw new InvalidOperationException($"Expected data size {expectedDataSize}, got {dataSize}");
             }
         }
+    }
+}
+
+static async Task IncrementalAudioChunksAreFinalizedAtomically()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_live_chunks_{Guid.NewGuid():N}");
+    try
+    {
+        const int sampleRate = 100;
+        await using var writer = new IncrementalAudioChunkWriter(directory, "microphone", sampleRate, 1, targetChunkSeconds: 1);
+        writer.TryEnqueue(new(AudioLevel.Silent, 0, 75, new byte[75 * 2]));
+        writer.TryEnqueue(new(AudioLevel.Silent, 75, 75, new byte[75 * 2]));
+        writer.TryEnqueue(new(AudioLevel.Silent, 150, 100, new byte[100 * 2]));
+        await writer.CompleteAsync();
+
+        var chunkDirectory = Path.Combine(directory, "processing", "live-chunks", "microphone");
+        var chunks = Directory.GetFiles(chunkDirectory, "chunk_*.wav");
+        Equal(3, chunks.Length);
+        Equal(244L, new FileInfo(chunks[0]).Length);
+        Equal(244L, new FileInfo(chunks[1]).Length);
+        Equal(144L, new FileInfo(chunks[2]).Length);
+        Equal(0, Directory.GetFiles(chunkDirectory, "*.partial").Length);
+
+        var manifest = JsonSerializer.Deserialize<IncrementalAudioChunkManifest>(
+            await File.ReadAllTextAsync(Path.Combine(chunkDirectory, "chunks.json")))
+            ?? throw new InvalidOperationException("Chunk manifest could not be read.");
+        Equal("completed", manifest.Status);
+        Equal(3, manifest.Chunks.Count);
+        Equal(0L, manifest.DroppedBufferCount);
+    }
+    finally
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
 }
 

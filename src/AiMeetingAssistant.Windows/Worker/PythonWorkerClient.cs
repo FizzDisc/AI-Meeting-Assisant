@@ -71,9 +71,10 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
         string modelPath, string outputPath, string? language = null, string computePreference = "automatic",
         string? diarizationModelPath = null, string? modelId = null,
         string? openVinoModelPath = null, string? openVinoRuntimePath = null, string? sileroVadPath = null,
+        string? torchXpuRuntimePath = null,
         CancellationToken cancellationToken = default)
     {
-        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language, computePreference, diarizationModelPath, modelId, openVinoModelPath, openVinoRuntimePath, sileroVadPath }, cancellationToken).ConfigureAwait(false);
+        var response = await SendAsync("transcription.start", new { audioPaths, modelPath, outputPath, language, computePreference, diarizationModelPath, modelId, openVinoModelPath, openVinoRuntimePath, sileroVadPath, torchXpuRuntimePath }, cancellationToken).ConfigureAwait(false);
         return ParseTranscriptionStatus(response.Payload);
     }
 

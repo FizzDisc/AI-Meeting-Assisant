@@ -20,9 +20,11 @@ class TranscriptionJobManager:
         openvino_model_text = str(payload.get("openVinoModelPath") or "").strip()
         openvino_runtime_text = str(payload.get("openVinoRuntimePath") or "").strip()
         silero_text = str(payload.get("sileroVadPath") or "").strip()
+        torch_xpu_text = str(payload.get("torchXpuRuntimePath") or "").strip()
         openvino_model = Path(openvino_model_text).resolve() if openvino_model_text else None
         openvino_runtime = Path(openvino_runtime_text).resolve() if openvino_runtime_text else None
         silero_path = Path(silero_text).resolve() if silero_text else None
+        torch_xpu_path = Path(torch_xpu_text).resolve() if torch_xpu_text else None
         if preference == "intel-gpu":
             if openvino_model is None or not openvino_model.is_dir():
                 raise FileNotFoundError("The selected OpenVINO speech model is not installed.")
@@ -30,6 +32,8 @@ class TranscriptionJobManager:
                 raise FileNotFoundError("The local OpenVINO runtime is not installed.")
             if silero_path is None or not silero_path.is_dir():
                 raise FileNotFoundError("The optimized local Silero VAD is not installed.")
+            if torch_xpu_path is not None and not (torch_xpu_path / "torch" / "lib" / "c10_xpu.dll").is_file():
+                raise FileNotFoundError("The selected Intel XPU runtime is invalid.")
         if not output_text: raise ValueError("outputPath is required.")
         output_path, job_id = Path(output_text).resolve(), uuid.uuid4().hex
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -45,13 +49,22 @@ class TranscriptionJobManager:
                    "openVinoModelPath": str(openvino_model) if openvino_model else None,
                    "openVinoRuntimePath": str(openvino_runtime) if openvino_runtime else None,
                    "sileroVadPath": str(silero_path) if silero_path else None,
+                   "torchXpuRuntimePath": str(torch_xpu_path) if torch_xpu_path else None,
                    "modelId": payload.get("modelId"),
                    "diarizationModelPath": str(diarization_path) if diarization_path else None}
         request_path.write_text(json.dumps(request), encoding="utf-8")
-        process = subprocess.Popen([sys.executable, "-u", str(self._job_script), str(request_path)],
-                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                   stderr=subprocess.PIPE, text=True)
-        with self._lock: self._jobs[job_id] = {"process": process, "statusPath": status_path}
+        log_path = output_path.parent / f"transcription-{job_id}.worker.log"
+        log_handle = log_path.open("w", encoding="utf-8")
+        try:
+            process = subprocess.Popen([sys.executable, "-u", str(self._job_script), str(request_path)],
+                                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                       stderr=log_handle, text=True)
+        except Exception:
+            log_handle.close()
+            raise
+        with self._lock:
+            self._jobs[job_id] = {"process": process, "statusPath": status_path,
+                                  "logPath": log_path, "logHandle": log_handle}
         return {"jobId": job_id, "status": "queued", "progress": 0.0}
 
     def status(self, job_id: str) -> dict[str, Any]:
@@ -60,10 +73,15 @@ class TranscriptionJobManager:
         if status_path.is_file(): result = json.loads(status_path.read_text(encoding="utf-8"))
         result["jobId"] = job_id
         exit_code = process.poll()
+        if exit_code is not None:
+            self._close_log(job)
         if exit_code not in (None, 0) and result.get("status") not in ("failed", "cancelled"):
-            stderr = process.stderr.read()[-2000:] if process.stderr else ""
+            log_path = Path(job["logPath"])
+            stderr = log_path.read_text(encoding="utf-8", errors="replace")[-4000:] if log_path.is_file() else ""
             result = {"jobId": job_id, "status": "failed", "progress": 0.0,
+                      "exitCode": exit_code, "diagnosticLogPath": str(log_path),
                       "error": stderr.strip() or f"Transcription process exited with code {exit_code}."}
+            status_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         return result
 
     def cancel(self, job_id: str) -> dict[str, Any]:
@@ -75,7 +93,7 @@ class TranscriptionJobManager:
         try: process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             process.kill(); process.wait(timeout=5)
-        if process.stderr: process.stderr.close()
+        self._close_log(job)
         Path(job["statusPath"]).write_text(json.dumps(status), encoding="utf-8")
         return status
 
@@ -89,3 +107,10 @@ class TranscriptionJobManager:
         with self._lock: job = self._jobs.get(job_id)
         if job is None: raise KeyError(f"Unknown transcription job: {job_id}")
         return job
+
+    @staticmethod
+    def _close_log(job: dict[str, Any]) -> None:
+        handle = job.get("logHandle")
+        if handle is not None and not handle.closed:
+            handle.flush()
+            handle.close()

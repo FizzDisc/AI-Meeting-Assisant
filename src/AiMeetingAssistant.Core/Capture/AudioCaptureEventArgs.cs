@@ -24,7 +24,7 @@ public sealed class AudioCaptureStartedEventArgs(int sampleRate, int channelCoun
 /// <summary>
 /// Raised on each audio frame during recording.
 /// </summary>
-public sealed class AudioFrameCapturedEventArgs(AudioLevel level, long framePosition, int frameCount) : EventArgs
+public sealed class AudioFrameCapturedEventArgs(AudioLevel level, long framePosition, int frameCount, byte[]? pcm16Data = null) : EventArgs
 {
     /// <summary>
     /// Current audio level (RMS, peak, frame count).
@@ -40,6 +40,12 @@ public sealed class AudioFrameCapturedEventArgs(AudioLevel level, long framePosi
     /// Number of frames in this buffer.
     /// </summary>
     public int FrameCount { get; } = frameCount;
+
+    /// <summary>
+    /// PCM16 payload for optional background processing. Consumers must treat the buffer as immutable.
+    /// Providers that only report levels may leave this value null.
+    /// </summary>
+    public byte[]? Pcm16Data { get; } = pcm16Data;
 }
 
 /// <summary>

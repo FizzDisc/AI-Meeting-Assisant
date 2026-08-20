@@ -4,14 +4,17 @@ from typing import Any
 
 PREFERENCES = ("automatic", "prefer-cuda", "cpu-only", "intel-gpu")
 
+def select_intel_compute() -> dict[str, Any]:
+    return {"preference": "intel-gpu", "mode": "gpu", "computeType": "openvino-fp16", "batchSize": 1,
+            "cudaAvailable": False, "deviceName": "Intel GPU (OpenVINO)",
+            "totalVramBytes": None, "fallbackReason": None}
+
 
 def select_compute(torch_api: Any, preference: str = "automatic") -> dict[str, Any]:
     if preference not in PREFERENCES:
         raise ValueError(f"Unknown compute preference: {preference}")
     if preference == "intel-gpu":
-        return {"preference": preference, "mode": "gpu", "computeType": "openvino-fp16", "batchSize": 1,
-                "cudaAvailable": bool(torch_api.cuda.is_available()), "deviceName": "Intel GPU (OpenVINO)",
-                "totalVramBytes": None, "fallbackReason": None}
+        return select_intel_compute()
     cuda_available = bool(torch_api.cuda.is_available())
     use_cuda = cuda_available and preference != "cpu-only"
     if not use_cuda:

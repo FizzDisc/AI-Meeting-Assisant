@@ -100,6 +100,27 @@ catch (Exception exception)
     failures++;
 }
 
+try
+{
+    var root = Path.Combine(Path.GetTempPath(), $"aima_xpu_{Guid.NewGuid():N}");
+    var runtime = Path.Combine(root, "worker", ".torch-xpu-spike");
+    Directory.CreateDirectory(Path.Combine(runtime, "torch", "lib"));
+    Directory.CreateDirectory(Path.Combine(runtime, "Library", "bin"));
+    File.WriteAllBytes(Path.Combine(runtime, "torch", "lib", "c10_xpu.dll"), []);
+    try
+    {
+        if (LocalModelResolver.ResolveTorchXpuRuntime(root) != runtime)
+            throw new InvalidOperationException("Installed Intel XPU runtime was not resolved.");
+        Console.WriteLine("PASS Intel XPU runtime resolver validates the isolated runtime.");
+    }
+    finally { Directory.Delete(root, true); }
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Intel XPU runtime resolver: {exception.Message}");
+    failures++;
+}
+
 // Test 1: Source Discovery
 try
 {

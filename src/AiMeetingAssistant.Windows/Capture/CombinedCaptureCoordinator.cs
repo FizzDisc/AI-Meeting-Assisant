@@ -23,6 +23,8 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     private double? _microphoneOffset;
     private bool _screenStarted;
     private bool _audioStarted;
+    private IncrementalAudioChunkWriter? _systemChunkWriter;
+    private IncrementalAudioChunkWriter? _microphoneChunkWriter;
 
     public CombinedCaptureCoordinator(string captureBaseDirectory = "artifacts/captures", Func<string, string, IScreenCaptureProvider>? screenProviderFactory = null, Func<string, string, WasapiCaptureMode, IAudioCaptureProvider>? audioProviderFactory = null)
     {
@@ -124,12 +126,31 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     }
 
     private void OnScreenStarted(object? s, EventArgs e) => _screenOffset ??= _clock.Elapsed.TotalMilliseconds;
-    private void OnSystemStarted(object? s, AudioCaptureStartedEventArgs e) => _systemOffset ??= _clock.Elapsed.TotalMilliseconds;
-    private void OnMicrophoneStarted(object? s, AudioCaptureStartedEventArgs e) => _microphoneOffset ??= _clock.Elapsed.TotalMilliseconds;
+    private void OnSystemStarted(object? s, AudioCaptureStartedEventArgs e)
+    {
+        _systemOffset ??= _clock.Elapsed.TotalMilliseconds;
+        if (_sessionDirectory is not null)
+            _systemChunkWriter ??= new(_sessionDirectory, "system_audio", e.SampleRate, e.ChannelCount);
+    }
+
+    private void OnMicrophoneStarted(object? s, AudioCaptureStartedEventArgs e)
+    {
+        _microphoneOffset ??= _clock.Elapsed.TotalMilliseconds;
+        if (_sessionDirectory is not null)
+            _microphoneChunkWriter ??= new(_sessionDirectory, "microphone", e.SampleRate, e.ChannelCount);
+    }
     private void OnCaptureFailed(object? s, CaptureErrorEventArgs e) => CaptureFailed?.Invoke(this, e);
-    private void OnSystemLevel(object? s, AudioFrameCapturedEventArgs e) => SystemAudioLevelChanged?.Invoke(this, e);
+    private void OnSystemLevel(object? s, AudioFrameCapturedEventArgs e)
+    {
+        _systemChunkWriter?.TryEnqueue(e);
+        SystemAudioLevelChanged?.Invoke(this, e);
+    }
     private void OnSystemFault(object? s, AudioCaptureFaultEventArgs e) => SystemAudioFaulted?.Invoke(this, e);
-    private void OnMicrophoneLevel(object? s, AudioFrameCapturedEventArgs e) => MicrophoneLevelChanged?.Invoke(this, e);
+    private void OnMicrophoneLevel(object? s, AudioFrameCapturedEventArgs e)
+    {
+        _microphoneChunkWriter?.TryEnqueue(e);
+        MicrophoneLevelChanged?.Invoke(this, e);
+    }
     private void OnMicrophoneFault(object? s, AudioCaptureFaultEventArgs e) => MicrophoneFaulted?.Invoke(this, e);
 
     private CaptureSessionManifest BuildManifest(string status, DateTimeOffset? completedAt)
@@ -154,6 +175,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         _audioStarted = _screenStarted = false;
         Exception? error = null;
         if (stopAudio && audio is not null) { try { await audio.StopAsync(token).ConfigureAwait(false); } catch (Exception ex) { error = ex; } }
+        await CompleteChunkWritersAsync().ConfigureAwait(false);
         if (stopScreen && screen is not null) { try { await screen.StopAsync(token).ConfigureAwait(false); } catch (Exception ex) { error ??= ex; } }
         _clock.Stop();
         if (_manifest is not null)
@@ -172,5 +194,13 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         _screenPath = _systemPath = _microphonePath = null;
         _screenOffset = _systemOffset = _microphoneOffset = null;
         if (error is not null) throw error;
+    }
+
+    private async Task CompleteChunkWritersAsync()
+    {
+        var system = Interlocked.Exchange(ref _systemChunkWriter, null);
+        var microphone = Interlocked.Exchange(ref _microphoneChunkWriter, null);
+        if (system is not null) await system.CompleteAsync().ConfigureAwait(false);
+        if (microphone is not null) await microphone.CompleteAsync().ConfigureAwait(false);
     }
 }
