@@ -1980,3 +1980,32 @@ Capture-Master waren abspielbar und mindestens ein persistentes, korrekt
 source-gelabeltes Chunk-Transkript wurde erzeugt. Sprint 3.6.2 ist damit
 abgeschlossen. Der finale Catch-up, Grenzabgleich und die einmalige
 Sprecheranalyse folgen in Sprint 3.6.3.
+
+=== CODEX · Sprint 3.6.3 IMPLEMENTATION ===
+
+Nach Stop wartet der Coordinator laufende Live-Jobs ab und holt jeden fehlenden
+persistenten Chunk seriell nach. Danach werden lokale Chunk-Zeitstempel auf die
+Meeting-Timeline verschoben, auf gueltige Chunk-Grenzen begrenzt und wiederholte
+Wortfolgen an direkten Grenzen entfernt. Das zusammengefuehrte Evidence-
+Transcript bleibt separat erhalten.
+
+Ein neuer isolierter Finalizer verwendet anschliessend nur noch das komplette
+Systemaudio fuer eine einmalige, weiterhin XPU-optimierte Sprecheranalyse.
+Whisper transkribiert das Gesamtmeeting nicht erneut. Das Ergebnis wird als
+versionierter Schema-3-Lauf und atomarer `transcript.json`-Pointer publiziert.
+Fehler oder Abbruch betreffen niemals Capture-Master oder Chunk-Artefakte.
+
+=== CODEX · Sprint 3.6.3 COMPLETE / SCHEMA FIX ===
+
+Der 46-Sekunden-Hardware-Smoke durchlief Capture, Live-Catch-up und XPU-
+Diarisierung, deckte aber eine PascalCase/camelCase-Grenze auf: C# schrieb
+`Segments`, der Python-Finalizer las `segments` und publizierte dadurch ein
+leeres zweites Feld. Der Finalizer kanonisiert jetzt Dokument- und Segment-
+Keys vor der Verarbeitung; ein Regressionstest nutzt ausdruecklich PascalCase.
+
+Die erhaltene Meeting-Evidence wurde ohne neue Aufnahme repariert. Ergebnis:
+Schema 3, incremental finalized, Diarisierung aktiv, ein Remote-Speaker,
+16 Segmente aus Mikrofon und Systemaudio, letzter Timestamp 47,49 Sekunden und
+keine case-insensitiv doppelten Keys. Der erste kalte XPU/Pyannote-Lauf dauerte
+ca. 153 Sekunden, der warme Reparaturlauf ca. 37 Sekunden. Persistentes Model-
+Warming fuer kurze Meetings bleibt ein priorisierter Performance-TODO.

@@ -102,6 +102,8 @@ def handle(message: dict[str, Any]) -> dict[str, Any]:
     try:
         if message.get("type") == "transcription.start":
             return response(request_id, "transcription.accepted", JOBS.start(payload))
+        if message.get("type") == "incremental.finalize":
+            return response(request_id, "transcription.accepted", JOBS.start_incremental_finalize(payload))
         if message.get("type") == "transcription.status":
             return response(request_id, "transcription.status", JOBS.status(str(payload.get("jobId", ""))))
         if message.get("type") == "transcription.cancel":

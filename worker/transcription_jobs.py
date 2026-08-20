@@ -6,6 +6,7 @@ from typing import Any
 class TranscriptionJobManager:
     def __init__(self, job_script: Path | None = None) -> None:
         self._job_script = (job_script or Path(__file__).with_name("transcription_job.py")).resolve()
+        self._finalization_script = Path(__file__).with_name("incremental_finalize_job.py").resolve()
         self._jobs: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
 
@@ -70,6 +71,38 @@ class TranscriptionJobManager:
         except Exception:
             log_handle.close()
             raise
+        with self._lock:
+            self._jobs[job_id] = {"process": process, "statusPath": status_path,
+                                  "logPath": log_path, "logHandle": log_handle}
+        return {"jobId": job_id, "status": "queued", "progress": 0.0}
+
+    def start_incremental_finalize(self, payload: dict[str, Any]) -> dict[str, Any]:
+        required = ("mergedTranscriptPath", "systemAudioPath", "outputPath")
+        values = {name: Path(str(payload.get(name, ""))).resolve() for name in required}
+        for name in ("mergedTranscriptPath", "systemAudioPath"):
+            if not values[name].is_file(): raise FileNotFoundError(f"{name} not found: {values[name]}")
+        diarization_text = str(payload.get("diarizationModelPath") or "").strip()
+        diarization = Path(diarization_text).resolve() if diarization_text else None
+        if diarization is not None and not (diarization / "config.yaml").is_file():
+            raise FileNotFoundError(f"Local diarization model is invalid: {diarization}")
+        output_path, job_id = values["outputPath"], uuid.uuid4().hex
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        status_path = output_path.parent / f"incremental-finalize-{job_id}.status.json"
+        request_path = output_path.parent / f"incremental-finalize-{job_id}.request.json"
+        request = {"mergedTranscriptPath": str(values["mergedTranscriptPath"]),
+                   "systemAudioPath": str(values["systemAudioPath"]), "outputPath": str(output_path),
+                   "statusPath": str(status_path), "diarizationModelPath": str(diarization) if diarization else None,
+                   "torchXpuRuntimePath": payload.get("torchXpuRuntimePath"),
+                   "computePreference": payload.get("computePreference", "automatic")}
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+        log_path = output_path.parent / f"incremental-finalize-{job_id}.worker.log"
+        log_handle = log_path.open("w", encoding="utf-8")
+        try:
+            process = subprocess.Popen([sys.executable, "-u", str(self._finalization_script), str(request_path)],
+                                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                       stderr=log_handle, text=True)
+        except Exception:
+            log_handle.close(); raise
         with self._lock:
             self._jobs[job_id] = {"process": process, "statusPath": status_path,
                                   "logPath": log_path, "logHandle": log_handle}

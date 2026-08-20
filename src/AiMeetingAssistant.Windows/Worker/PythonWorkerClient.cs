@@ -85,6 +85,16 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
         return ParseTranscriptionStatus(response.Payload);
     }
 
+    public async Task<TranscriptionJobStatus> StartIncrementalFinalizationAsync(string mergedTranscriptPath,
+        string systemAudioPath, string outputPath, string? diarizationModelPath = null,
+        string? torchXpuRuntimePath = null, string computePreference = "automatic",
+        CancellationToken cancellationToken = default)
+    {
+        var response = await SendAsync("incremental.finalize", new { mergedTranscriptPath, systemAudioPath,
+            outputPath, diarizationModelPath, torchXpuRuntimePath, computePreference }, cancellationToken).ConfigureAwait(false);
+        return ParseTranscriptionStatus(response.Payload);
+    }
+
     public async Task<TranscriptionJobStatus> CancelTranscriptionAsync(string jobId, CancellationToken cancellationToken = default)
     {
         var response = await SendAsync("transcription.cancel", new { jobId }, cancellationToken).ConfigureAwait(false);

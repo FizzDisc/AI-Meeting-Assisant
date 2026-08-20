@@ -753,8 +753,49 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         if (_incrementalTranscription is null || selected?.ModelPath is null || !Directory.Exists(selected.ModelPath)) return;
         var options = new IncrementalTranscriptionOptions(selected.ModelPath, selected.Id, _computePreference,
             LocalModelResolver.ResolveOpenVinoSpeechModel(selected.Id), LocalModelResolver.ResolveOpenVinoRuntime(),
-            LocalModelResolver.ResolveSileroVad(), LocalModelResolver.ResolveTorchXpuRuntime());
+            LocalModelResolver.ResolveSileroVad(), LocalModelResolver.ResolveTorchXpuRuntime(), _diarizationModelPath);
         _incrementalTranscription.TryQueue(eventArgs, options);
+    }
+
+    private async Task FinalizeIncrementalSessionAsync(string sessionDirectory)
+    {
+        var selected = SelectedSpeechModel;
+        if (_incrementalTranscription is null || selected?.ModelPath is null || IsTranscribing) return;
+        IsTranscribing = true;
+        IsTranscriptionIndeterminate = true;
+        TranscriptionProgress = 0;
+        TranscriptionStatusMessage = "Finalizing incremental transcript...";
+        _transcriptionCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _transcriptionCancellation = new CancellationTokenSource();
+        try
+        {
+            var options = new IncrementalTranscriptionOptions(selected.ModelPath, selected.Id, _computePreference,
+                LocalModelResolver.ResolveOpenVinoSpeechModel(selected.Id), LocalModelResolver.ResolveOpenVinoRuntime(),
+                LocalModelResolver.ResolveSileroVad(), LocalModelResolver.ResolveTorchXpuRuntime(), _diarizationModelPath);
+            TranscriptPath = await _incrementalTranscription.FinalizeSessionAsync(sessionDirectory, options,
+                _transcriptionCancellation.Token);
+            TranscriptionProgress = 100;
+            TranscriptionStatusMessage = "Incremental transcript and speaker analysis completed.";
+            await RefreshMeetingLibraryAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            TranscriptionStatusMessage = "Incremental transcript finalization cancelled; durable chunks were preserved.";
+        }
+        catch (Exception exception)
+        {
+            TranscriptionStatusMessage = "Incremental transcript finalization failed; recording and chunks were preserved.";
+            AddStatus("WARNING", $"Incremental finalization failed: {exception.Message}");
+        }
+        finally
+        {
+            _transcriptionCancellation?.Dispose();
+            _transcriptionCancellation = null;
+            IsTranscriptionIndeterminate = false;
+            IsTranscribing = false;
+            _transcriptionCompletion?.TrySetResult();
+            _transcriptionCompletion = null;
+        }
     }
 
     private void OnIncrementalTranscriptionStatusChanged(object? sender, IncrementalTranscriptionStatusEventArgs eventArgs)
@@ -828,6 +869,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     : "Recording ready for local transcription.";
                 OnPropertyChanged(nameof(CanTranscribeLatest));
                 _ = RefreshMeetingLibraryAsync();
+                if (_modelPath is not null && completedCoordinator.LastCompletedSessionDirectory is string sessionDirectory)
+                    _ = FinalizeIncrementalSessionAsync(sessionDirectory);
             }
 
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)

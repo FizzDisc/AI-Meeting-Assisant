@@ -58,6 +58,22 @@ class TranscriptionJobTests(unittest.TestCase):
             self.assertIn("durable diagnostic", status["error"])
             self.assertTrue(Path(status["diagnosticLogPath"]).is_file())
 
+    def test_incremental_finalizer_runs_as_supervised_job(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            merged, audio, output = root / "merged.json", root / "system.wav", root / "final.json"
+            merged.write_text('{"schemaVersion":3,"createdAtUtc":"2026-08-20T00:00:00Z","segments":[]}', encoding="utf-8")
+            audio.write_bytes(b"unused-without-diarization")
+            manager = TranscriptionJobManager()
+            started = manager.start_incremental_finalize({"mergedTranscriptPath": str(merged),
+                "systemAudioPath": str(audio), "outputPath": str(output)})
+            for _ in range(200):
+                status = manager.status(started["jobId"])
+                if status["status"] in ("completed", "failed"): break
+                time.sleep(0.01)
+            self.assertEqual("completed", status["status"], status.get("error"))
+            self.assertTrue(output.is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

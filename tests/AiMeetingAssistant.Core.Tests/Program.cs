@@ -45,6 +45,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("meeting library deletion is scoped to direct session workspaces", MeetingLibraryDeletionIsScoped)
     ,("operational status log is bounded and deduplicated", OperationalStatusLogIsBounded)
     ,("incremental audio chunks are finalized atomically", IncrementalAudioChunksAreFinalizedAtomically)
+    ,("incremental transcripts reconcile meeting timestamps and boundary overlap", IncrementalTranscriptsReconcileTimeline)
 };
 
 var failures = 0;
@@ -366,6 +367,44 @@ static async Task IncrementalAudioChunksAreFinalizedAtomically()
         Equal(3, finalized.Count);
         Equal("microphone", finalized[0].Source);
         Equal(Path.GetFullPath(chunks[0]), finalized[0].AudioPath);
+    }
+    finally
+    {
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+}
+
+static Task IncrementalTranscriptsReconcileTimeline()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_reconcile_{Guid.NewGuid():N}");
+    try
+    {
+        foreach (var source in new[] { "microphone", "system_audio" })
+        {
+            var chunks = Path.Combine(directory, "processing", "live-chunks", source);
+            var transcripts = Path.Combine(directory, "processing", "live-transcripts", source);
+            Directory.CreateDirectory(chunks);
+            Directory.CreateDirectory(transcripts);
+            var manifest = new IncrementalAudioChunkManifest(1, source, "completed", 16000, 1, 30, 0, 0,
+                [new(0, "chunk_000000.wav", 0, 480000, 0, 30), new(1, "chunk_000001.wav", 480000, 480000, 30, 30)]);
+            File.WriteAllText(Path.Combine(chunks, "chunks.json"), JsonSerializer.Serialize(manifest));
+            var firstText = source == "microphone" ? "local words" : "one two three four";
+            var secondText = source == "microphone" ? "more local words" : "two three four five";
+            TranscriptDocumentStore.ExportJsonAtomic(Path.Combine(transcripts, "chunk_000000.json"),
+                new(3, DateTimeOffset.UtcNow, "de", new Dictionary<string, string?> { [source] = "de" }, "gpu", "fp16", 1,
+                    "intel-gpu", null, [new(28, 30, firstText, source)], false, 0, "small", 10));
+            TranscriptDocumentStore.ExportJsonAtomic(Path.Combine(transcripts, "chunk_000001.json"),
+                new(3, DateTimeOffset.UtcNow, "de", new Dictionary<string, string?> { [source] = "de" }, "gpu", "fp16", 1,
+                    "intel-gpu", null, [new(0, 2, secondText, source)], false, 0, "small", 10));
+        }
+
+        var result = IncrementalTranscriptReconciler.Reconcile(directory);
+        Equal(4, result.Segments.Count);
+        var finalSystem = result.Segments.Single(item => item.Source == "system_audio" && item.Start >= 30);
+        Equal("five", finalSystem.Text);
+        if (finalSystem.Start <= 30) throw new InvalidOperationException("Trimmed boundary timestamp was not advanced.");
+        Equal("You", result.Segments.First(item => item.Source == "microphone").Speaker);
+        return Task.CompletedTask;
     }
     finally
     {
