@@ -2017,3 +2017,55 @@ Deutsch (`de`) umgewandelt. Dadurch musste Whisper auch englisches Systemaudio
 als deutschen Text dekodieren. Automatic erzwingt jetzt keine Sprache mehr:
 Mikrofon und Systemaudio behalten ihre getrennte, automatische Spracherkennung.
 Nur eine spaeter bewusst gewaehlte feste Sprache darf den Decoder festlegen.
+
+=== CODEX · SPRINT 3.8.1 PAIRED LIVE CHUNKS ===
+
+Zeitgleiche Mikrofon- und Systemaudio-Chunks werden in einem isolierten Worker-
+Job verarbeitet. Beide WAVs bleiben getrennte Inputs und behalten Quelle sowie
+automatisch erkannte Sprache, teilen sich aber Normalisierungslauf und genau
+eine Speech-Modellinitialisierung. Danach wird das kombinierte Ergebnis atomar
+wieder in die bisherigen per-source Chunk-Transkripte geteilt. Ein 750-ms-
+Sammelfenster blockiert Capture nicht und entkoppelt den Start der Inferenz von
+der Mikrofon-Umschaltung. Ungepaarte Tail- oder Handover-Chunks verwenden
+weiterhin den stabilen Einzeljob. Persistentes OpenVINO-Warming bleibt von
+Messwerten und den bestehenden Cancel/Crash-Isolation-Garantien abhaengig.
+
+=== CODEX · SPRINT 3.8.2 SPEECH-WINDOW DIARIZATION ===
+
+Der echte 46:34-Lauf bewies 94 korrekt gepaarte Jobs und nur ca. 23 Sekunden
+Catch-up, verbrachte danach aber 9:34 im Full-Track-Speaker-Finalizer. Obwohl
+409 Systemaudio-ASR-Segmente bereits existierten, wurde Pyannote mit
+speechWindows=None auf die komplette Loopback-WAV geschickt. Der Finalizer
+erzeugt nun konservative Fenster mit 750 ms Kontext und vereinigt Luecken bis
+eine Sekunde. Fuer die Referenz sinkt die analysierte Timeline von 2791,4 auf
+1715,6 Sekunden (minus 38,5 Prozent). Turns werden danach auf Originalzeiten
+zurueckgerechnet. Neue Metadaten trennen echte Finalisierungs-Wanduhr von der
+kumulierten Live-Chunk-Arbeit und speichern Fensterzahl sowie Inputreduktion.
+
+Der reale Re-Finalizer-Smoke ist abgeschlossen: 31 Fenster, 1712,212 statt
+2791,374 Sekunden Input, 6:27 Laufzeit statt ca. 9:34. Das sind 32,5 Prozent
+weniger Wanduhr. Alle 628 Text-/Timeline-Segmente und sieben Speaker blieben
+erhalten. Assigned sank 392 -> 389, unassigned stieg 16 -> 18, ambiguous
+1 -> 2. Die fuenf Aenderungen betreffen kurze Grenzphrasen; eine alte
+Ambiguitaet wurde verbessert. Der Netto-Trade-off von drei Zuweisungen aus
+409 Systemsegmenten (0,73 Prozent) ist fuer 3.8.2 akzeptiert und dokumentiert.
+
+Der Benchmark deckte ausserdem auf, dass Windows PowerShell 5 `UTF8` mit BOM
+schreibt. Der Finalizer akzeptiert deshalb nun UTF-8 mit und ohne BOM; ein
+Regressionstest schuetzt den manuellen Wiederholungsweg.
+
+=== CODEX · SPRINT 3.8.3 XPU PROFILE ACCEPTED ===
+
+Ein isolierter A/B-Lauf verglich segmentationStep 0.20 mit dem bisherigen
+0.15 auf denselben 31 Fenstern. Laufzeit: 6:13 statt 6:27. Wichtiger ist die
+Qualitaet: 390 statt 389 assigned, null statt zwei ambiguous und leicht weniger
+unbekannte Redezeit. Vier grosse Cluster blieben stabil. Drei kleine Splitter
+mit 30,1, 7,2 und 3,0 Sekunden wurden zu einem plausiblen 40,3-Sekunden-
+Speaker vereinigt. Das Ergebnis hat fuenf statt sieben Speaker und entspricht
+der beobachteten realen Teilnehmerzahl von vier bis fuenf besser. Die
+Produktentscheidung wurde nach Nutzerfeedback korrigiert: Ein False Split ist
+reparierbar, indem beide technischen IDs denselben Namen (z.B. zweimal Peter)
+erhalten. Ein False Merge zerstoert dagegen die Trennbarkeit. Fuer nur 15
+Sekunden Gewinn bleibt deshalb 0.15 der konservative Produktionsstandard;
+0.20 bleibt Benchmark-only. Overrides bleiben XPU-only, whitelisted und hart
+auf sichere Batch-/Step-Bereiche begrenzt.

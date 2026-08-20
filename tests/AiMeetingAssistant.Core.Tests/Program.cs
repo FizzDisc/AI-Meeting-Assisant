@@ -46,6 +46,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("operational status log is bounded and deduplicated", OperationalStatusLogIsBounded)
     ,("incremental audio chunks are finalized atomically", IncrementalAudioChunksAreFinalizedAtomically)
     ,("incremental transcripts reconcile meeting timestamps and boundary overlap", IncrementalTranscriptsReconcileTimeline)
+    ,("paired incremental transcripts split into source artifacts", PairedIncrementalTranscriptsSplitBySource)
 };
 
 var failures = 0;
@@ -687,6 +688,33 @@ static Task TranscriptExportsAreAtomic()
         Equal(1, TranscriptDocumentStore.Load(jsonPath).Segments.Count);
         if (Directory.GetFiles(directory, "*.tmp").Length != 0)
             throw new InvalidOperationException("Atomic transcript export left temporary files behind.");
+        return Task.CompletedTask;
+    }
+    finally { Directory.Delete(directory, true); }
+}
+
+static Task PairedIncrementalTranscriptsSplitBySource()
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_batch_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    try
+    {
+        var microphone = Path.Combine(directory, "microphone.json");
+        var systemAudio = Path.Combine(directory, "system_audio.json");
+        var combined = new TranscriptDocument(3, DateTimeOffset.UtcNow, null,
+            new Dictionary<string, string?> { ["microphone"] = "de", ["system_audio"] = "en" },
+            "gpu", "fp16", 1, "intel-gpu", null,
+            [new(0, 1, "Hallo", "microphone"), new(0, 1, "Hello", "system_audio")],
+            ModelId: "small", ProcessingDurationMilliseconds: 1200);
+        IncrementalTranscriptBatchSplitter.Split(combined,
+            new Dictionary<string, string> { ["microphone"] = microphone, ["system_audio"] = systemAudio });
+        var local = TranscriptDocumentStore.Load(microphone);
+        var remote = TranscriptDocumentStore.Load(systemAudio);
+        Equal("de", local.Language);
+        Equal("en", remote.Language);
+        Equal("Hallo", local.Segments.Single().Text);
+        Equal("Hello", remote.Segments.Single().Text);
+        Equal(600L, local.ProcessingDurationMilliseconds);
         return Task.CompletedTask;
     }
     finally { Directory.Delete(directory, true); }

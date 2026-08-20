@@ -14,9 +14,24 @@ def canonicalize_transcript(value: dict) -> dict:
     ]
     return result
 
+def build_speech_windows(segments: list[dict], meeting_seconds: float,
+                         padding_seconds: float = .75, merge_gap_seconds: float = 1.0) -> list[dict[str, float]]:
+    """Build conservative diarization windows from source-labelled ASR evidence."""
+    windows: list[dict[str, float]] = []
+    for segment in sorted(segments, key=lambda item: float(item.get("start", 0))):
+        start = max(0.0, float(segment.get("start", 0)) - padding_seconds)
+        end = min(meeting_seconds, float(segment.get("end", 0)) + padding_seconds)
+        if end <= start:
+            continue
+        if windows and start <= windows[-1]["end"] + merge_gap_seconds:
+            windows[-1]["end"] = max(windows[-1]["end"], end)
+        else:
+            windows.append({"start": start, "end": end})
+    return windows
+
 def run(request_path: Path) -> int:
     started = time.monotonic()
-    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request = json.loads(request_path.read_text(encoding="utf-8-sig"))
     merged_path = Path(request["mergedTranscriptPath"]).resolve()
     system_audio = Path(request["systemAudioPath"]).resolve()
     output_path = Path(request["outputPath"]).resolve()
@@ -39,8 +54,13 @@ def run(request_path: Path) -> int:
         xpu_text = str(request.get("torchXpuRuntimePath") or "").strip() if request.get("computePreference") == "intel-gpu" else ""
         xpu_runtime = Path(xpu_text).resolve() if xpu_text else None
         device = "xpu" if xpu_runtime and xpu_runtime.is_dir() else "cpu"
+        speech_windows = build_speech_windows(system_segments, meeting_seconds)
+        analyzed_seconds = sum(item["end"] - item["start"] for item in speech_windows)
         turns, speaker_count, profile = diarize_system_audio(Path(diarization_text).resolve(),
-            [("system_audio", normalized)], status_path, None, device, xpu_runtime)
+            [("system_audio", normalized)], status_path, speech_windows, device, xpu_runtime,
+            request.get("diarizationProfile"))
+        profile.update(speechWindowCount=len(speech_windows), analyzedSeconds=round(analyzed_seconds, 3),
+                       originalSeconds=round(meeting_seconds, 3))
         write_atomic(status_path, {"status": "assigning-speakers", "progress": .98})
         segments = reconcile(segments, turns)
         transcript["diarizationEnabled"] = True
@@ -54,8 +74,10 @@ def run(request_path: Path) -> int:
         transcript["diarizationSkippedReason"] = skip_reason or "No local diarization model is installed."
     transcript.update(createdAtUtc=datetime.now(timezone.utc).isoformat(), segments=segments,
                       diarizationRequested=bool(diarization_text), speakerCount=speaker_count)
-    transcript["processingDurationMilliseconds"] = int(transcript.get("processingDurationMilliseconds") or 0) + int((time.monotonic()-started)*1000)
-    transcript["incrementalProcessing"] = {"finalized": True, "speakerProfile": profile}
+    finalization_ms = int((time.monotonic()-started)*1000)
+    transcript["processingDurationMilliseconds"] = int(transcript.get("processingDurationMilliseconds") or 0) + finalization_ms
+    transcript["incrementalProcessing"] = {"finalized": True, "finalizationDurationMilliseconds": finalization_ms,
+                                           "speakerProfile": profile}
     write_atomic(output_path, transcript)
     write_atomic(status_path, {"status": "completed", "progress": 1.0, "outputPath": str(output_path),
                                "segmentCount": len(segments), "speakerCount": speaker_count})
@@ -67,7 +89,7 @@ if __name__ == "__main__":
     try: raise SystemExit(run(request_path))
     except Exception as exc:
         try:
-            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request = json.loads(request_path.read_text(encoding="utf-8-sig"))
             write_atomic(Path(request["statusPath"]), {"status": "failed", "progress": 0.0, "error": str(exc)})
         except Exception: pass
         print(str(exc), file=sys.stderr)

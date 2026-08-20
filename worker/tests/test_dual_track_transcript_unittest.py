@@ -51,6 +51,21 @@ class DualTrackTranscriptTests(unittest.TestCase):
         profile = configure_diarization_profile(Pipeline(), "xpu")
         self.assertEqual({"segmentation": 32, "embedding": 8, "segmentationStep": 0.15}, profile)
 
+    def test_xpu_diarization_profile_accepts_bounded_benchmark_override(self):
+        class Segmentation:
+            duration = 5.0
+            step = 0.5
+        class Pipeline:
+            segmentation_batch_size = 32
+            embedding_batch_size = 32
+            _segmentation = Segmentation()
+        pipeline = Pipeline()
+        profile = configure_diarization_profile(pipeline, "xpu", {"segmentationStep": 0.2})
+        self.assertEqual({"segmentation": 32, "embedding": 8, "segmentationStep": 0.2}, profile)
+        self.assertEqual(1.0, pipeline._segmentation.step)
+        with self.assertRaisesRegex(ValueError, "between 0.1 and 0.5"):
+            configure_diarization_profile(Pipeline(), "xpu", {"segmentationStep": 0.75})
+
     def test_stage_cache_requires_exact_key_and_round_trips_payload(self):
         import tempfile
         with tempfile.TemporaryDirectory() as temporary:

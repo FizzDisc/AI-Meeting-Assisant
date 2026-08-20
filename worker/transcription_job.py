@@ -107,18 +107,34 @@ def restore_turn_timestamps(turns: list[dict[str, Any]], mapping: list[dict[str,
                              "speaker":turn["speaker"]})
     return restored
 
-def configure_diarization_profile(pipeline: Any, device: str) -> dict[str, Any]:
+def configure_diarization_profile(pipeline: Any, device: str,
+                                  overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     if device == "xpu":
         pipeline.segmentation_batch_size = 32
         pipeline.embedding_batch_size = 8
         pipeline._segmentation.step = pipeline._segmentation.duration * 0.15
+        if overrides:
+            unknown = set(overrides) - {"segmentation", "embedding", "segmentationStep"}
+            if unknown: raise ValueError(f"Unsupported diarization profile field(s): {', '.join(sorted(unknown))}")
+            segmentation = int(overrides.get("segmentation", pipeline.segmentation_batch_size))
+            embedding = int(overrides.get("embedding", pipeline.embedding_batch_size))
+            step = float(overrides.get("segmentationStep", pipeline._segmentation.step / pipeline._segmentation.duration))
+            if not 1 <= segmentation <= 64: raise ValueError("Diarization segmentation batch must be between 1 and 64.")
+            if not 1 <= embedding <= 32: raise ValueError("Diarization embedding batch must be between 1 and 32.")
+            if not 0.1 <= step <= 0.5: raise ValueError("Diarization segmentation step must be between 0.1 and 0.5.")
+            pipeline.segmentation_batch_size = segmentation
+            pipeline.embedding_batch_size = embedding
+            pipeline._segmentation.step = pipeline._segmentation.duration * step
+    elif overrides:
+        raise ValueError("Diarization profile overrides are supported only for the Intel XPU benchmark path.")
     return {"segmentation": int(pipeline.segmentation_batch_size),
             "embedding": int(pipeline.embedding_batch_size),
             "segmentationStep": round(pipeline._segmentation.step / pipeline._segmentation.duration, 3)}
 
 def diarize_system_audio(model_path: Path, normalized: list[tuple[str, Path]], status_path: Path,
                          speech_windows: list[dict[str, Any]] | None = None,
-                         device: str = "cpu", xpu_runtime: Path | None = None) -> tuple[list[dict[str, Any]], int, dict[str, Any]]:
+                         device: str = "cpu", xpu_runtime: Path | None = None,
+                         profile_overrides: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], int, dict[str, Any]]:
     from diarization_job import extract, load_pcm16
     system_path = next((path for label, path in normalized if label == "system_audio"), None)
     if system_path is None: return [], 0, {}
@@ -130,6 +146,7 @@ def diarize_system_audio(model_path: Path, normalized: list[tuple[str, Path]], s
         result_path = status_path.parent / f".xpu-diarization-{token}.result.json"
         write_atomic(request_path, {"modelPath": str(model_path), "audioPath": str(system_path),
                                     "speechWindows": speech_windows, "runtimePath": str(xpu_runtime),
+                                    "diarizationProfile": profile_overrides,
                                     "resultPath": str(result_path)})
         write_atomic(status_path, {"status": "diarizing", "progress": 0.94,
                                    "source": "system_audio", "device": "xpu"})
@@ -147,7 +164,7 @@ def diarize_system_audio(model_path: Path, normalized: list[tuple[str, Path]], s
     pipeline = Pipeline.from_pretrained(model_path)
     # Intel integrated GPUs perform best when segmentation keeps the model's
     # native batch while the heavier speaker embedding uses smaller batches.
-    profile = configure_diarization_profile(pipeline, device)
+    profile = configure_diarization_profile(pipeline, device, profile_overrides)
     write_atomic(status_path, {"status": "diarizing", "progress": 0.94,
                                "source": "system_audio", "device": device})
     audio = load_pcm16(system_path)

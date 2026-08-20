@@ -23,7 +23,7 @@ def run(request_path: Path) -> int:
     from pyannote.audio import Pipeline
     pipeline = Pipeline.from_pretrained(Path(request["modelPath"]).resolve())
     pipeline.to(torch.device("xpu"))
-    profile = configure_diarization_profile(pipeline, "xpu")
+    profile = configure_diarization_profile(pipeline, "xpu", request.get("diarizationProfile"))
     audio = load_pcm16(Path(request["audioPath"]).resolve())
     mapping = None
     windows = request.get("speechWindows")

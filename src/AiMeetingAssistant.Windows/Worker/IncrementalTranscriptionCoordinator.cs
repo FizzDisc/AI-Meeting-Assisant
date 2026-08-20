@@ -30,6 +30,7 @@ public sealed class IncrementalTranscriptionStatusEventArgs(
 /// </summary>
 public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
 {
+    private static readonly TimeSpan BatchWindow = TimeSpan.FromMilliseconds(750);
     private sealed record Work(IncrementalAudioChunkReadyEventArgs? Chunk, IncrementalTranscriptionOptions? Options,
         TaskCompletionSource<bool>? Completion = null);
     private readonly PythonWorkerClient _worker;
@@ -63,15 +64,17 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         await DrainAsync(cancellationToken).ConfigureAwait(false);
+        var catchUp = new List<Task<bool>>();
         foreach (var chunk in DiscoverChunks(sessionDirectory))
         {
             var output = OutputPath(chunk);
             if (File.Exists(output)) continue;
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             await _queue.Writer.WriteAsync(new(chunk, options, completion), cancellationToken).ConfigureAwait(false);
-            if (!await completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false))
-                throw new InvalidOperationException($"Catch-up transcription failed for {chunk.Source} chunk {chunk.Index + 1}.");
+            catchUp.Add(completion.Task);
         }
+        if (catchUp.Count > 0 && (await Task.WhenAll(catchUp).WaitAsync(cancellationToken).ConfigureAwait(false)).Any(success => !success))
+            throw new InvalidOperationException("One or more catch-up chunks could not be transcribed.");
 
         Publish("AI", "Reconciling live transcript chunks on the meeting timeline...", SessionEvent(sessionDirectory));
         var merged = IncrementalTranscriptReconciler.Reconcile(sessionDirectory);
@@ -109,59 +112,93 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
     {
         try
         {
-            await foreach (var work in _queue.Reader.ReadAllAsync(_shutdown.Token).ConfigureAwait(false))
+            Work? pending = null;
+            while (pending is not null || await _queue.Reader.WaitToReadAsync(_shutdown.Token).ConfigureAwait(false))
             {
+                var work = pending ?? await _queue.Reader.ReadAsync(_shutdown.Token).ConfigureAwait(false);
+                pending = null;
                 if (work.Chunk is null) { work.Completion?.TrySetResult(true); continue; }
-                var success = await ProcessAsync(work, _shutdown.Token).ConfigureAwait(false);
-                work.Completion?.TrySetResult(success);
+                await Task.Delay(BatchWindow, _shutdown.Token).ConfigureAwait(false);
+                Work? partner = null;
+                if (_queue.Reader.TryRead(out var candidate))
+                {
+                    if (CanBatch(work, candidate)) partner = candidate;
+                    else pending = candidate;
+                }
+                var batch = partner is null ? new[] { work } : new[] { work, partner };
+                var success = await ProcessBatchAsync(batch, _shutdown.Token).ConfigureAwait(false);
+                foreach (var item in batch) item.Completion?.TrySetResult(success);
             }
         }
         catch (OperationCanceledException) { }
     }
 
-    private async Task<bool> ProcessAsync(Work work, CancellationToken token)
+    private async Task<bool> ProcessBatchAsync(IReadOnlyList<Work> batch, CancellationToken token)
     {
-        var chunk = work.Chunk!;
-        var outputPath = OutputPath(chunk);
-        var outputDirectory = Path.GetDirectoryName(outputPath)!;
-        if (File.Exists(outputPath))
+        var pending = batch.Where(work => work.Chunk is not null && !File.Exists(OutputPath(work.Chunk))).ToArray();
+        foreach (var reused in batch.Except(pending))
         {
+            if (reused.Chunk is null) continue;
+            var chunk = reused.Chunk;
+            var outputPath = OutputPath(chunk);
             Publish("AI", $"Reusing prepared {DisplaySource(chunk.Source)} chunk {chunk.Index + 1}.", chunk, outputPath);
-            return true;
         }
+        if (pending.Length == 0) return true;
 
         try
         {
-            Directory.CreateDirectory(outputDirectory);
-            Publish("AI", $"Preparing live transcript for {DisplaySource(chunk.Source)} chunk {chunk.Index + 1}...", chunk);
-            var options = work.Options!;
-            var job = await _worker.StartTranscriptionAsync([chunk.AudioPath], options.ModelPath, outputPath,
+            foreach (var work in pending)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(OutputPath(work.Chunk!))!);
+                Publish("AI", $"Preparing live transcript for {DisplaySource(work.Chunk!.Source)} chunk {work.Chunk.Index + 1}...", work.Chunk);
+            }
+            var options = pending[0].Options!;
+            var batchOutput = pending.Length == 1
+                ? OutputPath(pending[0].Chunk!)
+                : BatchOutputPath(pending[0].Chunk!.SessionDirectory);
+            var job = await _worker.StartTranscriptionAsync(pending.Select(work => work.Chunk!.AudioPath).ToArray(),
+                options.ModelPath, batchOutput,
                 computePreference: options.ComputePreference, modelId: options.ModelId,
                 openVinoModelPath: options.OpenVinoModelPath, openVinoRuntimePath: options.OpenVinoRuntimePath,
                 sileroVadPath: options.SileroVadPath, torchXpuRuntimePath: options.TorchXpuRuntimePath,
-                sourceLabels: [NormalizeSource(chunk.Source)], lowPriority: true, cancellationToken: token).ConfigureAwait(false);
+                sourceLabels: pending.Select(work => NormalizeSource(work.Chunk!.Source)).ToArray(),
+                lowPriority: true, cancellationToken: token).ConfigureAwait(false);
             string? lastPhase = null;
             job = await _worker.WaitForTranscriptionAsync(job.JobId, TimeSpan.FromSeconds(1), status =>
             {
                 if (status.Status == lastPhase) return;
                 lastPhase = status.Status;
-                Publish("AI", $"Live {DisplaySource(chunk.Source)} chunk {chunk.Index + 1}: {DisplayPhase(status.Status)}", chunk);
+                var label = pending.Length == 1 ? DisplaySource(pending[0].Chunk!.Source) : "paired audio";
+                Publish("AI", $"Live {label}: {DisplayPhase(status.Status)}", pending[0].Chunk!);
             }, token).ConfigureAwait(false);
             if (job.Status == "completed")
             {
-                Publish("AI", $"Live transcript prepared for {DisplaySource(chunk.Source)} chunk {chunk.Index + 1}.", chunk, job.OutputPath ?? outputPath);
+                if (pending.Length > 1)
+                {
+                    var combined = TranscriptDocumentStore.Load(job.OutputPath ?? batchOutput);
+                    IncrementalTranscriptBatchSplitter.Split(combined, pending.ToDictionary(
+                        work => NormalizeSource(work.Chunk!.Source), work => OutputPath(work.Chunk!)));
+                }
+                foreach (var work in pending)
+                    Publish("AI", $"Live transcript prepared for {DisplaySource(work.Chunk!.Source)} chunk {work.Chunk.Index + 1}.",
+                        work.Chunk, OutputPath(work.Chunk));
                 return true;
             }
             else if (job.Status != "cancelled")
-                Publish("WARNING", $"Live transcription failed for {DisplaySource(chunk.Source)} chunk {chunk.Index + 1}: {job.Error ?? job.Status}", chunk);
+                Publish("WARNING", $"Live transcription failed: {job.Error ?? job.Status}", pending[0].Chunk!);
         }
         catch (OperationCanceledException) { return false; }
         catch (Exception exception)
         {
-            Publish("WARNING", $"Live transcription failed for {DisplaySource(chunk.Source)} chunk {chunk.Index + 1}: {exception.Message}", chunk);
+            Publish("WARNING", $"Live transcription failed: {exception.Message}", pending[0].Chunk!);
         }
         return false;
     }
+
+    private static bool CanBatch(Work first, Work second) => first.Chunk is not null && second.Chunk is not null
+        && first.Options == second.Options
+        && first.Chunk.SessionDirectory == second.Chunk.SessionDirectory
+        && NormalizeSource(first.Chunk.Source) != NormalizeSource(second.Chunk.Source);
 
     private void Publish(string level, string message, IncrementalAudioChunkReadyEventArgs chunk, string? outputPath = null)
     {
@@ -197,6 +234,9 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
 
     private static string OutputPath(IncrementalAudioChunkReadyEventArgs chunk) => Path.Combine(chunk.SessionDirectory,
         "processing", "live-transcripts", chunk.Source, $"chunk_{chunk.Index:D6}.json");
+
+    private static string BatchOutputPath(string sessionDirectory) => Path.Combine(sessionDirectory, "processing",
+        "live-transcripts", ".batches", $"batch_{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid():N}.json");
 
     private static string NormalizeSource(string source) => source.StartsWith("microphone", StringComparison.Ordinal) ? "microphone" : source;
 
