@@ -234,6 +234,28 @@ try
             Console.WriteLine("PASS Dual capture uses both modes, a shared timestamp and exactly-once cleanup.");
         }
 
+        var handoverProviders = new List<(string Id, string Path, WasapiCaptureMode Mode, FakeAudioProvider Provider)>();
+        var handover = new DualAudioCaptureCoordinator(dualDir, (id, path, mode) =>
+        {
+            var provider = new FakeAudioProvider();
+            handoverProviders.Add((id, path, mode, provider));
+            return provider;
+        });
+        await handover.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+        await handover.SwitchMicrophoneAsync("replacement-microphone");
+        await handover.StopAsync();
+        var system = handoverProviders.Single(item => item.Mode == WasapiCaptureMode.Loopback);
+        var microphoneSegments = handoverProviders.Where(item => item.Mode == WasapiCaptureMode.Input).ToArray();
+        if (microphoneSegments.Length != 2 || microphoneSegments[1].Id != "replacement-microphone" ||
+            system.Provider.StartCount != 1 || system.Provider.StopCount != 1 ||
+            microphoneSegments.Any(item => item.Provider.StartCount != 1 || item.Provider.StopCount != 1 || item.Provider.DisposeCount != 1) ||
+            microphoneSegments.Select(item => item.Path).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 2)
+        {
+            Console.Error.WriteLine("FAIL Microphone handover restarted system audio, reused a file, or leaked a provider.");
+            failures++;
+        }
+        else Console.WriteLine("PASS Microphone handover replaces only the input provider and finalizes both segments.");
+
         var partialProviders = new List<FakeAudioProvider>();
         var partialCoordinator = new DualAudioCaptureCoordinator(dualDir, (_, _, _) =>
         {

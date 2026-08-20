@@ -25,6 +25,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     private bool _audioStarted;
     private IncrementalAudioChunkWriter? _systemChunkWriter;
     private IncrementalAudioChunkWriter? _microphoneChunkWriter;
+    private int _microphoneSegmentIndex;
 
     public CombinedCaptureCoordinator(string captureBaseDirectory = "artifacts/captures", Func<string, string, IScreenCaptureProvider>? screenProviderFactory = null, Func<string, string, WasapiCaptureMode, IAudioCaptureProvider>? audioProviderFactory = null)
     {
@@ -109,6 +110,23 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         finally { _lock.Release(); }
     }
 
+    public async Task SwitchMicrophoneAsync(string sourceId, CancellationToken cancellationToken = default)
+    {
+        await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_audioStarted || _audio is null) throw new InvalidOperationException("No active recording is available for microphone handover.");
+            var writer = Interlocked.Exchange(ref _microphoneChunkWriter, null);
+            if (writer is not null) await writer.CompleteAsync().ConfigureAwait(false);
+            _microphoneSegmentIndex++;
+            try { await _audio.SwitchMicrophoneAsync(sourceId, cancellationToken).ConfigureAwait(false); }
+            catch { _microphoneSegmentIndex--; throw; }
+            _manifest = BuildManifest("recording", null);
+            WriteManifest();
+        }
+        finally { _lock.Release(); }
+    }
+
     private void Subscribe(ScreenCaptureCoordinator? screen, DualAudioCaptureCoordinator audio)
     {
         if (screen is not null) { screen.CaptureStarted += OnScreenStarted; screen.CaptureFailed += OnCaptureFailed; }
@@ -143,7 +161,9 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         _microphoneOffset ??= _clock.Elapsed.TotalMilliseconds;
         if (_sessionDirectory is not null)
         {
-            _microphoneChunkWriter ??= new(_sessionDirectory, "microphone", e.SampleRate, e.ChannelCount);
+            var source = _microphoneSegmentIndex == 0 ? "microphone" : $"microphone_segment_{_microphoneSegmentIndex:D3}";
+            _microphoneChunkWriter ??= new(_sessionDirectory, source, e.SampleRate, e.ChannelCount,
+                timelineOffsetSeconds: _clock.Elapsed.TotalSeconds);
             _microphoneChunkWriter.ChunkFinalized -= OnChunkFinalized;
             _microphoneChunkWriter.ChunkFinalized += OnChunkFinalized;
         }

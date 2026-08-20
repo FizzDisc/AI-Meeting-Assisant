@@ -2009,3 +2009,11 @@ Schema 3, incremental finalized, Diarisierung aktiv, ein Remote-Speaker,
 keine case-insensitiv doppelten Keys. Der erste kalte XPU/Pyannote-Lauf dauerte
 ca. 153 Sekunden, der warme Reparaturlauf ca. 37 Sekunden. Persistentes Model-
 Warming fuer kurze Meetings bleibt ein priorisierter Performance-TODO.
+
+=== CODEX · MIXED-LANGUAGE TRANSCRIPTION FIX ===
+
+Ein ungesetztes Sprachfeld wurde im Intel-OpenVINO-Pfad bisher heimlich zu
+Deutsch (`de`) umgewandelt. Dadurch musste Whisper auch englisches Systemaudio
+als deutschen Text dekodieren. Automatic erzwingt jetzt keine Sprache mehr:
+Mikrofon und Systemaudio behalten ihre getrennte, automatische Spracherkennung.
+Nur eine spaeter bewusst gewaehlte feste Sprache darf den Decoder festlegen.

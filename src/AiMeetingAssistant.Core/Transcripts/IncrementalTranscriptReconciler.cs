@@ -14,9 +14,13 @@ public static partial class IncrementalTranscriptReconciler
         var root = Path.Combine(Path.GetFullPath(sessionDirectory), "processing");
         var candidates = new List<Candidate>();
         var documents = new List<TranscriptDocument>();
-        foreach (var source in new[] { "microphone", "system_audio" })
+        var chunkRoot = Path.Combine(root, "live-chunks");
+        foreach (var sourceDirectory in Directory.GetDirectories(chunkRoot)
+                     .Where(path => Path.GetFileName(path) == "system_audio" || Path.GetFileName(path).StartsWith("microphone", StringComparison.Ordinal)))
         {
-            var manifestPath = Path.Combine(root, "live-chunks", source, "chunks.json");
+            var source = Path.GetFileName(sourceDirectory);
+            var logicalSource = source.StartsWith("microphone", StringComparison.Ordinal) ? "microphone" : source;
+            var manifestPath = Path.Combine(sourceDirectory, "chunks.json");
             if (!File.Exists(manifestPath)) throw new FileNotFoundException($"Live chunk manifest missing for {source}.", manifestPath);
             var manifest = JsonSerializer.Deserialize<IncrementalAudioChunkManifest>(File.ReadAllText(manifestPath), JsonOptions)
                 ?? throw new InvalidDataException($"Live chunk manifest is empty for {source}.");
@@ -34,10 +38,10 @@ public static partial class IncrementalTranscriptReconciler
                     {
                         Start = chunk.StartSeconds + localStart,
                         End = chunk.StartSeconds + localEnd,
-                        Source = source,
-                        Speaker = source == "microphone" ? "You" : null,
-                        SpeakerAssignment = source == "microphone" ? "known-source" : "not-run",
-                        SpeakerOverlapRatio = source == "microphone" ? 1 : 0
+                        Source = logicalSource,
+                        Speaker = logicalSource == "microphone" ? "You" : null,
+                        SpeakerAssignment = logicalSource == "microphone" ? "known-source" : "not-run",
+                        SpeakerOverlapRatio = logicalSource == "microphone" ? 1 : 0
                     }, chunk.Index));
                 }
             }

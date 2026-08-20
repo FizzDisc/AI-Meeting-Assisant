@@ -139,7 +139,7 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
                 computePreference: options.ComputePreference, modelId: options.ModelId,
                 openVinoModelPath: options.OpenVinoModelPath, openVinoRuntimePath: options.OpenVinoRuntimePath,
                 sileroVadPath: options.SileroVadPath, torchXpuRuntimePath: options.TorchXpuRuntimePath,
-                sourceLabels: [chunk.Source], lowPriority: true, cancellationToken: token).ConfigureAwait(false);
+                sourceLabels: [NormalizeSource(chunk.Source)], lowPriority: true, cancellationToken: token).ConfigureAwait(false);
             string? lastPhase = null;
             job = await _worker.WaitForTranscriptionAsync(job.JobId, TimeSpan.FromSeconds(1), status =>
             {
@@ -180,9 +180,12 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
     private static IReadOnlyList<IncrementalAudioChunkReadyEventArgs> DiscoverChunks(string sessionDirectory)
     {
         var results = new List<IncrementalAudioChunkReadyEventArgs>();
-        foreach (var source in new[] { "microphone", "system_audio" })
+        var chunkRoot = Path.Combine(sessionDirectory, "processing", "live-chunks");
+        foreach (var sourceDirectory in Directory.GetDirectories(chunkRoot)
+                     .Where(path => Path.GetFileName(path) == "system_audio" || Path.GetFileName(path).StartsWith("microphone", StringComparison.Ordinal)))
         {
-            var manifestPath = Path.Combine(sessionDirectory, "processing", "live-chunks", source, "chunks.json");
+            var source = Path.GetFileName(sourceDirectory);
+            var manifestPath = Path.Combine(sourceDirectory, "chunks.json");
             var manifest = System.Text.Json.JsonSerializer.Deserialize<IncrementalAudioChunkManifest>(File.ReadAllText(manifestPath),
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                 ?? throw new InvalidDataException($"Chunk manifest is empty for {source}.");
@@ -194,6 +197,8 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
 
     private static string OutputPath(IncrementalAudioChunkReadyEventArgs chunk) => Path.Combine(chunk.SessionDirectory,
         "processing", "live-transcripts", chunk.Source, $"chunk_{chunk.Index:D6}.json");
+
+    private static string NormalizeSource(string source) => source.StartsWith("microphone", StringComparison.Ordinal) ? "microphone" : source;
 
     private static IncrementalAudioChunkReadyEventArgs SessionEvent(string directory) => new(directory, "meeting", 0, "", 0, 0);
 
@@ -214,6 +219,7 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
         "transcribing" => "transcribing",
         "diarizing" => "detecting speakers",
         "assigning-speakers" => "assigning speakers",
+        "skipping-speakers" => "no remote speech detected; skipping speaker analysis",
         "reusing-transcription" => "reusing cached result",
         "completed" => "completed",
         _ => status

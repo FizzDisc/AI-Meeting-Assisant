@@ -4,9 +4,16 @@ import unittest
 from pathlib import Path
 
 from transcription_jobs import TranscriptionJobManager
+from transcription_job import normalize_requested_language
 
 
 class TranscriptionJobTests(unittest.TestCase):
+    def test_automatic_language_does_not_force_german(self) -> None:
+        self.assertIsNone(normalize_requested_language(None))
+        self.assertIsNone(normalize_requested_language("automatic"))
+        self.assertIsNone(normalize_requested_language(" AUTO "))
+        self.assertEqual("de", normalize_requested_language(" DE "))
+
     def test_running_child_process_can_be_cancelled(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

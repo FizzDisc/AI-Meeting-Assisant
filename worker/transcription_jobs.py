@@ -111,7 +111,9 @@ class TranscriptionJobManager:
     def status(self, job_id: str) -> dict[str, Any]:
         job, result = self._get(job_id), {"status": "queued", "progress": 0.0}
         process, status_path = job["process"], Path(job["statusPath"])
-        if status_path.is_file(): result = json.loads(status_path.read_text(encoding="utf-8"))
+        if status_path.is_file():
+            try: result = json.loads(status_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError): pass
         result["jobId"] = job_id
         exit_code = process.poll()
         if exit_code is not None:

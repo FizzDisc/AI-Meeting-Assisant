@@ -14,7 +14,7 @@
                 <TextBlock Text="{Binding StateLabel}" FontSize="30" FontWeight="SemiBold" Margin="0,7,0,0"/>
                 <TextBlock Text="Capture, transcribe and turn conversations into clear outcomes." Foreground="{StaticResource MutedBrush}" FontSize="15" Margin="0,8,0,0"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"><Button Content="Settings" Click="OnOpenSettings" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/><Border Background="#18352E" CornerRadius="12" Padding="14,8"><TextBlock Text="SPRINT 3.4.3 · MODEL COMPARISON" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/></Border></StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"><Button Content="Settings" Click="OnOpenSettings" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,10,0"/><Border Background="#18352E" CornerRadius="12" Padding="14,8"><TextBlock Text="SPRINT 3.8 · PROCESSING OPTIMIZATION" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold"/></Border></StackPanel>
         </Grid>
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="0.75*"/></Grid.ColumnDefinitions>
@@ -64,7 +64,7 @@
                     <UniformGrid Grid.Row="2" Columns="3">
                         <Border Background="{StaticResource RaisedBrush}" CornerRadius="10" Padding="14" Margin="0,0,8,0"><StackPanel><Grid><TextBlock Text="SCREEN" Foreground="{StaticResource MutedBrush}" FontSize="11"/><CheckBox Content="Capture" IsChecked="{Binding IsScreenCaptureEnabled}" IsEnabled="{Binding CanChangeSources}" Foreground="{StaticResource TextBrush}" HorizontalAlignment="Right"/></Grid><ComboBox ItemsSource="{Binding ScreenSources}" SelectedItem="{Binding SelectedScreen}" IsEnabled="{Binding ScreenSelectionEnabled}" Margin="0,8,0,0"/></StackPanel></Border>
                         <Border Background="{StaticResource RaisedBrush}" CornerRadius="10" Padding="14" Margin="4,0"><StackPanel><TextBlock Text="SYSTEM / TEAMS AUDIO" Foreground="{StaticResource MutedBrush}" FontSize="11"/><ComboBox ItemsSource="{Binding SystemAudioSources}" SelectedItem="{Binding SelectedSystemAudio}" IsEnabled="{Binding CanChangeSources}" Margin="0,8,0,0"/></StackPanel></Border>
-                        <Border Background="{StaticResource RaisedBrush}" CornerRadius="10" Padding="14" Margin="8,0,0,0"><StackPanel><TextBlock Text="MICROPHONE" Foreground="{StaticResource MutedBrush}" FontSize="11"/><ComboBox ItemsSource="{Binding MicrophoneSources}" SelectedItem="{Binding SelectedMicrophone}" IsEnabled="{Binding CanChangeSources}" Margin="0,8,0,0"/></StackPanel></Border>
+                        <Border Background="{StaticResource RaisedBrush}" CornerRadius="10" Padding="14" Margin="8,0,0,0"><StackPanel><TextBlock Text="MICROPHONE" Foreground="{StaticResource MutedBrush}" FontSize="11"/><ComboBox ItemsSource="{Binding MicrophoneSources}" SelectedItem="{Binding SelectedMicrophone}" IsEnabled="{Binding MicrophoneSelectionEnabled}" Margin="0,8,0,0"/></StackPanel></Border>
                     </UniformGrid>
                 </Grid>
             </Border>

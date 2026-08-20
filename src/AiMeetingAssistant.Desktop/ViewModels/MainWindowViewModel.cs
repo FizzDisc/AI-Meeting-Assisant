@@ -26,6 +26,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly Stopwatch _recordingStopwatch = new();
     private readonly Stopwatch _transcriptionStopwatch = new();
     private readonly DispatcherTimer _recordingTimer;
+    private readonly DispatcherTimer _processingTimer;
+    private string _processingPhase = "Worker active";
     private Dispatcher? _uiDispatcher;
     private IReadOnlyList<CaptureSource> _screenSources = [];
     private IReadOnlyList<CaptureSource> _systemAudioSources = [];
@@ -81,6 +83,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             Interval = TimeSpan.FromMilliseconds(250)
         };
         _recordingTimer.Tick += OnRecordingTimerTick;
+        _processingTimer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
+        _processingTimer.Tick += OnProcessingTimerTick;
         ToggleRecordingCommand = new AsyncRelayCommand(ToggleRecordingAsync, CanToggleRecording);
         RefreshSourcesCommand = new AsyncRelayCommand(RefreshSourcesAsync, () => CanChangeSources);
         TranscribeLatestCommand = new AsyncRelayCommand(TranscribeLatestAsync, () => CanTranscribeLatest);
@@ -252,7 +256,34 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public CaptureSource? SelectedMicrophone
     {
         get => _selectedMicrophone;
-        set { _selectedMicrophone = value; OnPropertyChanged(); ToggleRecordingCommand.RaiseCanExecuteChanged(); }
+        set
+        {
+            var previous = _selectedMicrophone;
+            _selectedMicrophone = value;
+            OnPropertyChanged();
+            ToggleRecordingCommand.RaiseCanExecuteChanged();
+            if (IsRecording && value is not null && previous?.Id != value.Id) _ = SwitchMicrophoneAsync(value, previous);
+        }
+    }
+
+    public bool MicrophoneSelectionEnabled => CanChangeSources || IsRecording;
+
+    private async Task SwitchMicrophoneAsync(CaptureSource replacement, CaptureSource? previous)
+    {
+        if (_captureCoordinator is not AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined) return;
+        try
+        {
+            StatusMessage = $"Switching microphone to {replacement.DisplayName}...";
+            await combined.SwitchMicrophoneAsync(replacement.Id);
+            StatusMessage = $"Microphone switched to {replacement.DisplayName}.";
+            AddStatus("CAPTURE", StatusMessage);
+        }
+        catch (Exception exception)
+        {
+            _selectedMicrophone = previous;
+            OnPropertyChanged(nameof(SelectedMicrophone));
+            ErrorMessage = $"Microphone handover failed: {FormatExceptionChain(exception)}";
+        }
     }
 
     public string? ErrorMessage
@@ -405,6 +436,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             catch { /* Worker disposal below is the final bounded fallback. */ }
         }
         _recordingTimer.Stop();
+        _processingTimer.Stop();
         _recordingStopwatch.Stop();
         try
         {
@@ -539,6 +571,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         TranscriptPath = null;
         TranscriptionProgress = 0;
         _transcriptionStopwatch.Restart();
+        _processingPhase = "Starting worker job";
+        _processingTimer.Start();
         TranscriptionActivityDetail = "Starting worker job · elapsed 00:00";
         IsTranscriptionIndeterminate = true;
         IsTranscribing = true;
@@ -615,6 +649,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         finally
         {
             _transcriptionStopwatch.Stop();
+            _processingTimer.Stop();
             IsTranscriptionIndeterminate = false;
             TranscriptionActivityDetail = $"Worker idle · last job {_transcriptionStopwatch.Elapsed:mm\\:ss}";
             _transcriptionCancellation?.Dispose();
@@ -762,6 +797,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var selected = SelectedSpeechModel;
         if (_incrementalTranscription is null || selected?.ModelPath is null || IsTranscribing) return;
         IsTranscribing = true;
+        _transcriptionStopwatch.Restart();
+        _processingPhase = "Finalizing incremental transcript";
+        _processingTimer.Start();
         IsTranscriptionIndeterminate = true;
         TranscriptionProgress = 0;
         TranscriptionStatusMessage = "Finalizing incremental transcript...";
@@ -790,6 +828,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         finally
         {
             _transcriptionCancellation?.Dispose();
+            _transcriptionStopwatch.Stop();
+            _processingTimer.Stop();
             _transcriptionCancellation = null;
             IsTranscriptionIndeterminate = false;
             IsTranscribing = false;
@@ -803,7 +843,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         void Update()
         {
             AddStatus(eventArgs.Level, eventArgs.Message);
-            TranscriptionActivityDetail = eventArgs.Message;
+            _processingPhase = eventArgs.Message;
+            TranscriptionActivityDetail = $"{_processingPhase} · elapsed {_transcriptionStopwatch.Elapsed.ToString(@"hh\:mm\:ss")}";
         }
         var dispatcher = _uiDispatcher ?? Dispatcher.CurrentDispatcher;
         if (dispatcher.CheckAccess()) Update(); else dispatcher.BeginInvoke(Update);
@@ -831,6 +872,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         OnPropertyChanged(nameof(State));
         OnPropertyChanged(nameof(IsRecording));
+        OnPropertyChanged(nameof(MicrophoneSelectionEnabled));
         OnPropertyChanged(nameof(CanChangeSources));
         OnPropertyChanged(nameof(CanDeleteSelectedMeeting));
         OnPropertyChanged(nameof(StateLabel));
@@ -894,6 +936,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void OnRecordingTimerTick(object? sender, EventArgs eventArgs) =>
         OnPropertyChanged(nameof(RecordingElapsedLabel));
+
+    private void OnProcessingTimerTick(object? sender, EventArgs eventArgs) =>
+        TranscriptionActivityDetail = $"{_processingPhase} · elapsed {_transcriptionStopwatch.Elapsed.ToString(@"hh\:mm\:ss")}";
 
     private string GetCompletedStatusMessage()
     {

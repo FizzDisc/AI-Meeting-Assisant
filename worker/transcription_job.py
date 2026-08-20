@@ -8,6 +8,13 @@ from hardware import select_compute, select_intel_compute
 
 _xpu_dll_handles = []
 
+def normalize_requested_language(value: Any) -> str | None:
+    """Return an explicit Whisper language, or None for per-track detection."""
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    return None if normalized in ("", "auto", "automatic") else normalized
+
 def activate_torch_xpu(runtime_path: Path) -> None:
     """Make the isolated Intel Torch runtime importable before importing torch."""
     for directory in (runtime_path / "Library" / "bin", runtime_path / "bin", runtime_path / "torch" / "lib"):
@@ -169,10 +176,11 @@ def run(request_path: Path) -> int:
     model_path, output_path = Path(request["modelPath"]).resolve(), Path(request["outputPath"]).resolve()
     status_path = Path(request["statusPath"]).resolve()
     preference = request.get("computePreference", "automatic")
+    requested_language = normalize_requested_language(request.get("language"))
     cache_directory = output_path.parent / "cache"
-    raw_key = stage_key({"version": 1, "sources": [fingerprint(path) for path in inputs],
+    raw_key = stage_key({"version": 2, "sources": [fingerprint(path) for path in inputs],
                          "model": fingerprint(model_path), "modelId": request.get("modelId"),
-                         "language": request.get("language"), "preference": preference,
+                         "language": requested_language, "preference": preference,
                          "openVinoModelPath": request.get("openVinoModelPath")})
     raw_cache_path = cache_directory / f"raw-transcription-{raw_key[:16]}.json"
     cached_raw = load_stage_cache(raw_cache_path, raw_key)
@@ -208,11 +216,12 @@ def run(request_path: Path) -> int:
             from openvino_backend import OpenVinoTranscriber
             vad_model = Path(sys.executable).resolve().parent.parent / "Lib/site-packages/whisperx/assets/pytorch_model.bin"
             model = OpenVinoTranscriber(Path(request["openVinoRuntimePath"]), Path(request["openVinoModelPath"]),
-                                        vad_model, request.get("language") or "de",
+                                        vad_model, requested_language,
                                         silero_repository=Path(request["sileroVadPath"]))
         else:
             import whisperx
-            model = whisperx.load_model(str(model_path), device, compute_type=compute_type, language=request.get("language"))
+            model = whisperx.load_model(str(model_path), device, compute_type=compute_type,
+                                        language=requested_language)
         model_seconds = time.monotonic()-model_started
         results = []
         for index, (label, normalized_path) in enumerate(normalized):

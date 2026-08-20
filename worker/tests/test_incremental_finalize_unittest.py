@@ -27,6 +27,22 @@ class IncrementalFinalizeTests(unittest.TestCase):
             self.assertEqual("completed", json.loads(status.read_text(encoding="utf-8"))["status"])
             self.assertEqual(len(result), len({key.lower() for key in result}))
 
+    def test_silent_system_audio_skips_diarization_model_loading(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            merged, audio, output, status, request = [root / name for name in
+                ("merged.json", "system.wav", "final.json", "status.json", "request.json")]
+            merged.write_text(json.dumps({"SchemaVersion": 3, "Segments": []}), encoding="utf-8")
+            audio.write_bytes(b"not-a-real-wave-because-it-must-not-be-opened")
+            request.write_text(json.dumps({"mergedTranscriptPath": str(merged), "systemAudioPath": str(audio),
+                "outputPath": str(output), "statusPath": str(status),
+                "diarizationModelPath": str(root / "model-that-must-not-load")}), encoding="utf-8")
+            self.assertEqual(0, run(request))
+            result = json.loads(output.read_text(encoding="utf-8"))
+            self.assertFalse(result["diarizationEnabled"])
+            self.assertIn("0.00 seconds", result["diarizationSkippedReason"])
+            self.assertEqual("completed", json.loads(status.read_text(encoding="utf-8"))["status"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -79,6 +79,35 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
         }
     }
 
+    public async Task SwitchMicrophoneAsync(string sourceId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceId);
+        await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_isCapturing || _microphoneCapture is null)
+                throw new InvalidOperationException("Microphone handover requires an active capture session.");
+
+            var path = CaptureFileNaming.CreateUniqueWavPath(_captureBaseDirectory, "microphone", _timestampFactory());
+            var replacement = _providerFactory(sourceId, path, WasapiCaptureMode.Input);
+            SubscribeMicrophone(replacement);
+            try
+            {
+                await replacement.StartAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                await CleanupMicrophoneAsync(replacement, stopFirst: true, CancellationToken.None).ConfigureAwait(false);
+                throw;
+            }
+
+            var previous = _microphoneCapture;
+            _microphoneCapture = replacement;
+            await CleanupMicrophoneAsync(previous, stopFirst: true, cancellationToken).ConfigureAwait(false);
+        }
+        finally { _lifecycleLock.Release(); }
+    }
+
     private void SubscribeSystemAudio(IAudioCaptureProvider capture)
     {
         capture.FrameCaptured += OnSystemAudioFrameCaptured;

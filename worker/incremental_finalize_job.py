@@ -25,7 +25,14 @@ def run(request_path: Path) -> int:
     segments = list(transcript.get("segments") or [])
     diarization_text = str(request.get("diarizationModelPath") or "").strip()
     speaker_count, profile = 0, None
-    if diarization_text:
+    system_segments = [item for item in segments if item.get("source") == "system_audio"]
+    system_speech_seconds = sum(max(0.0, float(item.get("end", 0)) - float(item.get("start", 0))) for item in system_segments)
+    meeting_seconds = max((float(item.get("end", 0)) for item in segments), default=0.0)
+    skip_reason = (f"System audio contains only {system_speech_seconds:.2f} seconds of transcribed speech."
+                   if system_speech_seconds < 2.0 else
+                   f"Automatic speaker analysis skips short meetings ({meeting_seconds:.1f} seconds under the 90-second threshold)."
+                   if meeting_seconds < 90.0 else None)
+    if diarization_text and skip_reason is None:
         normalized = output_path.parent / "normalized_incremental_system_audio.wav"
         write_atomic(status_path, {"status": "normalizing", "progress": .1, "source": "system_audio"})
         normalize_audio(system_audio, normalized)
@@ -39,9 +46,12 @@ def run(request_path: Path) -> int:
         transcript["diarizationEnabled"] = True
         transcript["diarizationSkippedReason"] = None
     else:
+        if diarization_text:
+            write_atomic(status_path, {"status": "skipping-speakers", "progress": .98,
+                                       "source": "system_audio", "reason": skip_reason})
         segments = reconcile_without_diarization(segments)
         transcript["diarizationEnabled"] = False
-        transcript["diarizationSkippedReason"] = "No local diarization model is installed."
+        transcript["diarizationSkippedReason"] = skip_reason or "No local diarization model is installed."
     transcript.update(createdAtUtc=datetime.now(timezone.utc).isoformat(), segments=segments,
                       diarizationRequested=bool(diarization_text), speakerCount=speaker_count)
     transcript["processingDurationMilliseconds"] = int(transcript.get("processingDurationMilliseconds") or 0) + int((time.monotonic()-started)*1000)

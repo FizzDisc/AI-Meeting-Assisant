@@ -53,6 +53,7 @@ public sealed class IncrementalAudioChunkWriter : IAsyncDisposable
     private readonly int _bytesPerFrame;
     private readonly long _framesPerChunk;
     private readonly double _targetChunkSeconds;
+    private readonly double _timelineOffsetSeconds;
     private readonly Channel<Buffer> _queue;
     private readonly Task _consumer;
     private readonly List<IncrementalAudioChunk> _chunks = [];
@@ -66,7 +67,8 @@ public sealed class IncrementalAudioChunkWriter : IAsyncDisposable
         int sampleRate,
         int channelCount,
         double targetChunkSeconds = 30,
-        int queueCapacity = 512)
+        int queueCapacity = 512,
+        double timelineOffsetSeconds = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
@@ -81,6 +83,7 @@ public sealed class IncrementalAudioChunkWriter : IAsyncDisposable
         _channelCount = channelCount;
         _bytesPerFrame = checked(channelCount * 2);
         _targetChunkSeconds = targetChunkSeconds;
+        _timelineOffsetSeconds = Math.Max(0, timelineOffsetSeconds);
         _framesPerChunk = checked((long)Math.Round(sampleRate * targetChunkSeconds));
         _directory = Path.Combine(sessionDirectory, "processing", "live-chunks", source);
         _manifestPath = Path.Combine(_directory, "chunks.json");
@@ -203,7 +206,7 @@ public sealed class IncrementalAudioChunkWriter : IAsyncDisposable
             var fileName = $"chunk_{_chunks.Count:D6}.wav";
             File.Move(temporaryPath, Path.Combine(_directory, fileName), true);
             _chunks.Add(new(_chunks.Count, fileName, chunkStartFrame, framesInChunk,
-                chunkStartFrame / (double)_sampleRate, framesInChunk / (double)_sampleRate));
+                _timelineOffsetSeconds + chunkStartFrame / (double)_sampleRate, framesInChunk / (double)_sampleRate));
             var completed = _chunks[^1];
             writer = null;
             temporaryPath = null;
