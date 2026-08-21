@@ -72,11 +72,31 @@ public static partial class IncrementalTranscriptReconciler
             CreatedAtUtc = DateTimeOffset.UtcNow,
             DetectedLanguages = documents.SelectMany(item => item.DetectedLanguages ?? new Dictionary<string, string?>())
                 .GroupBy(item => item.Key).ToDictionary(group => group.Key, group => group.Select(item => item.Value).FirstOrDefault(value => value is not null)),
+            AudioEvidence = documents.SelectMany(item => item.AudioEvidence ?? new Dictionary<string, TranscriptAudioEvidence>())
+                .GroupBy(item => item.Key).ToDictionary(group => group.Key, group => AggregateEvidence(group.Select(item => item.Value))),
+            SkippedSources = documents.SelectMany(item => item.AudioEvidence ?? new Dictionary<string, TranscriptAudioEvidence>())
+                .GroupBy(item => item.Key).Where(group => group.All(item => !item.Value.HasUsableSignal))
+                .Select(group => group.Key).ToArray(),
             Segments = reconciled.OrderBy(item => item.Start).ThenBy(item => item.End).ToArray(),
             DiarizationEnabled = false,
             SpeakerCount = 0,
             ProcessingDurationMilliseconds = documents.Sum(item => item.ProcessingDurationMilliseconds ?? 0)
         };
+    }
+
+    private static TranscriptAudioEvidence AggregateEvidence(IEnumerable<TranscriptAudioEvidence> values)
+    {
+        var items = values.ToArray();
+        var duration = items.Sum(item => item.DurationSeconds);
+        var weightedEnergy = items.Where(item => item.RmsDbfs is not null && item.DurationSeconds > 0)
+            .Sum(item => Math.Pow(10, item.RmsDbfs!.Value / 10) * item.DurationSeconds);
+        double? rms = weightedEnergy > 0 && duration > 0 ? 10 * Math.Log10(weightedEnergy / duration) : null;
+        return new(duration,
+            items.Where(item => item.PeakDbfs is not null).Select(item => item.PeakDbfs).Max(),
+            rms,
+            items.Where(item => item.MaximumWindowRmsDbfs is not null).Select(item => item.MaximumWindowRmsDbfs).Max(),
+            items.Sum(item => item.ActiveSeconds), items.Sum(item => item.AnalyzedWindows),
+            items.Any(item => item.HasUsableSignal));
     }
 
     private static TranscriptSegment? TrimBoundaryOverlap(TranscriptSegment previous, TranscriptSegment current)

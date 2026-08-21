@@ -14,7 +14,8 @@ public sealed record WorkerRuntimeDiagnostics(string PythonExecutable, string Pl
 public sealed record WorkerHealthResult(string Status, string WorkerVersion, string PythonVersion,
     bool RuntimeSupported, bool MlReady, IReadOnlyList<string> Capabilities, WorkerRuntimeDiagnostics Diagnostics);
 public sealed record TranscriptionJobStatus(string JobId, string Status, double Progress,
-    string? OutputPath, int? SegmentCount, string? Device, string? Source, string? Error);
+    string? OutputPath, int? SegmentCount, string? Device, string? Source, string? Error,
+    IReadOnlyList<string>? SkippedSources);
 
 public sealed class PythonWorkerClient(string pythonExecutable, string scriptPath, TimeSpan? requestTimeout = null) : IAsyncDisposable
 {
@@ -135,7 +136,10 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
         payload.TryGetProperty("segmentCount", out var count) ? count.GetInt32() : null,
         payload.TryGetProperty("device", out var device) ? device.GetString() : null,
         payload.TryGetProperty("source", out var source) ? source.GetString() : null,
-        payload.TryGetProperty("error", out var error) ? error.GetString() : null);
+        payload.TryGetProperty("error", out var error) ? error.GetString() : null,
+        payload.TryGetProperty("skippedSources", out var skipped) && skipped.ValueKind == JsonValueKind.Array
+            ? skipped.EnumerateArray().Select(item => item.GetString() ?? "").Where(item => item.Length > 0).ToArray()
+            : []);
 
     public async Task<WorkerResponse> SendAsync(string type, object payload, CancellationToken cancellationToken = default,
         TimeSpan? responseTimeout = null)

@@ -89,8 +89,9 @@
 
 ## Sprint 3.9 — capture health and mute semantics
 
-- **Sprint 3.9.1 implemented, hardware smoke pending:** Observe real RMS evidence independently for selected system audio and microphone without touching the capture path. Allow a 30-second startup grace, report a never-detected signal after that point, report 45 seconds of silence after a previously healthy signal and clear the warning automatically on recovery. Warnings are non-blocking, source-specific and deduplicated in the Status Center; they never stop or invalidate recording.
-- **Next:** Validate finalized WAV evidence before transcription, detect alternative active endpoints and evaluate which Windows/global/Teams mute states are reliable enough to influence local capture.
+- **Sprint 3.9.1 complete:** Observe real RMS evidence independently for selected system audio and microphone without touching the capture path. Allow a 30-second startup grace, report a never-detected signal after that point, report 45 seconds of silence after a previously healthy signal and clear the warning automatically on recovery. Warnings are non-blocking, source-specific and deduplicated in the Status Center; they never stop or invalidate recording. Hardware validation passed together with concurrent new capture during queued post-processing.
+- **Sprint 3.9.2 implemented, hardware smoke pending:** Normalize finalized sources, then compute deterministic PCM16 peak/RMS/window evidence before importing any ML package. Skip an unusable source independently, finish all-silent jobs as valid zero-segment transcripts without loading Whisper and persist the evidence plus skipped-source reason for diagnostics.
+- **Next:** Detect alternative active endpoints and evaluate which Windows/global/Teams mute states are reliable enough to influence local capture.
 
 ## Sprint 4 — meeting intelligence
 

@@ -191,8 +191,14 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
                         work => NormalizeSource(work.Chunk!.Source), work => OutputPath(work.Chunk!)));
                 }
                 foreach (var work in pending)
-                    Publish("AI", $"Live transcript prepared for {DisplaySource(work.Chunk!.Source)} chunk {work.Chunk.Index + 1}.",
+                {
+                    var source = NormalizeSource(work.Chunk!.Source);
+                    var skipped = job.SkippedSources?.Contains(source, StringComparer.Ordinal) == true;
+                    Publish(skipped ? "INFO" : "AI", skipped
+                            ? $"No usable signal in {DisplaySource(work.Chunk.Source)} chunk {work.Chunk.Index + 1}; Whisper was skipped."
+                            : $"Live transcript prepared for {DisplaySource(work.Chunk.Source)} chunk {work.Chunk.Index + 1}.",
                         work.Chunk, OutputPath(work.Chunk));
+                }
                 return true;
             }
             else if (job.Status != "cancelled")

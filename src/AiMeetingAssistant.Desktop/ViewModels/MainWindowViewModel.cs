@@ -700,6 +700,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         "normalizing" => "Mixing and normalizing audio...",
         "loading-model" => "Loading local speech model...",
         "loading-openvino-model" => "Loading Whisper on Intel GPU...",
+        "checking-audio" => "Checking finalized audio signal...",
         "detecting-speech" => $"Detecting speech in {FormatSource(job.Source)}...",
         "reusing-transcription" => "Reusing cached transcription...",
         "transcribing" => $"Transcribing {FormatSource(job.Source)} on {job.Device?.ToUpperInvariant() ?? "local hardware"}...",
@@ -707,6 +708,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         "diarizing" => $"Detecting speakers in system audio on {job.Device?.ToUpperInvariant() ?? "CPU"}...",
         "reusing-speakers" => "Reusing cached speaker analysis...",
         "assigning-speakers" => "Assigning speakers to transcript segments...",
+        "completed" when job.SkippedSources?.Count > 0 =>
+            $"Transcription completed · skipped silent {string.Join(" and ", job.SkippedSources.Select(FormatSource))} · {job.SegmentCount ?? 0} segment(s)",
         "completed" => $"Transcription completed · {job.SegmentCount ?? 0} segment(s)",
         "cancelled" => "Transcription cancelled.",
         _ => job.Status

@@ -1,13 +1,55 @@
 import tempfile
 import time
 import unittest
+import json
+import math
+import struct
+import wave
 from pathlib import Path
 
 from transcription_jobs import TranscriptionJobManager
-from transcription_job import normalize_requested_language
+from transcription_job import analyze_pcm16_signal, normalize_requested_language, run
 
 
 class TranscriptionJobTests(unittest.TestCase):
+    def test_audio_preflight_distinguishes_silence_and_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            silent = Path(directory) / "silent.wav"
+            signal = Path(directory) / "signal.wav"
+            for path, amplitude in ((silent, 0), (signal, 6000)):
+                with wave.open(str(path), "wb") as target:
+                    target.setnchannels(1)
+                    target.setsampwidth(2)
+                    target.setframerate(16000)
+                    samples = [round(amplitude * math.sin(2 * math.pi * 440 * index / 16000))
+                               for index in range(8000)]
+                    target.writeframes(b"".join(struct.pack("<h", sample) for sample in samples))
+            self.assertFalse(analyze_pcm16_signal(silent)["hasUsableSignal"])
+            evidence = analyze_pcm16_signal(signal)
+            self.assertTrue(evidence["hasUsableSignal"])
+            self.assertGreater(evidence["activeSeconds"], 0.2)
+
+    def test_all_silent_job_completes_without_loading_model(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            audio, model = root / "system_audio_test.wav", root / "model"
+            output, status, request = root / "transcript.json", root / "status.json", root / "request.json"
+            model.mkdir()
+            with wave.open(str(audio), "wb") as target:
+                target.setnchannels(1)
+                target.setsampwidth(2)
+                target.setframerate(16000)
+                target.writeframes(bytes(16000 * 2))
+            request.write_text(json.dumps({"audioPaths": [str(audio)], "modelPath": str(model),
+                "outputPath": str(output), "statusPath": str(status), "computePreference": "automatic",
+                "sourceLabels": ["system_audio"]}), encoding="utf-8")
+            self.assertEqual(0, run(request))
+            transcript = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual([], transcript["segments"])
+            self.assertEqual("not-run", transcript["device"])
+            self.assertEqual(["system_audio"], transcript["skippedSources"])
+            self.assertFalse(transcript["audioEvidence"]["system_audio"]["hasUsableSignal"])
+
     def test_automatic_language_does_not_force_german(self) -> None:
         self.assertIsNone(normalize_requested_language(None))
         self.assertIsNone(normalize_requested_language("automatic"))

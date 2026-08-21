@@ -16,6 +16,10 @@ public static class IncrementalTranscriptBatchSplitter
             {
                 Language = language,
                 DetectedLanguages = new Dictionary<string, string?> { [source] = language },
+                AudioEvidence = combined.AudioEvidence is not null && combined.AudioEvidence.TryGetValue(source, out var evidence)
+                    ? new Dictionary<string, TranscriptAudioEvidence> { [source] = evidence }
+                    : null,
+                SkippedSources = combined.SkippedSources?.Contains(source, StringComparer.Ordinal) == true ? [source] : [],
                 Segments = combined.Segments.Where(segment => segment.Source == source).ToArray(),
                 ProcessingDurationMilliseconds = combined.ProcessingDurationMilliseconds is null
                     ? null

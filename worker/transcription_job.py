@@ -1,6 +1,7 @@
 """Isolated WhisperX job; process isolation makes native inference cancellable."""
 from __future__ import annotations
-import hashlib, json, os, subprocess, sys, threading, time
+import hashlib, json, math, os, subprocess, sys, threading, time, wave
+from array import array
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,43 @@ def normalize_audio(source: Path, output: Path) -> None:
     command = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(source),
                "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(output)]
     subprocess.run(command, check=True, capture_output=True, text=True)
+
+def analyze_pcm16_signal(path: Path, window_milliseconds: int = 100,
+                         threshold_dbfs: float = -55.0,
+                         minimum_active_seconds: float = 0.2) -> dict[str, Any]:
+    """Return cheap deterministic signal evidence without loading ML packages."""
+    with wave.open(str(path), "rb") as source:
+        if source.getsampwidth() != 2 or source.getcomptype() != "NONE":
+            raise ValueError("Audio preflight requires uncompressed PCM16 WAV.")
+        rate, frames = source.getframerate(), source.getnframes()
+        window_frames = max(1, round(rate * window_milliseconds / 1000))
+        peak, sum_squares, sample_count = 0, 0, 0
+        maximum_window_rms = 0.0
+        active_windows, windows = 0, 0
+        threshold = 10 ** (threshold_dbfs / 20.0)
+        while True:
+            raw = source.readframes(window_frames)
+            if not raw: break
+            samples = array("h")
+            samples.frombytes(raw)
+            if sys.byteorder != "little": samples.byteswap()
+            if not samples: continue
+            window_squares = sum(sample * sample for sample in samples)
+            window_rms = math.sqrt(window_squares / len(samples)) / 32768.0
+            maximum_window_rms = max(maximum_window_rms, window_rms)
+            if window_rms >= threshold: active_windows += 1
+            windows += 1
+            peak = max(peak, max(abs(sample) for sample in samples))
+            sum_squares += window_squares
+            sample_count += len(samples)
+    duration = frames / rate if rate else 0.0
+    active_seconds = active_windows * window_frames / rate if rate else 0.0
+    rms = math.sqrt(sum_squares / sample_count) / 32768.0 if sample_count else 0.0
+    to_db = lambda value: round(20 * math.log10(value), 2) if value > 0 else None
+    return {"durationSeconds": round(duration, 3), "peakDbfs": to_db(peak / 32768.0),
+            "rmsDbfs": to_db(rms), "maximumWindowRmsDbfs": to_db(maximum_window_rms),
+            "activeSeconds": round(min(active_seconds, duration), 3), "analyzedWindows": windows,
+            "hasUsableSignal": active_seconds >= minimum_active_seconds}
 
 def source_name(path: Path, index: int) -> str:
     name = path.stem.lower()
@@ -195,7 +233,7 @@ def run(request_path: Path) -> int:
     preference = request.get("computePreference", "automatic")
     requested_language = normalize_requested_language(request.get("language"))
     cache_directory = output_path.parent / "cache"
-    raw_key = stage_key({"version": 2, "sources": [fingerprint(path) for path in inputs],
+    raw_key = stage_key({"version": 3, "sources": [fingerprint(path) for path in inputs],
                          "model": fingerprint(model_path), "modelId": request.get("modelId"),
                          "language": requested_language, "preference": preference,
                          "openVinoModelPath": request.get("openVinoModelPath")})
@@ -212,6 +250,30 @@ def run(request_path: Path) -> int:
             normalize_audio(source, normalized_path)
         normalized.append((label, normalized_path))
     normalization_seconds = time.monotonic()-phase_started
+    write_atomic(status_path, {"status": "checking-audio", "progress": 0.2})
+    audio_evidence = {label: analyze_pcm16_signal(path) for label, path in normalized}
+    skipped_sources = [label for label, evidence in audio_evidence.items() if not evidence["hasUsableSignal"]]
+    normalized = [(label, path) for label, path in normalized if label not in skipped_sources]
+    if not normalized:
+        transcript = {"schemaVersion": 3, "createdAtUtc": datetime.now(timezone.utc).isoformat(),
+                      "language": None, "detectedLanguages": {label: None for label in audio_evidence},
+                      "device": "not-run", "computeType": None, "batchSize": None,
+                      "computePreference": preference, "fallbackReason": "No usable audio signal detected.",
+                      "diarizationRequested": bool(request.get("diarizationModelPath")),
+                      "diarizationEnabled": False,
+                      "diarizationSkippedReason": "No usable system-audio signal detected.",
+                      "speakerCount": 0, "modelId": request.get("modelId") or model_path.name,
+                      "processingDurationMilliseconds": int((time.monotonic() - started) * 1000),
+                      "audioEvidence": audio_evidence, "skippedSources": skipped_sources,
+                      "performance": {"normalizationSeconds": round(normalization_seconds, 3),
+                                      "modelLoadSeconds": 0.0, "diarizationSeconds": 0.0,
+                                      "cache": {"rawTranscription": False, "speakerTurns": False}},
+                      "segments": []}
+        write_atomic(output_path, transcript)
+        write_atomic(status_path, {"status": "completed", "progress": 1.0,
+                                   "outputPath": str(output_path), "segmentCount": 0,
+                                   "speakerCount": 0, "skippedSources": skipped_sources})
+        return 0
     xpu_runtime_text = request.get("torchXpuRuntimePath") if preference == "intel-gpu" else None
     xpu_runtime = Path(xpu_runtime_text).resolve() if xpu_runtime_text else None
     xpu_available = bool(xpu_runtime and xpu_runtime.is_dir())
@@ -263,7 +325,8 @@ def run(request_path: Path) -> int:
         write_stage_cache(raw_cache_path, raw_key,
                           results=[{"source": source, "result": result} for source, result in results],
                           openVinoMetrics=openvino_metrics)
-    detected_languages = {source: result.get("language") for source, result in results}
+    detected_languages = {label: None for label in audio_evidence}
+    detected_languages.update({source: result.get("language") for source, result in results})
     languages = {language for language in detected_languages.values() if language}
     segments = merge_segments(results)
     diarization_path_text = request.get("diarizationModelPath")
@@ -274,7 +337,10 @@ def run(request_path: Path) -> int:
     diarization_skipped_reason = None
     system_result = next((result for source, result in results if source == "system_audio"), None)
     system_speech_seconds = float(system_result.get("speechSeconds", 0.0)) if system_result else 0.0
-    if diarization_path_text and preference == "intel-gpu" and system_speech_seconds < 2.0:
+    if diarization_path_text and not any(label == "system_audio" for label, _ in normalized):
+        diarization_skipped_reason = "No usable system-audio signal detected."
+        segments = reconcile_without_diarization(segments)
+    elif diarization_path_text and preference == "intel-gpu" and system_speech_seconds < 2.0:
         diarization_skipped_reason = f"System audio contains only {system_speech_seconds:.2f} seconds of detected speech."
         segments = reconcile_without_diarization(segments)
     elif diarization_path_text:
@@ -321,12 +387,13 @@ def run(request_path: Path) -> int:
                   "diarizationSkippedReason": diarization_skipped_reason, "speakerCount": speaker_count,
                   "modelId": request.get("modelId") or model_path.name,
                   "processingDurationMilliseconds": int((time.monotonic() - started) * 1000),
+                  "audioEvidence": audio_evidence, "skippedSources": skipped_sources,
                   "performance": performance,
                   "segments": segments}
     write_atomic(output_path, transcript)
     write_atomic(status_path, {"status": "completed", "progress": 1.0,
                                "outputPath": str(output_path), "segmentCount": len(transcript["segments"]),
-                               "speakerCount": speaker_count})
+                               "speakerCount": speaker_count, "skippedSources": skipped_sources})
     return 0
 
 def main() -> int:

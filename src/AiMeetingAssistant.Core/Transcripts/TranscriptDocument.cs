@@ -17,7 +17,12 @@ public sealed record TranscriptDocument(
     bool? DiarizationEnabled = null,
     int? SpeakerCount = null,
     string? ModelId = null,
-    long? ProcessingDurationMilliseconds = null);
+    long? ProcessingDurationMilliseconds = null,
+    IReadOnlyDictionary<string, TranscriptAudioEvidence>? AudioEvidence = null,
+    IReadOnlyList<string>? SkippedSources = null);
+
+public sealed record TranscriptAudioEvidence(double DurationSeconds, double? PeakDbfs, double? RmsDbfs,
+    double? MaximumWindowRmsDbfs, double ActiveSeconds, int AnalyzedWindows, bool HasUsableSignal);
 
 public sealed record TranscriptSegment(double Start, double End, string Text, string? Source = null,
     string? Speaker = null, string? SpeakerAssignment = null, double? SpeakerOverlapRatio = null);
