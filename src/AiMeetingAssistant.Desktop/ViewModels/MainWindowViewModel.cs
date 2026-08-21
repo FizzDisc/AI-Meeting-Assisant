@@ -18,6 +18,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly RecordingSession _recordingSession;
     private readonly ICaptureCoordinator _captureCoordinator;
     private readonly IAudioEndpointHealthProbe? _audioEndpointHealthProbe;
+    private readonly ITeamsMuteStateProbe? _teamsMuteStateProbe;
     private readonly PythonWorkerClient? _workerClient;
     private readonly IncrementalTranscriptionCoordinator? _incrementalTranscription;
     private string? _modelPath;
@@ -42,10 +43,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isDiscoveringSources;
     private double _systemAudioLevel;
     private double _microphoneLevel;
+    private DateTimeOffset? _lastSystemAudioLevelAt;
+    private DateTimeOffset? _lastMicrophoneLevelAt;
     private string _audioHealthMessage = "";
     private string _endpointHealthGuidance = "";
     private DateTimeOffset _lastEndpointProbeAt = DateTimeOffset.MinValue;
     private bool _endpointProbeInFlight;
+    private bool _teamsMuteProbeInFlight;
+    private DateTimeOffset _lastTeamsMuteProbeAt = DateTimeOffset.MinValue;
+    private TeamsMuteState _teamsMuteState = TeamsMuteState.NotDetected;
+    private string _teamsMuteStatusMessage = "Teams mute detection idle.";
     private string? _statusMessage;
     private string? _latestSessionDirectory;
     private CancellationTokenSource? _transcriptionCancellation;
@@ -73,11 +80,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
         PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic", string? diarizationModelPath = null, string? modelId = null,
-        IAudioEndpointHealthProbe? audioEndpointHealthProbe = null)
+        IAudioEndpointHealthProbe? audioEndpointHealthProbe = null, ITeamsMuteStateProbe? teamsMuteStateProbe = null)
     {
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
         _audioEndpointHealthProbe = audioEndpointHealthProbe;
+        _teamsMuteStateProbe = teamsMuteStateProbe;
         _workerClient = workerClient;
         if (workerClient is not null)
         {
@@ -337,6 +345,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public string TeamsMuteStatusMessage
+    {
+        get => _teamsMuteStatusMessage;
+        private set { if (_teamsMuteStatusMessage == value) return; _teamsMuteStatusMessage = value; OnPropertyChanged(); }
+    }
+
     public string? StatusMessage
     {
         get => _statusMessage;
@@ -424,8 +438,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 TranscriptionStatusMessage = "Existing local transcript ready to open.";
             }
         }
-        await RefreshSourcesAsync();
-        await RefreshMeetingLibraryAsync();
+        // Independent startup work must not serialize into one long loading chain.
+        // The library scan itself runs off the dispatcher in RefreshMeetingLibraryAsync.
+        await Task.WhenAll(RefreshSourcesAsync(), RefreshMeetingLibraryAsync());
         if (recovery?.RecoveredSessions > 0) StatusMessage = $"Recovered {recovery.RecoveredSessions} interrupted recording(s).";
         if (recovery?.Issues.Count > 0) ErrorMessage = $"Session recovery found {recovery.Issues.Count} issue(s): {recovery.Issues[0]}";
         if (_workerClient is not null)
@@ -515,10 +530,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ?? models.FirstOrDefault();
     }
 
-    private void RefreshSelectedTranscriptRuns()
+    private async void RefreshSelectedTranscriptRuns()
     {
-        SelectedTranscriptRuns = SelectedMeetingSession is null ? [] : TranscriptRunCatalog.Discover(SelectedMeetingSession.SessionDirectory);
-        SelectedTranscriptRun = SelectedTranscriptRuns.FirstOrDefault();
+        var sessionDirectory = SelectedMeetingSession?.SessionDirectory;
+        SelectedTranscriptRuns = [];
+        SelectedTranscriptRun = null;
+        if (sessionDirectory is null) return;
+
+        var runs = await Task.Run(() => TranscriptRunCatalog.Discover(sessionDirectory));
+        // A user can select another row while a large legacy transcript is loading.
+        // Never publish stale metadata into the newly selected meeting.
+        if (!string.Equals(SelectedMeetingSession?.SessionDirectory, sessionDirectory, StringComparison.OrdinalIgnoreCase)) return;
+        SelectedTranscriptRuns = runs;
+        SelectedTranscriptRun = runs.FirstOrDefault();
     }
 
     private async Task RefreshSourcesAsync()
@@ -549,16 +573,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool CanToggleRecording() => IsRecording ||
         (CanChangeSources && (!IsScreenCaptureEnabled || SelectedScreen is not null) && SelectedSystemAudio is not null && SelectedMicrophone is not null);
 
-    private Task RefreshMeetingLibraryAsync()
+    private async Task RefreshMeetingLibraryAsync()
     {
-        var result = MeetingLibrary.Discover(_captureBaseDirectory);
+        var result = await Task.Run(() => MeetingLibrary.Discover(_captureBaseDirectory));
         MeetingSessions = result.Sessions;
         SelectedMeetingSession = MeetingSessions.FirstOrDefault(session => session.SessionDirectory == SelectedMeetingSession?.SessionDirectory)
             ?? MeetingSessions.FirstOrDefault();
         MeetingLibraryStatus = result.Issues.Count == 0
             ? $"{MeetingSessions.Count} local recording(s)"
             : $"{MeetingSessions.Count} recording(s) · {result.Issues.Count} issue(s)";
-        return Task.CompletedTask;
     }
 
     private async Task TranscribeSelectedAsync()
@@ -795,6 +818,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         // Convert RMS dB to a 0-100 scale for UI display
         // Typical range: -80dB to 0dB
         _systemAudioHealth.Observe(eventArgs.Level.RmsDb, DateTimeOffset.UtcNow);
+        _lastSystemAudioLevelAt = DateTimeOffset.UtcNow;
         SystemAudioLevel = NormalizeLevel(eventArgs.Level.RmsDb);
     }
 
@@ -806,6 +830,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void OnMicrophoneLevelChanged(object? sender, AudioFrameCapturedEventArgs eventArgs)
     {
         _microphoneHealth.Observe(eventArgs.Level.RmsDb, DateTimeOffset.UtcNow);
+        _lastMicrophoneLevelAt = DateTimeOffset.UtcNow;
         MicrophoneLevel = NormalizeLevel(eventArgs.Level.RmsDb);
     }
 
@@ -919,7 +944,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         if (dispatcher.CheckAccess()) Update(); else dispatcher.BeginInvoke(Update);
     }
 
-    private static double NormalizeLevel(double rmsDb) => Math.Max(0, Math.Min(100, (rmsDb + 80) / 0.8));
+    private static double NormalizeLevel(double rmsDb)
+    {
+        const double usableSignalFloorDb = -55;
+        if (!double.IsFinite(rmsDb) || rmsDb <= usableSignalFloorDb) return 0;
+        return Math.Clamp((rmsDb - usableSignalFloorDb) / -usableSignalFloorDb * 100, 0, 100);
+    }
 
     private void OnRecordingStateChanged(object? sender, RecordingStateChangedEventArgs eventArgs)
     {
@@ -970,7 +1000,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             _systemAudioHealth.Stop();
             _microphoneHealth.Stop();
+            _lastSystemAudioLevelAt = null;
+            _lastMicrophoneLevelAt = null;
             _endpointHealthGuidance = "";
+            _teamsMuteState = TeamsMuteState.NotDetected;
+            TeamsMuteStatusMessage = "Teams mute detection idle.";
             AudioHealthMessage = "";
             _recordingTimer.Stop();
             _recordingStopwatch.Stop();
@@ -1014,7 +1048,42 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void OnRecordingTimerTick(object? sender, EventArgs eventArgs)
     {
         OnPropertyChanged(nameof(RecordingElapsedLabel));
-        RefreshAudioHealthMessage(DateTimeOffset.UtcNow, scheduleProbe: true);
+        var now = DateTimeOffset.UtcNow;
+        if (_lastSystemAudioLevelAt is null || now - _lastSystemAudioLevelAt >= TimeSpan.FromMilliseconds(750))
+            SystemAudioLevel = 0;
+        if (_lastMicrophoneLevelAt is null || now - _lastMicrophoneLevelAt >= TimeSpan.FromMilliseconds(750))
+            MicrophoneLevel = 0;
+        RefreshAudioHealthMessage(now, scheduleProbe: true);
+        if (_teamsMuteStateProbe is not null && !_teamsMuteProbeInFlight
+            && now - _lastTeamsMuteProbeAt >= TimeSpan.FromSeconds(1))
+            _ = UpdateTeamsMuteStateAsync();
+    }
+
+    private async Task UpdateTeamsMuteStateAsync()
+    {
+        _teamsMuteProbeInFlight = true;
+        _lastTeamsMuteProbeAt = DateTimeOffset.UtcNow;
+        try
+        {
+            var snapshot = await _teamsMuteStateProbe!.ProbeAsync();
+            if (!IsRecording) return;
+            var changed = snapshot.State != _teamsMuteState;
+            _teamsMuteState = snapshot.State;
+            TeamsMuteStatusMessage = snapshot.State switch
+            {
+                TeamsMuteState.Muted => "Teams microphone: MUTED · diagnostic only; local microphone is still recorded.",
+                TeamsMuteState.Unmuted => "Teams microphone: unmuted · detected via accessibility.",
+                TeamsMuteState.Unknown => $"Teams microphone: unknown state · {snapshot.AccessibleName ?? "unrecognized control"}",
+                _ => "Teams microphone: no active meeting control detected."
+            };
+            if (changed) AddStatus("TEAMS", TeamsMuteStatusMessage);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            TeamsMuteStatusMessage = $"Teams microphone: detection unavailable · {exception.Message}";
+        }
+        finally { _teamsMuteProbeInFlight = false; }
     }
 
     private void RefreshAudioHealthMessage(DateTimeOffset now, bool scheduleProbe)

@@ -50,6 +50,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("successful incremental cleanup removes only reproducible processing data", IncrementalCleanupIsSafelyScoped)
     ,("audio signal health distinguishes never-seen silence and recovery", AudioSignalHealthTracksRecovery)
     ,("audio endpoint guidance reports mute and active alternatives", AudioEndpointGuidanceIsEvidenceBased)
+    ,("Teams accessibility labels map to current mute state", TeamsMuteLabelsDescribeCurrentState)
 };
 
 var failures = 0;
@@ -797,6 +798,16 @@ static Task AudioEndpointGuidanceIsEvidenceBased()
         .Contains("USB headset", StringComparison.Ordinal))
         throw new InvalidOperationException("Active alternative endpoint was not suggested.");
     Equal("", AudioEndpointHealthAdvisor.BuildGuidance(selected, AudioSignalHealthState.Healthy, snapshots));
+    return Task.CompletedTask;
+}
+
+static Task TeamsMuteLabelsDescribeCurrentState()
+{
+    Equal(TeamsMuteState.Unmuted, TeamsMuteLabelInterpreter.Interpret("Mikrofon stummschalten"));
+    Equal(TeamsMuteState.Muted, TeamsMuteLabelInterpreter.Interpret("Stummschaltung aufheben"));
+    Equal(TeamsMuteState.Unmuted, TeamsMuteLabelInterpreter.Interpret("Mute microphone"));
+    Equal(TeamsMuteState.Muted, TeamsMuteLabelInterpreter.Interpret("Unmute"));
+    Equal(TeamsMuteState.Unknown, TeamsMuteLabelInterpreter.Interpret("Audio options"));
     return Task.CompletedTask;
 }
 

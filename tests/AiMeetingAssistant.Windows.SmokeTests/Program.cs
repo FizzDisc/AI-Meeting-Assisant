@@ -165,6 +165,9 @@ try
         Console.WriteLine($"PASS Windows endpoint health probe inspected {endpointSnapshots.Count} audio endpoint(s).");
     }
 
+    var teamsMute = await new TeamsUiAutomationMuteStateProbe().ProbeAsync();
+    Console.WriteLine($"PASS Teams UI Automation mute probe returned {teamsMute.State} ({teamsMute.AccessibleName ?? "no active meeting control"}).");
+
     var ultraWide = ScreenCaptureSizing.FitWithinEncoderLimit(5160, 2160);
     if (ultraWide.Width != 3840 || ultraWide.Height != 1608)
     {

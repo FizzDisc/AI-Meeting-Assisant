@@ -55,7 +55,10 @@ public static class MeetingLibrary
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var transcript = Path.Combine(directory, "processing", "transcript.json");
                 var hasTranscript = File.Exists(transcript);
-                var transcriptCount = TranscriptRunCatalog.Discover(directory).Count;
+                // The library overview only needs the number of runs. Parsing every
+                // transcript here made opening the app proportional to every segment
+                // ever recorded. Full metadata remains lazy-loaded for the selected run.
+                var transcriptCount = TranscriptRunCatalog.Count(directory);
                 sessions.Add(new(directory, manifest.SessionId, manifest.StartedAtUtc, manifest.DurationMilliseconds,
                     manifest.Status, FormatSources(availableStreams), manifest.Alignment?.Status ?? "unavailable",
                     manifest.Alignment?.Detail, hasTranscript ? transcript : null,

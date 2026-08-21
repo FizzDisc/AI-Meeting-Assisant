@@ -12,6 +12,16 @@ public sealed record TranscriptRunInfo(string Path, DateTimeOffset CreatedAtUtc,
 
 public static class TranscriptRunCatalog
 {
+    public static int Count(string sessionDirectory)
+    {
+        var processing = Path.Combine(sessionDirectory, "processing");
+        if (!Directory.Exists(processing)) return 0;
+
+        var count = Directory.EnumerateFiles(processing, "transcript_*.json", SearchOption.TopDirectoryOnly).Count();
+        if (File.Exists(Path.Combine(processing, "transcript.json"))) count++;
+        return count;
+    }
+
     public static IReadOnlyList<TranscriptRunInfo> Discover(string sessionDirectory)
     {
         var processing = Path.Combine(sessionDirectory, "processing");
