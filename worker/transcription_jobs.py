@@ -116,6 +116,14 @@ class TranscriptionJobManager:
             except (OSError, json.JSONDecodeError): pass
         result["jobId"] = job_id
         exit_code = process.poll()
+        if result.get("status") in ("completed", "failed", "cancelled") and exit_code is None:
+            # A job writes its terminal status atomically immediately before
+            # exiting. Wait briefly so its inherited diagnostic-log handle is
+            # released before the desktop starts deleting temporary artifacts.
+            try:
+                exit_code = process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                exit_code = None
         if exit_code is not None:
             self._close_log(job)
         if exit_code not in (None, 0) and result.get("status") not in ("failed", "cancelled"):

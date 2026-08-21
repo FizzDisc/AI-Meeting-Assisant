@@ -2086,3 +2086,13 @@ chunk_*.json bleiben erhalten. Cleanup-Warnungen machen ein erfolgreiches
 Transkript niemals nachtraeglich zu Failed. 39 Core- und alle Windows-Smokes
 sind gruen. Der Hardware-Smoke bestaetigte Preliminary-Zugriff waehrend der
 Speaker-Analyse, finale atomare Ersetzung und anschliessende Bereinigung.
+
+=== CODEX · SPRINT 3.9.1 LIVE AUDIO HEALTH ===
+
+Ein Core-State-Monitor bewertet die vorhandenen RMS-Ereignisse getrennt fuer
+Systemaudio und Mikrofon. 30 Sekunden Start- grace verhindern vorschnelle
+Warnungen; nie erkanntes Signal und 45 Sekunden Stille nach vorherigem Signal
+werden unterschieden. Ein neuer Pegel stellt Healthy automatisch wieder her.
+Die gelbe UI-Warnung blockiert Capture nie und loggt nur Zustandswechsel. Der
+Monitor veraendert keine PCM-Daten und behauptet noch keinen Teams-Mute-Status.
+Build und 40 Core-Tests sind gruen; Hardware-Smoke steht aus.

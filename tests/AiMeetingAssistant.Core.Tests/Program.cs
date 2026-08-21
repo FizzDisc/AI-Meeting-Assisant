@@ -48,6 +48,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("incremental transcripts reconcile meeting timestamps and boundary overlap", IncrementalTranscriptsReconcileTimeline)
     ,("paired incremental transcripts split into source artifacts", PairedIncrementalTranscriptsSplitBySource)
     ,("successful incremental cleanup removes only reproducible processing data", IncrementalCleanupIsSafelyScoped)
+    ,("audio signal health distinguishes never-seen silence and recovery", AudioSignalHealthTracksRecovery)
 };
 
 var failures = 0;
@@ -759,6 +760,24 @@ static Task IncrementalCleanupIsSafelyScoped()
         return Task.CompletedTask;
     }
     finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+}
+
+static Task AudioSignalHealthTracksRecovery()
+{
+    var monitor = new AudioSignalHealthMonitor(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(45), -55);
+    var start = DateTimeOffset.Parse("2026-08-20T00:00:00Z");
+    Equal(AudioSignalHealthState.Inactive, monitor.Evaluate(start));
+    monitor.Start(start);
+    Equal(AudioSignalHealthState.Waiting, monitor.Evaluate(start.AddSeconds(29)));
+    Equal(AudioSignalHealthState.NeverDetected, monitor.Evaluate(start.AddSeconds(30)));
+    monitor.Observe(-40, start.AddSeconds(31));
+    Equal(AudioSignalHealthState.Healthy, monitor.Evaluate(start.AddSeconds(60)));
+    Equal(AudioSignalHealthState.CurrentlySilent, monitor.Evaluate(start.AddSeconds(76)));
+    monitor.Observe(-35, start.AddSeconds(77));
+    Equal(AudioSignalHealthState.Healthy, monitor.Evaluate(start.AddSeconds(77)));
+    monitor.Stop();
+    Equal(AudioSignalHealthState.Inactive, monitor.Evaluate(start.AddMinutes(5)));
+    return Task.CompletedTask;
 }
 
 static Task SpeakerNamesAreMeetingScoped()

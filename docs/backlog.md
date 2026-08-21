@@ -87,6 +87,11 @@
 - **Next measurements:** Compare cold/warm post-processing and model-load counts on a two-minute meeting. Consider a supervised persistent OpenVINO runner only if paired jobs still spend unacceptable time loading models; cancellation and crash isolation remain acceptance gates.
 - **Sprint 3.9 planned:** Capture Health Monitoring will detect missing/never-seen microphone or system audio, warn during capture, suggest active alternative endpoints, validate final audio evidence and avoid pointless transcription of empty streams.
 
+## Sprint 3.9 — capture health and mute semantics
+
+- **Sprint 3.9.1 implemented, hardware smoke pending:** Observe real RMS evidence independently for selected system audio and microphone without touching the capture path. Allow a 30-second startup grace, report a never-detected signal after that point, report 45 seconds of silence after a previously healthy signal and clear the warning automatically on recovery. Warnings are non-blocking, source-specific and deduplicated in the Status Center; they never stop or invalidate recording.
+- **Next:** Validate finalized WAV evidence before transcription, detect alternative active endpoints and evaluate which Windows/global/Teams mute states are reliable enough to influence local capture.
+
 ## Sprint 4 — meeting intelligence
 
 - Generate editable minutes linked to transcript timestamps.

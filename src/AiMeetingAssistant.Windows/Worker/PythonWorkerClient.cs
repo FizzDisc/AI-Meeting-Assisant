@@ -29,7 +29,12 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
 
     public async Task<WorkerHealthResult> CheckHealthAsync(CancellationToken cancellationToken = default)
     {
-        var response = await SendAsync("health.check", new { }, cancellationToken).ConfigureAwait(false);
+        // Importing the native ML stack can take considerably longer than an
+        // ordinary protocol request after Windows startup, an update or an AV
+        // scan. Keep normal commands tightly bounded while giving only the
+        // cold-start health probe a realistic budget.
+        var response = await SendAsync("health.check", new { }, cancellationToken,
+            TimeSpan.FromSeconds(90)).ConfigureAwait(false);
         var payload = response.Payload;
         var diagnostics = payload.GetProperty("diagnostics");
         var packages = diagnostics.GetProperty("packages").EnumerateObject().ToDictionary(
@@ -132,7 +137,8 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
         payload.TryGetProperty("source", out var source) ? source.GetString() : null,
         payload.TryGetProperty("error", out var error) ? error.GetString() : null);
 
-    public async Task<WorkerResponse> SendAsync(string type, object payload, CancellationToken cancellationToken = default)
+    public async Task<WorkerResponse> SendAsync(string type, object payload, CancellationToken cancellationToken = default,
+        TimeSpan? responseTimeout = null)
     {
         await _requestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -142,7 +148,8 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
             var request = JsonSerializer.Serialize(new { protocolVersion = WorkerProtocol.CurrentVersion, requestId, type, payload });
             await _process!.StandardInput.WriteLineAsync(request).ConfigureAwait(false);
             await _process.StandardInput.FlushAsync(cancellationToken).ConfigureAwait(false);
-            var line = await _process.StandardOutput.ReadLineAsync(cancellationToken).AsTask().WaitAsync(_requestTimeout, cancellationToken).ConfigureAwait(false)
+            var line = await _process.StandardOutput.ReadLineAsync(cancellationToken).AsTask()
+                .WaitAsync(responseTimeout ?? _requestTimeout, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidOperationException($"Python worker exited without a response. {GetDiagnostics()}");
             var response = JsonSerializer.Deserialize<WorkerResponse>(line) ?? throw new InvalidDataException("Python worker returned an empty response.");
             if (response.ProtocolVersion != WorkerProtocol.CurrentVersion) throw new InvalidDataException($"Worker protocol {response.ProtocolVersion} is incompatible with {WorkerProtocol.CurrentVersion}.");

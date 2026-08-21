@@ -27,6 +27,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly Stopwatch _transcriptionStopwatch = new();
     private readonly DispatcherTimer _recordingTimer;
     private readonly DispatcherTimer _processingTimer;
+    private readonly AudioSignalHealthMonitor _systemAudioHealth = new();
+    private readonly AudioSignalHealthMonitor _microphoneHealth = new();
     private string _processingPhase = "Worker active";
     private Dispatcher? _uiDispatcher;
     private IReadOnlyList<CaptureSource> _screenSources = [];
@@ -39,6 +41,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isDiscoveringSources;
     private double _systemAudioLevel;
     private double _microphoneLevel;
+    private string _audioHealthMessage = "";
     private string? _statusMessage;
     private string? _latestSessionDirectory;
     private CancellationTokenSource? _transcriptionCancellation;
@@ -61,6 +64,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private SpeechModelOption? _selectedSpeechModel;
     private IReadOnlyList<TranscriptRunInfo> _selectedTranscriptRuns = [];
     private TranscriptRunInfo? _selectedTranscriptRun;
+    private readonly Queue<string> _incrementalFinalizationQueue = new();
+    private bool _isIncrementalFinalizationQueueRunning;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
         PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic", string? diarizationModelPath = null, string? modelId = null)
@@ -113,7 +118,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool IsRecording => State is RecordingSessionState.Recording;
 
-    public bool CanChangeSources => !_isDiscoveringSources && !IsTranscribing && State is RecordingSessionState.Idle
+    public bool CanChangeSources => !_isDiscoveringSources && State is RecordingSessionState.Idle
         or RecordingSessionState.Completed
         or RecordingSessionState.Failed;
 
@@ -174,13 +179,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool CanTranscribeSelected => !IsTranscribing && SelectedMeetingSession?.CanTranscribe == true &&
         _workerClient is not null && _modelPath is not null && Directory.Exists(_modelPath);
 
-    public string StateLabel => IsTranscribing ? "Transcribing latest recording" : State switch
+    public string StateLabel => State switch
     {
         RecordingSessionState.Idle when IsDiscoveringSources => "Discovering Windows devices...",
+        RecordingSessionState.Idle when IsTranscribing => "Ready · processing previous recording",
         RecordingSessionState.Idle => "Ready",
         RecordingSessionState.Preparing => "Preparing video and audio streams...",
         RecordingSessionState.Recording => "Recording screen and audio",
         RecordingSessionState.Stopping => "Finalizing video and audio...",
+        RecordingSessionState.Completed when IsTranscribing => "Processing previous recording",
         RecordingSessionState.Completed => "Recording completed",
         RecordingSessionState.Failed => "Recording failed",
         _ => State.ToString()
@@ -308,6 +315,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         get => _microphoneLevel;
         private set { _microphoneLevel = value; OnPropertyChanged(); }
+    }
+
+    public string AudioHealthMessage
+    {
+        get => _audioHealthMessage;
+        private set
+        {
+            if (_audioHealthMessage == value) return;
+            var recovered = _audioHealthMessage.Length > 0 && value.Length == 0;
+            _audioHealthMessage = value;
+            OnPropertyChanged();
+            if (value.Length > 0) AddStatus("WARNING", value);
+            else if (recovered) AddStatus("INFO", "Audio signal health recovered.");
+        }
     }
 
     public string? StatusMessage
@@ -520,7 +541,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private bool CanToggleRecording() => IsRecording ||
-        (!IsTranscribing && CanChangeSources && (!IsScreenCaptureEnabled || SelectedScreen is not null) && SelectedSystemAudio is not null && SelectedMicrophone is not null);
+        (CanChangeSources && (!IsScreenCaptureEnabled || SelectedScreen is not null) && SelectedSystemAudio is not null && SelectedMicrophone is not null);
 
     private Task RefreshMeetingLibraryAsync()
     {
@@ -764,6 +785,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         // Convert RMS dB to a 0-100 scale for UI display
         // Typical range: -80dB to 0dB
+        _systemAudioHealth.Observe(eventArgs.Level.RmsDb, DateTimeOffset.UtcNow);
         SystemAudioLevel = NormalizeLevel(eventArgs.Level.RmsDb);
     }
 
@@ -774,6 +796,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void OnMicrophoneLevelChanged(object? sender, AudioFrameCapturedEventArgs eventArgs)
     {
+        _microphoneHealth.Observe(eventArgs.Level.RmsDb, DateTimeOffset.UtcNow);
         MicrophoneLevel = NormalizeLevel(eventArgs.Level.RmsDb);
     }
 
@@ -795,7 +818,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private async Task FinalizeIncrementalSessionAsync(string sessionDirectory)
     {
         var selected = SelectedSpeechModel;
-        if (_incrementalTranscription is null || selected?.ModelPath is null || IsTranscribing) return;
+        if (_incrementalTranscription is null || selected?.ModelPath is null) return;
         IsTranscribing = true;
         _transcriptionStopwatch.Restart();
         _processingPhase = "Finalizing incremental transcript";
@@ -835,6 +858,36 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             IsTranscribing = false;
             _transcriptionCompletion?.TrySetResult();
             _transcriptionCompletion = null;
+        }
+    }
+
+    private void QueueIncrementalFinalization(string sessionDirectory)
+    {
+        _incrementalFinalizationQueue.Enqueue(sessionDirectory);
+        if (_isIncrementalFinalizationQueueRunning)
+        {
+            AddStatus("AI", "Recording queued for automatic processing after the current meeting.");
+            return;
+        }
+        _isIncrementalFinalizationQueueRunning = true;
+        _ = ProcessIncrementalFinalizationQueueAsync();
+    }
+
+    private async Task ProcessIncrementalFinalizationQueueAsync()
+    {
+        try
+        {
+            while (_incrementalFinalizationQueue.TryDequeue(out var sessionDirectory))
+                await FinalizeIncrementalSessionAsync(sessionDirectory);
+        }
+        finally
+        {
+            _isIncrementalFinalizationQueueRunning = false;
+            if (_incrementalFinalizationQueue.Count > 0)
+            {
+                _isIncrementalFinalizationQueueRunning = true;
+                _ = ProcessIncrementalFinalizationQueueAsync();
+            }
         }
     }
 
@@ -894,6 +947,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         else if (eventArgs.CurrentState == RecordingSessionState.Recording)
         {
+            var now = DateTimeOffset.UtcNow;
+            _systemAudioHealth.Start(now);
+            _microphoneHealth.Start(now);
+            AudioHealthMessage = "";
             _recordingStopwatch.Start();
             _recordingTimer.Start();
             OnPropertyChanged(nameof(RecordingElapsedLabel));
@@ -902,6 +959,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         // Reset level when recording stops
         if (eventArgs.CurrentState is RecordingSessionState.Completed or RecordingSessionState.Failed)
         {
+            _systemAudioHealth.Stop();
+            _microphoneHealth.Stop();
+            AudioHealthMessage = "";
             _recordingTimer.Stop();
             _recordingStopwatch.Stop();
             OnPropertyChanged(nameof(RecordingElapsedLabel));
@@ -919,7 +979,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(CanTranscribeLatest));
                 _ = RefreshMeetingLibraryAsync();
                 if (_modelPath is not null && completedCoordinator.LastCompletedSessionDirectory is string sessionDirectory)
-                    _ = FinalizeIncrementalSessionAsync(sessionDirectory);
+                    QueueIncrementalFinalization(sessionDirectory);
             }
 
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)
@@ -941,8 +1001,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         RaiseCommandStates();
     }
 
-    private void OnRecordingTimerTick(object? sender, EventArgs eventArgs) =>
+    private void OnRecordingTimerTick(object? sender, EventArgs eventArgs)
+    {
         OnPropertyChanged(nameof(RecordingElapsedLabel));
+        var now = DateTimeOffset.UtcNow;
+        var warnings = new List<string>();
+        AddAudioHealthWarning(warnings, "System audio", _systemAudioHealth.Evaluate(now), "Verify the selected Teams/output device.");
+        AddAudioHealthWarning(warnings, "Microphone", _microphoneHealth.Evaluate(now), "Verify the selected input or hardware mute.");
+        AudioHealthMessage = string.Join("  ", warnings);
+    }
+
+    private static void AddAudioHealthWarning(List<string> warnings, string source, AudioSignalHealthState state, string guidance)
+    {
+        if (state == AudioSignalHealthState.NeverDetected) warnings.Add($"No {source.ToLowerInvariant()} signal detected yet. {guidance}");
+        else if (state == AudioSignalHealthState.CurrentlySilent) warnings.Add($"{source} has been silent for 45 seconds. {guidance}");
+    }
 
     private void OnProcessingTimerTick(object? sender, EventArgs eventArgs) =>
         TranscriptionActivityDetail = $"{_processingPhase} · elapsed {_transcriptionStopwatch.Elapsed.ToString(@"hh\:mm\:ss")}";
