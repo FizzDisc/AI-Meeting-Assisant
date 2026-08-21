@@ -16,10 +16,11 @@ public static class TranscriptRunCatalog
     {
         var processing = Path.Combine(sessionDirectory, "processing");
         if (!Directory.Exists(processing)) return 0;
-
-        var count = Directory.EnumerateFiles(processing, "transcript_*.json", SearchOption.TopDirectoryOnly).Count();
-        if (File.Exists(Path.Combine(processing, "transcript.json"))) count++;
-        return count;
+        // transcript.json is the canonical pointer copied from a versioned run,
+        // not an additional processing run. Only count it for legacy sessions
+        // that have no versioned transcript history.
+        var versionedCount = Directory.EnumerateFiles(processing, "transcript_*.json", SearchOption.TopDirectoryOnly).Count();
+        return versionedCount > 0 ? versionedCount : File.Exists(Path.Combine(processing, "transcript.json")) ? 1 : 0;
     }
 
     public static IReadOnlyList<TranscriptRunInfo> Discover(string sessionDirectory)

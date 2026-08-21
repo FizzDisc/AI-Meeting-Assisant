@@ -2,8 +2,9 @@ using System.IO;
 using System.Text.Json;
 namespace AiMeetingAssistant.Desktop;
 internal sealed record AppSettings(int SchemaVersion, bool ScreenCaptureEnabled, string CaptureDirectory, string? ModelDirectory,
-    string ComputePreference, string SpeechModelId = "tiny", double SystemAudioGain = 1.0, double MicrophoneGain = 1.0)
-{ public static AppSettings Defaults => new(1, true, Path.GetFullPath("artifacts/captures"), null, "automatic", "tiny", 1.0, 1.0); }
+    string ComputePreference, string SpeechModelId = "tiny", double SystemAudioGain = 1.0, double MicrophoneGain = 1.0,
+    bool LiveTranscriptionEnabled = true)
+{ public static AppSettings Defaults => new(1, true, Path.GetFullPath("artifacts/captures"), null, "automatic", "tiny", 1.0, 1.0, true); }
 internal static class AppPreferences
 {
     private static readonly string DirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI Meeting Assistant");

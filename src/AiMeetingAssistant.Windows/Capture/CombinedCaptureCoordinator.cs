@@ -28,6 +28,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     private int _microphoneSegmentIndex;
     private double _systemAudioGain;
     private double _microphoneGain;
+    public bool IncrementalCaptureEnabled { get; set; } = true;
 
     public CombinedCaptureCoordinator(string captureBaseDirectory = "artifacts/captures", Func<string, string, IScreenCaptureProvider>? screenProviderFactory = null, Func<string, string, WasapiCaptureMode, IAudioCaptureProvider>? audioProviderFactory = null, double systemAudioGain = 1.0, double microphoneGain = 1.0)
     {
@@ -161,7 +162,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     private void OnSystemStarted(object? s, AudioCaptureStartedEventArgs e)
     {
         _systemOffset ??= _clock.Elapsed.TotalMilliseconds;
-        if (_sessionDirectory is not null)
+        if (IncrementalCaptureEnabled && _sessionDirectory is not null)
         {
             _systemChunkWriter ??= new(_sessionDirectory, "system_audio", e.SampleRate, e.ChannelCount);
             _systemChunkWriter.ChunkFinalized -= OnChunkFinalized;
@@ -172,7 +173,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     private void OnMicrophoneStarted(object? s, AudioCaptureStartedEventArgs e)
     {
         _microphoneOffset ??= _clock.Elapsed.TotalMilliseconds;
-        if (_sessionDirectory is not null)
+        if (IncrementalCaptureEnabled && _sessionDirectory is not null)
         {
             var source = _microphoneSegmentIndex == 0 ? "microphone" : $"microphone_segment_{_microphoneSegmentIndex:D3}";
             _microphoneChunkWriter ??= new(_sessionDirectory, source, e.SampleRate, e.ChannelCount,

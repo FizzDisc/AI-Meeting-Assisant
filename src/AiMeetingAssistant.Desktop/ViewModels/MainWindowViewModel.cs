@@ -43,6 +43,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isDiscoveringSources;
     private double _systemAudioLevel;
     private double _microphoneLevel;
+    private double _systemAudioGain = 1.0;
+    private double _microphoneGain = 1.0;
+    private bool _liveTranscriptionEnabled = true;
     private DateTimeOffset? _lastSystemAudioLevelAt;
     private DateTimeOffset? _lastMicrophoneLevelAt;
     private string _audioHealthMessage = "";
@@ -80,12 +83,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
         PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic", string? diarizationModelPath = null, string? modelId = null,
-        IAudioEndpointHealthProbe? audioEndpointHealthProbe = null, ITeamsMuteStateProbe? teamsMuteStateProbe = null)
+        IAudioEndpointHealthProbe? audioEndpointHealthProbe = null, ITeamsMuteStateProbe? teamsMuteStateProbe = null,
+        bool liveTranscriptionEnabled = true)
     {
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
         _audioEndpointHealthProbe = audioEndpointHealthProbe;
         _teamsMuteStateProbe = teamsMuteStateProbe;
+        _liveTranscriptionEnabled = liveTranscriptionEnabled;
+        if (captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator liveCapture)
+            liveCapture.IncrementalCaptureEnabled = liveTranscriptionEnabled;
         _workerClient = workerClient;
         if (workerClient is not null)
         {
@@ -325,6 +332,34 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set { _systemAudioLevel = value; OnPropertyChanged(); }
     }
 
+    public double SystemAudioGain
+    {
+        get => _systemAudioGain;
+        set => SetCaptureGains(value, _microphoneGain, persist: true);
+    }
+
+    public double MicrophoneGain
+    {
+        get => _microphoneGain;
+        set => SetCaptureGains(_systemAudioGain, value, persist: true);
+    }
+
+    public bool LiveTranscriptionEnabled
+    {
+        get => _liveTranscriptionEnabled;
+        set
+        {
+            if (_liveTranscriptionEnabled == value || IsRecording) return;
+            _liveTranscriptionEnabled = value;
+            if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
+                combined.IncrementalCaptureEnabled = value;
+            OnPropertyChanged();
+            try { AppPreferences.Save(AppPreferences.Load() with { LiveTranscriptionEnabled = value }); }
+            catch (Exception exception) { ErrorMessage = $"Could not save live-transcription setting: {exception.Message}"; }
+            AddStatus("SETTINGS", value ? "Live transcription enabled." : "Live transcription disabled; recordings remain available for manual processing.");
+        }
+    }
+
     public double MicrophoneLevel
     {
         get => _microphoneLevel;
@@ -415,6 +450,24 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     public bool HasTranscript => TranscriptPath is not null && File.Exists(TranscriptPath);
+
+    public string? FindLatestAvailableTranscriptPath()
+    {
+        foreach (var session in MeetingSessions.OrderByDescending(session => session.StartedAtUtc))
+        {
+            // The canonical pointer is what the application publishes as the best
+            // transcript for a meeting. Prefer it without reparsing the whole run
+            // history; versioned runs remain the fallback for older workspaces.
+            if (session.TranscriptPath is not null && File.Exists(session.TranscriptPath))
+                return session.TranscriptPath;
+
+            var latestRun = TranscriptRunCatalog.Discover(session.SessionDirectory)
+                .FirstOrDefault(run => File.Exists(run.Path));
+            if (latestRun is not null) return latestRun.Path;
+        }
+
+        return null;
+    }
 
     public Dispatcher? UIDispatcher
     {
@@ -518,9 +571,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     public void ApplyCaptureGains(double systemAudioGain, double microphoneGain)
+        => SetCaptureGains(systemAudioGain, microphoneGain, persist: false);
+
+    private void SetCaptureGains(double systemAudioGain, double microphoneGain, bool persist)
     {
+        systemAudioGain = Math.Clamp(systemAudioGain, 0.25, 1.5);
+        microphoneGain = Math.Clamp(microphoneGain, 0.25, 1.5);
+        var changed = _systemAudioGain != systemAudioGain || _microphoneGain != microphoneGain;
+        _systemAudioGain = systemAudioGain;
+        _microphoneGain = microphoneGain;
         if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
             combined.SetCaptureGains(systemAudioGain, microphoneGain);
+        if (changed)
+        {
+            OnPropertyChanged(nameof(SystemAudioGain));
+            OnPropertyChanged(nameof(MicrophoneGain));
+        }
+        if (persist)
+        {
+            try { AppPreferences.Save(AppPreferences.Load() with { SystemAudioGain = systemAudioGain, MicrophoneGain = microphoneGain }); }
+            catch (Exception exception) { ErrorMessage = $"Could not save recording levels: {exception.Message}"; }
+        }
         AddStatus("SETTINGS", $"Recording levels updated · system {systemAudioGain:P0} · microphone {microphoneGain:P0}");
     }
 
@@ -848,6 +919,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void OnIncrementalAudioChunkReady(object? sender, IncrementalAudioChunkReadyEventArgs eventArgs)
     {
+        if (!LiveTranscriptionEnabled) return;
         var selected = SelectedSpeechModel;
         if (_incrementalTranscription is null || selected?.ModelPath is null || !Directory.Exists(selected.ModelPath)) return;
         var options = new IncrementalTranscriptionOptions(selected.ModelPath, selected.Id, _computePreference,
@@ -1031,7 +1103,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     : "Recording ready for local transcription.";
                 OnPropertyChanged(nameof(CanTranscribeLatest));
                 _ = RefreshMeetingLibraryAsync();
-                if (_modelPath is not null && completedCoordinator.LastCompletedSessionDirectory is string sessionDirectory)
+                if (LiveTranscriptionEnabled && _modelPath is not null && completedCoordinator.LastCompletedSessionDirectory is string sessionDirectory)
                     QueueIncrementalFinalization(sessionDirectory);
             }
 

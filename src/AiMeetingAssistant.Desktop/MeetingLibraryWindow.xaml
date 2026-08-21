@@ -44,9 +44,9 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Delete recording" Click="OnDeleteSelectedRecording" IsEnabled="{Binding CanDeleteSelectedMeeting}" Background="#3A2327" BorderBrush="#8A3D45" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
-                <ComboBox Width="190" ItemsSource="{Binding SelectedTranscriptRuns}" SelectedItem="{Binding SelectedTranscriptRun}" Margin="0,0,8,0"><ComboBox.ItemTemplate><DataTemplate><TextBlock Foreground="#111827"><Run Text="{Binding ModelLabel, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding ProcessingDurationLabel, Mode=OneWay}"/></TextBlock></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                <ComboBox Width="190" ItemsSource="{Binding SelectedTranscriptRuns}" SelectedItem="{Binding SelectedTranscriptRun}" Margin="0,0,8,0"><ComboBox.ItemTemplate><DataTemplate><TextBlock Foreground="{StaticResource TextBrush}"><Run Text="{Binding ModelLabel, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding ProcessingDurationLabel, Mode=OneWay}"/></TextBlock></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                 <Button Content="Open transcript" Click="OnOpenSelectedTranscript" IsEnabled="{Binding CanOpenSelectedTranscript}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
-                <ComboBox Width="150" ItemsSource="{Binding InstalledSpeechModels}" SelectedItem="{Binding SelectedSpeechModel}" Margin="0,0,8,0"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" Foreground="#111827"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                <ComboBox Width="150" ItemsSource="{Binding InstalledSpeechModels}" SelectedItem="{Binding SelectedSpeechModel}" Margin="0,0,8,0"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource TextBrush}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                 <Button Content="Transcribe / retry" Command="{Binding TranscribeSelectedCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
             </StackPanel>
         </Grid>

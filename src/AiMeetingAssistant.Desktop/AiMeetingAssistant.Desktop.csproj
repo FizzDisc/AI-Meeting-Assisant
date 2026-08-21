@@ -6,6 +6,7 @@
     <RootNamespace>AiMeetingAssistant.Desktop</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets\assistant-avatar.png" />
     <ProjectReference Include="..\AiMeetingAssistant.Core\AiMeetingAssistant.Core.csproj" />
     <ProjectReference Include="..\AiMeetingAssistant.Contracts\AiMeetingAssistant.Contracts.csproj" />
     <ProjectReference Include="..\AiMeetingAssistant.Windows\AiMeetingAssistant.Windows.csproj" />
