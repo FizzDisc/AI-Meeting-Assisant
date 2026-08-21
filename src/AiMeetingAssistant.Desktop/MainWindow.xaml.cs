@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Interop;
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Transcripts;
+using AiMeetingAssistant.Core.Storage;
 using AiMeetingAssistant.Desktop.ViewModels;
 using AiMeetingAssistant.Windows.Capture;
 using AiMeetingAssistant.Windows.Worker;
@@ -69,6 +70,22 @@ public partial class MainWindow : Window
 
     private void OnNavigateRecordings(object sender, RoutedEventArgs eventArgs) => ShowWorkspace(RecordingsWorkspace);
 
+    private async void OnNavigateStorage(object sender, RoutedEventArgs eventArgs) { ShowWorkspace(StorageWorkspace); await RefreshStorageAsync(); }
+    private async void OnRefreshStorage(object sender, RoutedEventArgs eventArgs) => await RefreshStorageAsync();
+    private async void OnPreviewStorageCleanup(object sender, RoutedEventArgs eventArgs)
+    {
+        var root=AppPreferences.Load().CaptureDirectory;var preview=await Task.Run(()=>IncrementalProcessingCleanup.PreviewLibrary(root));
+        if(preview.Files==0){MessageBox.Show(this,"No reproducible processing data is currently eligible for cleanup.","Storage cleanup",MessageBoxButton.OK,MessageBoxImage.Information);return;}
+        if(MessageBox.Show(this,$"Reclaim {StorageInventory.Format(preview.ReclaimableBytes)} across {preview.Files} temporary file(s) in {preview.Sessions} session(s)?\n\nCapture masters, final transcripts, speaker names and session metadata are preserved.","Confirm safe cleanup",MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+        var result=await Task.Run(()=>IncrementalProcessingCleanup.CleanLibrary(root));await RefreshStorageAsync();MessageBox.Show(this,$"Reclaimed {StorageInventory.Format(result.ReclaimedBytes)} from {result.DeletedFiles} file(s)."+(result.Warnings.Count>0?$"\n{result.Warnings.Count} item(s) could not be removed.":""),"Storage cleanup",MessageBoxButton.OK,result.Warnings.Count>0?MessageBoxImage.Warning:MessageBoxImage.Information);
+    }
+    private async Task RefreshStorageAsync()
+    {
+        StorageRootText.Text = "Scanning local meeting library...";
+        try { var report=await Task.Run(()=>StorageInventory.Scan(AppPreferences.Load().CaptureDirectory));StorageRootText.Text=$"{report.Root} · {report.LibraryLabel} across {report.Sessions.Count} session(s)";StorageFreeText.Text=report.FreeLabel;StorageCapacityText.Text=report.CapacityLabel;StorageCaptureText.Text=report.CaptureLabel;StorageTranscriptText.Text=report.TranscriptLabel;StorageProcessingText.Text=report.ProcessingLabel;StorageSessionsGrid.ItemsSource=report.Sessions; }
+        catch(Exception exception){StorageRootText.Text=$"Storage inventory failed: {exception.Message}";}
+    }
+
     private void OnNavigateTranscript(object sender, RoutedEventArgs eventArgs)
     {
         var latestPath = _viewModel.FindLatestAvailableTranscriptPath();
@@ -82,9 +99,12 @@ public partial class MainWindow : Window
         CaptureWorkspace.Visibility = workspace == CaptureWorkspace ? Visibility.Visible : Visibility.Collapsed;
         RecordingsWorkspace.Visibility = workspace == RecordingsWorkspace ? Visibility.Visible : Visibility.Collapsed;
         TranscriptWorkspace.Visibility = workspace == TranscriptWorkspace ? Visibility.Visible : Visibility.Collapsed;
+        StorageWorkspace.Visibility = workspace == StorageWorkspace ? Visibility.Visible : Visibility.Collapsed;
+        StorageCleanupButton.Visibility = workspace == StorageWorkspace ? Visibility.Visible : Visibility.Collapsed;
         CaptureTabButton.Tag = workspace == CaptureWorkspace ? "Active" : null;
         RecordingsTabButton.Tag = workspace == RecordingsWorkspace ? "Active" : null;
         TranscriptTabButton.Tag = workspace == TranscriptWorkspace ? "Active" : null;
+        StorageTabButton.Tag = workspace == StorageWorkspace ? "Active" : null;
     }
 
     private void OnViewSelectedTranscript(object sender, RoutedEventArgs eventArgs)

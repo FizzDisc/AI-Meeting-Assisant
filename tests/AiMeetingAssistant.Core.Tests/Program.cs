@@ -3,6 +3,7 @@ using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Core.Transcripts;
 using AiMeetingAssistant.Core.Meetings;
 using AiMeetingAssistant.Core.Status;
+using AiMeetingAssistant.Core.Storage;
 using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
@@ -52,6 +53,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("audio endpoint guidance reports mute and active alternatives", AudioEndpointGuidanceIsEvidenceBased)
     ,("Teams accessibility labels map to current mute state", TeamsMuteLabelsDescribeCurrentState)
     ,("PCM16 recording gain scales and clips deterministically", Pcm16GainScalesAndClips)
+    ,("storage inventory classifies session evidence", StorageInventoryClassifiesEvidence)
 };
 
 var failures = 0;
@@ -747,7 +749,9 @@ static Task IncrementalCleanupIsSafelyScoped()
         File.WriteAllText(Path.Combine(processing, "transcript.json"), "{}");
         File.WriteAllText(Path.Combine(processing, "incremental-transcript-merged.json"), "{}");
 
-        var result = IncrementalProcessingCleanup.AfterSuccessfulFinalization(session);
+        var preview = IncrementalProcessingCleanup.PreviewLibrary(root);
+        if(preview.Files<5||preview.ReclaimableBytes<59||preview.Sessions!=1)throw new InvalidOperationException("Cleanup preview does not match eligible temporary evidence.");
+        var result = IncrementalProcessingCleanup.CleanLibrary(root);
         if (result.DeletedFiles < 5 || result.ReclaimedBytes < 59) throw new InvalidOperationException("Cleanup did not report reclaimed evidence.");
         if (Directory.Exists(Path.Combine(processing, "live-chunks"))) throw new InvalidOperationException("Live chunks survived successful cleanup.");
         if (!File.Exists(Path.Combine(session, "microphone_master.wav")) || !File.Exists(chunkTranscript)
@@ -811,6 +815,12 @@ static Task TeamsMuteLabelsDescribeCurrentState()
     Equal(TeamsMuteState.Muted, TeamsMuteLabelInterpreter.Interpret("Unmute"));
     Equal(TeamsMuteState.Unknown, TeamsMuteLabelInterpreter.Interpret("Audio options"));
     return Task.CompletedTask;
+}
+
+static Task StorageInventoryClassifiesEvidence()
+{
+    var root=Path.Combine(Path.GetTempPath(),$"aima_storage_{Guid.NewGuid():N}");var session=Path.Combine(root,"session_test");var processing=Path.Combine(session,"processing");Directory.CreateDirectory(processing);
+    try{File.WriteAllBytes(Path.Combine(session,"microphone.wav"),new byte[11]);File.WriteAllBytes(Path.Combine(processing,"transcript.json"),new byte[7]);File.WriteAllBytes(Path.Combine(processing,"normalized.wav"),new byte[13]);var report=StorageInventory.Scan(root);var item=report.Sessions.Single();if(item.CaptureBytes!=11||item.TranscriptBytes!=7||item.ProcessingBytes!=13||report.LibraryBytes!=31)throw new InvalidOperationException("Storage categories are incorrect.");return Task.CompletedTask;}finally{if(Directory.Exists(root))Directory.Delete(root,true);}
 }
 
 static Task Pcm16GainScalesAndClips()
