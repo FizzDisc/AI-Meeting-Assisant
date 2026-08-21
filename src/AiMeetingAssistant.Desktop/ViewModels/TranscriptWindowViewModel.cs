@@ -11,6 +11,9 @@ public sealed class TranscriptWindowViewModel : INotifyPropertyChanged
     private bool _showMicrophone = true;
     private bool _showSystemAudio = true;
     private IReadOnlyList<TranscriptSegmentViewModel> _segments = [];
+    private IReadOnlyList<SpeakerFilterOption> _speakerOptions = [];
+    private SpeakerFilterOption? _selectedSpeaker;
+    private string _searchText = string.Empty;
 
     public TranscriptWindowViewModel(TranscriptDocument document, string sourcePath,
         IReadOnlyDictionary<string, string>? speakerNames = null)
@@ -29,12 +32,33 @@ public sealed class TranscriptWindowViewModel : INotifyPropertyChanged
 
     private void RebuildSegments()
     {
+        var selectedSpeakerKey = _selectedSpeaker?.Key ?? SpeakerFilterOption.AllKey;
         _allSegments = Document.Segments.Select(segment => new TranscriptSegmentViewModel(
             TranscriptDocumentStore.FormatTimestamp(segment.Start),
-            TranscriptDocumentStore.FormatSpeaker(segment, _speakerNames), TranscriptDocumentStore.FormatSource(segment.Source),
-            segment.Source, segment.SpeakerAssignment, segment.Text)).ToArray();
+            TranscriptDocumentStore.FormatSpeaker(segment, _speakerNames),
+            TranscriptDocumentStore.FormatSource(segment.Source), segment.Source,
+            segment.SpeakerAssignment, segment.Text, GetSpeakerFilterKey(segment))).ToArray();
+
+        var options = new List<SpeakerFilterOption> { SpeakerFilterOption.All };
+        options.AddRange(_allSegments
+            .Where(segment => segment.SpeakerFilterKey != SpeakerFilterOption.UnknownKey)
+            .GroupBy(segment => segment.SpeakerFilterKey, StringComparer.Ordinal)
+            .Select(group => new SpeakerFilterOption(group.Key, group.First().SpeakerLabel))
+            .OrderBy(option => option.Key == "You" ? 0 : 1)
+            .ThenBy(option => option.Label, StringComparer.CurrentCultureIgnoreCase));
+        if (_allSegments.Any(segment => segment.SpeakerFilterKey == SpeakerFilterOption.UnknownKey))
+            options.Add(SpeakerFilterOption.Unknown);
+
+        SpeakerOptions = options;
+        SelectedSpeaker = options.FirstOrDefault(option => option.Key == selectedSpeakerKey) ?? SpeakerFilterOption.All;
         ApplyFilter();
     }
+
+    private static string GetSpeakerFilterKey(TranscriptSegment segment) =>
+        !string.IsNullOrWhiteSpace(segment.Speaker)
+        && segment.SpeakerAssignment is not ("ambiguous" or "unassigned" or "not-run")
+            ? segment.Speaker
+            : SpeakerFilterOption.UnknownKey;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public TranscriptDocument Document { get; }
@@ -42,20 +66,74 @@ public sealed class TranscriptWindowViewModel : INotifyPropertyChanged
     public string SourcePath { get; }
     public string Summary => $"{Document.Segments.Count} segments · {Document.SpeakerCount ?? 0} detected system speaker(s) · {Document.Language ?? "multiple/unknown"} · {Document.Device ?? "unknown"}/{Document.ComputeType ?? "unknown"}";
     public IReadOnlyList<TranscriptSegmentViewModel> Segments { get => _segments; private set { _segments = value; OnPropertyChanged(); } }
-
-    public bool ShowMicrophone { get => _showMicrophone; set { _showMicrophone = value; OnPropertyChanged(); ApplyFilter(); } }
-    public bool ShowSystemAudio { get => _showSystemAudio; set { _showSystemAudio = value; OnPropertyChanged(); ApplyFilter(); } }
-
-    private void ApplyFilter() => Segments = _allSegments.Where(segment => segment.Source switch
+    public IReadOnlyList<SpeakerFilterOption> SpeakerOptions { get => _speakerOptions; private set { _speakerOptions = value; OnPropertyChanged(); } }
+    public SpeakerFilterOption? SelectedSpeaker
     {
-        "microphone" => ShowMicrophone,
-        "system_audio" => ShowSystemAudio,
-        _ => true
-    }).ToArray();
+        get => _selectedSpeaker;
+        set
+        {
+            if (Equals(_selectedSpeaker, value)) return;
+            _selectedSpeaker = value;
+            OnPropertyChanged();
+            ApplyFilter();
+        }
+    }
+    public string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            value ??= string.Empty;
+            if (_searchText == value) return;
+            _searchText = value;
+            OnPropertyChanged();
+            ApplyFilter();
+        }
+    }
+    public int VisibleSegmentCount => Segments.Count;
+    public int TotalSegmentCount => _allSegments.Count;
+    public string FilterResultSummary => VisibleSegmentCount == TotalSegmentCount
+        ? $"{TotalSegmentCount} segments"
+        : $"{VisibleSegmentCount} of {TotalSegmentCount} segments";
+
+    public bool ShowMicrophone { get => _showMicrophone; set { if (_showMicrophone == value) return; _showMicrophone = value; OnPropertyChanged(); ApplyFilter(); } }
+    public bool ShowSystemAudio { get => _showSystemAudio; set { if (_showSystemAudio == value) return; _showSystemAudio = value; OnPropertyChanged(); ApplyFilter(); } }
+
+    private void ApplyFilter()
+    {
+        var speakerKey = SelectedSpeaker?.Key ?? SpeakerFilterOption.AllKey;
+        var searchText = SearchText.Trim();
+        Segments = _allSegments.Where(segment =>
+        {
+            var sourceVisible = segment.Source switch
+            {
+                "microphone" => ShowMicrophone,
+                "system_audio" => ShowSystemAudio,
+                _ => true
+            };
+            return sourceVisible
+                && (speakerKey == SpeakerFilterOption.AllKey || segment.SpeakerFilterKey == speakerKey)
+                && (searchText.Length == 0
+                    || segment.Text.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+                    || segment.SpeakerLabel.Contains(searchText, StringComparison.CurrentCultureIgnoreCase));
+        }).ToArray();
+        OnPropertyChanged(nameof(VisibleSegmentCount));
+        OnPropertyChanged(nameof(TotalSegmentCount));
+        OnPropertyChanged(nameof(FilterResultSummary));
+    }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
 public sealed record TranscriptSegmentViewModel(string Timestamp, string SpeakerLabel, string SourceLabel,
-    string? Source, string? SpeakerAssignment, string Text);
+    string? Source, string? SpeakerAssignment, string Text, string SpeakerFilterKey);
+
+public sealed record SpeakerFilterOption(string Key, string Label)
+{
+    public string DisplayName => Label;
+    public const string AllKey = "__all__";
+    public const string UnknownKey = "__unknown__";
+    public static SpeakerFilterOption All { get; } = new(AllKey, "All speakers");
+    public static SpeakerFilterOption Unknown { get; } = new(UnknownKey, "Unknown speaker");
+}
