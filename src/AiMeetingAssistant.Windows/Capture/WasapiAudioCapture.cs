@@ -8,7 +8,7 @@ namespace AiMeetingAssistant.Windows.Capture;
 /// WASAPI-based microphone capture implementation. Handles buffer management, level metering, and WAV output.
 /// Converts audio to PCM16 for reliable WAV writing and RMS calculation.
 /// </summary>
-internal sealed class WasapiAudioCapture : IAudioCaptureProvider, IAudioCaptureSuppression
+internal sealed class WasapiAudioCapture : IAudioCaptureProvider, IAudioCaptureSuppression, IAudioCaptureGain
 {
     private IMMDevice? _device;
     private readonly string _outputPath;
@@ -28,6 +28,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider, IAudioCaptureS
     private Task? _captureThread;
     private CancellationTokenSource? _cancellationSource;
     private volatile bool _isAudioSuppressed;
+    private double _captureGain = 1.0;
 
     public event EventHandler<AudioCaptureStartedEventArgs>? CaptureStarted;
     public event EventHandler<AudioFrameCapturedEventArgs>? FrameCaptured;
@@ -36,6 +37,13 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider, IAudioCaptureS
     public bool IsCapturing => _isCapturing;
     public bool IsAudioSuppressed => _isAudioSuppressed;
     public void SetAudioSuppressed(bool suppressed) => _isAudioSuppressed = suppressed;
+    public double CaptureGain => Volatile.Read(ref _captureGain);
+    public void SetCaptureGain(double gain)
+    {
+        if (!double.IsFinite(gain) || gain < Pcm16Gain.Minimum || gain > Pcm16Gain.Maximum)
+            throw new ArgumentOutOfRangeException(nameof(gain));
+        Volatile.Write(ref _captureGain, gain);
+    }
 
     public WasapiAudioCapture(IMMDevice device, string outputPath, WasapiCaptureMode mode)
     {
@@ -288,6 +296,7 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider, IAudioCaptureS
                             // Note: sample count = frames * channels, not just frames
                             int sampleCount = (int)numFrames * _waveFormat.Channels;
                             byte[] pcm16Buffer = ConvertToPcm16(managedBuffer, sampleCount);
+                            Pcm16Gain.ApplyInPlace(pcm16Buffer, CaptureGain);
                             if (_isAudioSuppressed)
                                 Array.Clear(pcm16Buffer);
                             _wavWriter?.Write(pcm16Buffer);

@@ -280,12 +280,14 @@ try
             return provider;
         });
         await suppression.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+        suppression.SetCaptureGains(0.8, 0.5);
         suppression.SetMicrophoneSuppressed(true);
         await suppression.SwitchMicrophoneAsync("muted-replacement-microphone");
         var suppressedMicrophones = suppressionProviders.Where(item => item.Mode == WasapiCaptureMode.Input).ToArray();
         var suppressionSystem = suppressionProviders.Single(item => item.Mode == WasapiCaptureMode.Loopback).Provider;
         await suppression.StopAsync();
-        if (!suppressedMicrophones.All(item => item.Provider.IsAudioSuppressed) || suppressionSystem.IsAudioSuppressed)
+        if (!suppressedMicrophones.All(item => item.Provider.IsAudioSuppressed && item.Provider.CaptureGain == 0.5)
+            || suppressionSystem.IsAudioSuppressed || suppressionSystem.CaptureGain != 0.8)
         {
             Console.Error.WriteLine("FAIL Microphone suppression affected the wrong stream or was lost during handover.");
             failures++;
@@ -702,7 +704,7 @@ static async Task WaitForState(RecordingSession session, RecordingSessionState e
     if (session.State != expected) throw new InvalidOperationException($"Expected {expected}, got {session.State}.");
 }
 
-file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = false) : IAudioCaptureProvider, IAudioCaptureSuppression
+file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = false) : IAudioCaptureProvider, IAudioCaptureSuppression, IAudioCaptureGain
 {
 #pragma warning disable CS0067
     public event EventHandler<AudioCaptureStartedEventArgs>? CaptureStarted;
@@ -716,6 +718,8 @@ file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = 
     public bool IsCapturing { get; private set; }
     public bool IsAudioSuppressed { get; private set; }
     public void SetAudioSuppressed(bool suppressed) => IsAudioSuppressed = suppressed;
+    public double CaptureGain { get; private set; } = 1.0;
+    public void SetCaptureGain(double gain) => CaptureGain = gain;
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {

@@ -47,3 +47,9 @@ public interface IAudioCaptureSuppression
     bool IsAudioSuppressed { get; }
     void SetAudioSuppressed(bool suppressed);
 }
+
+public interface IAudioCaptureGain
+{
+    double CaptureGain { get; }
+    void SetCaptureGain(double gain);
+}

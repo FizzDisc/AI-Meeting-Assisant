@@ -7,7 +7,7 @@ namespace AiMeetingAssistant.Windows.Capture;
 /// Wraps WasapiAudioCapture to provide the Core IAudioCaptureProvider interface.
 /// Handles device selection and output path management.
 /// </summary>
-internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider, IAudioCaptureSuppression
+internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider, IAudioCaptureSuppression, IAudioCaptureGain
 {
     private readonly string _deviceId;
     private readonly string _outputPath;
@@ -21,11 +21,20 @@ internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider, IAudio
 
     public bool IsCapturing => _capture?.IsCapturing ?? false;
     public bool IsAudioSuppressed { get; private set; }
+    public double CaptureGain { get; private set; } = 1.0;
 
     public void SetAudioSuppressed(bool suppressed)
     {
         IsAudioSuppressed = suppressed;
         _capture?.SetAudioSuppressed(suppressed);
+    }
+
+    public void SetCaptureGain(double gain)
+    {
+        if (!double.IsFinite(gain) || gain < Pcm16Gain.Minimum || gain > Pcm16Gain.Maximum)
+            throw new ArgumentOutOfRangeException(nameof(gain));
+        CaptureGain = gain;
+        _capture?.SetCaptureGain(gain);
     }
 
     public WasapiAudioCaptureProvider(string deviceId, string outputPath, WasapiCaptureMode mode = WasapiCaptureMode.Input)
@@ -47,6 +56,7 @@ internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider, IAudio
 
             _capture = new(device, _outputPath, _mode);
             _capture.SetAudioSuppressed(IsAudioSuppressed);
+            _capture.SetCaptureGain(CaptureGain);
             _capture.CaptureStarted += OnCaptureCaptureStarted;
             _capture.FrameCaptured += OnCaptureFrameCaptured;
             _capture.CaptureFaulted += OnCaptureCaptureFaulted;

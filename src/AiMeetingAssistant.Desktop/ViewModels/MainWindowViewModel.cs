@@ -517,6 +517,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         AddStatus("AI", TranscriptionStatusMessage);
     }
 
+    public void ApplyCaptureGains(double systemAudioGain, double microphoneGain)
+    {
+        if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
+            combined.SetCaptureGains(systemAudioGain, microphoneGain);
+        AddStatus("SETTINGS", $"Recording levels updated · system {systemAudioGain:P0} · microphone {microphoneGain:P0}");
+    }
+
     private void RefreshInstalledSpeechModels(string? selectedId, string? customPath)
     {
         var models = LocalModelResolver.SpeechModels

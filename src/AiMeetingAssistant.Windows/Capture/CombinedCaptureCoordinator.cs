@@ -26,12 +26,16 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     private IncrementalAudioChunkWriter? _systemChunkWriter;
     private IncrementalAudioChunkWriter? _microphoneChunkWriter;
     private int _microphoneSegmentIndex;
+    private double _systemAudioGain;
+    private double _microphoneGain;
 
-    public CombinedCaptureCoordinator(string captureBaseDirectory = "artifacts/captures", Func<string, string, IScreenCaptureProvider>? screenProviderFactory = null, Func<string, string, WasapiCaptureMode, IAudioCaptureProvider>? audioProviderFactory = null)
+    public CombinedCaptureCoordinator(string captureBaseDirectory = "artifacts/captures", Func<string, string, IScreenCaptureProvider>? screenProviderFactory = null, Func<string, string, WasapiCaptureMode, IAudioCaptureProvider>? audioProviderFactory = null, double systemAudioGain = 1.0, double microphoneGain = 1.0)
     {
         _baseDirectory = captureBaseDirectory;
         _screenFactory = screenProviderFactory;
         _audioFactory = audioProviderFactory;
+        _systemAudioGain = systemAudioGain;
+        _microphoneGain = microphoneGain;
     }
 
     public event EventHandler<AudioFrameCapturedEventArgs>? SystemAudioLevelChanged;
@@ -44,6 +48,12 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     public string? LastCompletedSessionDirectory { get; private set; }
     public bool IsMicrophoneSuppressed => _audio?.IsMicrophoneSuppressed ?? false;
     public void SetMicrophoneSuppressed(bool suppressed) => _audio?.SetMicrophoneSuppressed(suppressed);
+    public void SetCaptureGains(double systemAudioGain, double microphoneGain)
+    {
+        _systemAudioGain = systemAudioGain;
+        _microphoneGain = microphoneGain;
+        _audio?.SetCaptureGains(systemAudioGain, microphoneGain);
+    }
     public CaptureRecoveryReport RecoverInterruptedSessions() => CaptureSessionRecovery.RecoverInterrupted(_baseDirectory);
     public string? FindLatestTranscript()
     {
@@ -83,6 +93,7 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
 
             _screen = string.IsNullOrWhiteSpace(plan.ScreenSourceId) ? null : new(directory, CreateScreen, Timestamp);
             _audio = new(directory, CreateAudio, Timestamp);
+            _audio.SetCaptureGains(_systemAudioGain, _microphoneGain);
             Subscribe(_screen, _audio);
             _manifest = new(2, sessionId, "preparing", startedAt, null, null, plan, []);
             WriteManifest();

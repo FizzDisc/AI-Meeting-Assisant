@@ -12,6 +12,8 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
     private IAudioCaptureProvider? _microphoneCapture;
     private bool _isCapturing;
     private bool _isMicrophoneSuppressed;
+    private double _systemAudioGain = 1.0;
+    private double _microphoneGain = 1.0;
 
     public bool IsMicrophoneSuppressed => _isMicrophoneSuppressed;
 
@@ -20,6 +22,14 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
         _isMicrophoneSuppressed = suppressed;
         if (_microphoneCapture is IAudioCaptureSuppression capability)
             capability.SetAudioSuppressed(suppressed);
+    }
+
+    public void SetCaptureGains(double systemAudioGain, double microphoneGain)
+    {
+        _systemAudioGain = systemAudioGain;
+        _microphoneGain = microphoneGain;
+        if (_systemAudioCapture is IAudioCaptureGain system) system.SetCaptureGain(systemAudioGain);
+        if (_microphoneCapture is IAudioCaptureGain microphone) microphone.SetCaptureGain(microphoneGain);
     }
 
     public event EventHandler<AudioFrameCapturedEventArgs>? SystemAudioLevelChanged;
@@ -56,10 +66,12 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
             var microphonePath = CaptureFileNaming.CreateUniqueWavPath(_captureBaseDirectory, "microphone", timestamp);
 
             _systemAudioCapture = _providerFactory(plan.SystemAudioSourceId, systemPath, WasapiCaptureMode.Loopback);
+            if (_systemAudioCapture is IAudioCaptureGain systemGain) systemGain.SetCaptureGain(_systemAudioGain);
             SubscribeSystemAudio(_systemAudioCapture);
             await _systemAudioCapture.StartAsync(cancellationToken).ConfigureAwait(false);
 
             _microphoneCapture = _providerFactory(plan.MicrophoneSourceId, microphonePath, WasapiCaptureMode.Input);
+            if (_microphoneCapture is IAudioCaptureGain microphoneGain) microphoneGain.SetCaptureGain(_microphoneGain);
             if (_microphoneCapture is IAudioCaptureSuppression suppression)
                 suppression.SetAudioSuppressed(_isMicrophoneSuppressed);
             SubscribeMicrophone(_microphoneCapture);
@@ -102,6 +114,7 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
 
             var path = CaptureFileNaming.CreateUniqueWavPath(_captureBaseDirectory, "microphone", _timestampFactory());
             var replacement = _providerFactory(sourceId, path, WasapiCaptureMode.Input);
+            if (replacement is IAudioCaptureGain replacementGain) replacementGain.SetCaptureGain(_microphoneGain);
             if (replacement is IAudioCaptureSuppression suppression)
                 suppression.SetAudioSuppressed(_isMicrophoneSuppressed);
             SubscribeMicrophone(replacement);

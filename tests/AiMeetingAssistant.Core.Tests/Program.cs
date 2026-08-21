@@ -51,6 +51,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("audio signal health distinguishes never-seen silence and recovery", AudioSignalHealthTracksRecovery)
     ,("audio endpoint guidance reports mute and active alternatives", AudioEndpointGuidanceIsEvidenceBased)
     ,("Teams accessibility labels map to current mute state", TeamsMuteLabelsDescribeCurrentState)
+    ,("PCM16 recording gain scales and clips deterministically", Pcm16GainScalesAndClips)
 };
 
 var failures = 0;
@@ -809,6 +810,18 @@ static Task TeamsMuteLabelsDescribeCurrentState()
     Equal(TeamsMuteState.Unmuted, TeamsMuteLabelInterpreter.Interpret("Mute microphone"));
     Equal(TeamsMuteState.Muted, TeamsMuteLabelInterpreter.Interpret("Unmute"));
     Equal(TeamsMuteState.Unknown, TeamsMuteLabelInterpreter.Interpret("Audio options"));
+    return Task.CompletedTask;
+}
+
+static Task Pcm16GainScalesAndClips()
+{
+    var samples = new short[] { 10000, -10000, 30000, -30000 };
+    var bytes = samples.SelectMany(BitConverter.GetBytes).ToArray();
+    Pcm16Gain.ApplyInPlace(bytes, 1.5);
+    Equal((short)15000, BitConverter.ToInt16(bytes, 0));
+    Equal((short)-15000, BitConverter.ToInt16(bytes, 2));
+    Equal(short.MaxValue, BitConverter.ToInt16(bytes, 4));
+    Equal(short.MinValue, BitConverter.ToInt16(bytes, 6));
     return Task.CompletedTask;
 }
 
