@@ -19,7 +19,8 @@ public static class TeamsMuteLabelInterpreter
         // Accessibility names describe the action that clicking the button
         // would perform, hence "mute" means the microphone is currently live.
         if (value.Contains("unmute") || value.Contains("stumm aufheben")
-            || value.Contains("stummschaltung aufheben") || value.Contains("mikrofon aktivieren"))
+            || value.Contains("stummschaltung aufheben") || value.Contains("mikrofon aktivieren")
+            || value.Contains("mikrofon wieder aktivieren"))
             return TeamsMuteState.Muted;
         if (value.Contains("mute") || value.Contains("stummschalten"))
             return TeamsMuteState.Unmuted;

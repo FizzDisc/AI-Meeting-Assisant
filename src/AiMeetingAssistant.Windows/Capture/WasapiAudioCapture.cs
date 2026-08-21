@@ -8,7 +8,7 @@ namespace AiMeetingAssistant.Windows.Capture;
 /// WASAPI-based microphone capture implementation. Handles buffer management, level metering, and WAV output.
 /// Converts audio to PCM16 for reliable WAV writing and RMS calculation.
 /// </summary>
-internal sealed class WasapiAudioCapture : IAudioCaptureProvider
+internal sealed class WasapiAudioCapture : IAudioCaptureProvider, IAudioCaptureSuppression
 {
     private IMMDevice? _device;
     private readonly string _outputPath;
@@ -27,12 +27,15 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
     private bool _disposed;
     private Task? _captureThread;
     private CancellationTokenSource? _cancellationSource;
+    private volatile bool _isAudioSuppressed;
 
     public event EventHandler<AudioCaptureStartedEventArgs>? CaptureStarted;
     public event EventHandler<AudioFrameCapturedEventArgs>? FrameCaptured;
     public event EventHandler<AudioCaptureFaultEventArgs>? CaptureFaulted;
 
     public bool IsCapturing => _isCapturing;
+    public bool IsAudioSuppressed => _isAudioSuppressed;
+    public void SetAudioSuppressed(bool suppressed) => _isAudioSuppressed = suppressed;
 
     public WasapiAudioCapture(IMMDevice device, string outputPath, WasapiCaptureMode mode)
     {
@@ -285,6 +288,8 @@ internal sealed class WasapiAudioCapture : IAudioCaptureProvider
                             // Note: sample count = frames * channels, not just frames
                             int sampleCount = (int)numFrames * _waveFormat.Channels;
                             byte[] pcm16Buffer = ConvertToPcm16(managedBuffer, sampleCount);
+                            if (_isAudioSuppressed)
+                                Array.Clear(pcm16Buffer);
                             _wavWriter?.Write(pcm16Buffer);
 
                             // Calculate level (works on PCM16)

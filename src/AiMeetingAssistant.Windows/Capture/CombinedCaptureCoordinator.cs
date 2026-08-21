@@ -42,6 +42,8 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
     public event EventHandler<IncrementalAudioChunkReadyEventArgs>? IncrementalAudioChunkReady;
     public CaptureAlignmentManifest? LastAlignment { get; private set; }
     public string? LastCompletedSessionDirectory { get; private set; }
+    public bool IsMicrophoneSuppressed => _audio?.IsMicrophoneSuppressed ?? false;
+    public void SetMicrophoneSuppressed(bool suppressed) => _audio?.SetMicrophoneSuppressed(suppressed);
     public CaptureRecoveryReport RecoverInterruptedSessions() => CaptureSessionRecovery.RecoverInterrupted(_baseDirectory);
     public string? FindLatestTranscript()
     {

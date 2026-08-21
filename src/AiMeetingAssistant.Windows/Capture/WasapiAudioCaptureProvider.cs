@@ -7,7 +7,7 @@ namespace AiMeetingAssistant.Windows.Capture;
 /// Wraps WasapiAudioCapture to provide the Core IAudioCaptureProvider interface.
 /// Handles device selection and output path management.
 /// </summary>
-internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider
+internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider, IAudioCaptureSuppression
 {
     private readonly string _deviceId;
     private readonly string _outputPath;
@@ -20,6 +20,13 @@ internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider
     public event EventHandler<AudioCaptureFaultEventArgs>? CaptureFaulted;
 
     public bool IsCapturing => _capture?.IsCapturing ?? false;
+    public bool IsAudioSuppressed { get; private set; }
+
+    public void SetAudioSuppressed(bool suppressed)
+    {
+        IsAudioSuppressed = suppressed;
+        _capture?.SetAudioSuppressed(suppressed);
+    }
 
     public WasapiAudioCaptureProvider(string deviceId, string outputPath, WasapiCaptureMode mode = WasapiCaptureMode.Input)
     {
@@ -39,6 +46,7 @@ internal sealed class WasapiAudioCaptureProvider : IAudioCaptureProvider
                 throw new InvalidOperationException($"Audio endpoint not found: {_deviceId}");
 
             _capture = new(device, _outputPath, _mode);
+            _capture.SetAudioSuppressed(IsAudioSuppressed);
             _capture.CaptureStarted += OnCaptureCaptureStarted;
             _capture.FrameCaptured += OnCaptureFrameCaptured;
             _capture.CaptureFaulted += OnCaptureCaptureFaulted;

@@ -805,6 +805,7 @@ static Task TeamsMuteLabelsDescribeCurrentState()
 {
     Equal(TeamsMuteState.Unmuted, TeamsMuteLabelInterpreter.Interpret("Mikrofon stummschalten"));
     Equal(TeamsMuteState.Muted, TeamsMuteLabelInterpreter.Interpret("Stummschaltung aufheben"));
+    Equal(TeamsMuteState.Muted, TeamsMuteLabelInterpreter.Interpret("Mikrofon wieder aktivieren"));
     Equal(TeamsMuteState.Unmuted, TeamsMuteLabelInterpreter.Interpret("Mute microphone"));
     Equal(TeamsMuteState.Muted, TeamsMuteLabelInterpreter.Interpret("Unmute"));
     Equal(TeamsMuteState.Unknown, TeamsMuteLabelInterpreter.Interpret("Audio options"));

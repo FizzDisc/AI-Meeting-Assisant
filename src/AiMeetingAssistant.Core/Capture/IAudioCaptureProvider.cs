@@ -37,3 +37,13 @@ public interface IAudioCaptureProvider : IAsyncDisposable
     /// </summary>
     bool IsCapturing { get; }
 }
+
+/// <summary>
+/// Optional capability for replacing captured samples with silence without
+/// stopping the endpoint or changing the recording timeline.
+/// </summary>
+public interface IAudioCaptureSuppression
+{
+    bool IsAudioSuppressed { get; }
+    void SetAudioSuppressed(bool suppressed);
+}

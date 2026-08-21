@@ -1004,6 +1004,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _lastMicrophoneLevelAt = null;
             _endpointHealthGuidance = "";
             _teamsMuteState = TeamsMuteState.NotDetected;
+            if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCapture)
+                combinedCapture.SetMicrophoneSuppressed(false);
             TeamsMuteStatusMessage = "Teams mute detection idle.";
             AudioHealthMessage = "";
             _recordingTimer.Stop();
@@ -1069,9 +1071,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (!IsRecording) return;
             var changed = snapshot.State != _teamsMuteState;
             _teamsMuteState = snapshot.State;
+            var suppressMicrophone = snapshot.State == TeamsMuteState.Muted;
+            if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combined)
+                combined.SetMicrophoneSuppressed(suppressMicrophone);
             TeamsMuteStatusMessage = snapshot.State switch
             {
-                TeamsMuteState.Muted => "Teams microphone: MUTED · diagnostic only; local microphone is still recorded.",
+                TeamsMuteState.Muted => "Teams microphone: MUTED · local microphone recording is suppressed.",
                 TeamsMuteState.Unmuted => "Teams microphone: unmuted · detected via accessibility.",
                 TeamsMuteState.Unknown => $"Teams microphone: unknown state · {snapshot.AccessibleName ?? "unrecognized control"}",
                 _ => "Teams microphone: no active meeting control detected."

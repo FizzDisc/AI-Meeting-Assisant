@@ -272,6 +272,26 @@ try
         }
         else Console.WriteLine("PASS Microphone handover replaces only the input provider and finalizes both segments.");
 
+        var suppressionProviders = new List<(WasapiCaptureMode Mode, FakeAudioProvider Provider)>();
+        var suppression = new DualAudioCaptureCoordinator(dualDir, (_, _, mode) =>
+        {
+            var provider = new FakeAudioProvider();
+            suppressionProviders.Add((mode, provider));
+            return provider;
+        });
+        await suppression.StartAsync(new("screen", outputs[0].Id, microphones[0].Id));
+        suppression.SetMicrophoneSuppressed(true);
+        await suppression.SwitchMicrophoneAsync("muted-replacement-microphone");
+        var suppressedMicrophones = suppressionProviders.Where(item => item.Mode == WasapiCaptureMode.Input).ToArray();
+        var suppressionSystem = suppressionProviders.Single(item => item.Mode == WasapiCaptureMode.Loopback).Provider;
+        await suppression.StopAsync();
+        if (!suppressedMicrophones.All(item => item.Provider.IsAudioSuppressed) || suppressionSystem.IsAudioSuppressed)
+        {
+            Console.Error.WriteLine("FAIL Microphone suppression affected the wrong stream or was lost during handover.");
+            failures++;
+        }
+        else Console.WriteLine("PASS Microphone suppression preserves timeline silence across microphone handover.");
+
         var partialProviders = new List<FakeAudioProvider>();
         var partialCoordinator = new DualAudioCaptureCoordinator(dualDir, (_, _, _) =>
         {
@@ -682,7 +702,7 @@ static async Task WaitForState(RecordingSession session, RecordingSessionState e
     if (session.State != expected) throw new InvalidOperationException($"Expected {expected}, got {session.State}.");
 }
 
-file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = false) : IAudioCaptureProvider
+file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = false) : IAudioCaptureProvider, IAudioCaptureSuppression
 {
 #pragma warning disable CS0067
     public event EventHandler<AudioCaptureStartedEventArgs>? CaptureStarted;
@@ -694,6 +714,8 @@ file sealed class FakeAudioProvider(bool failOnStart = false, bool failOnStop = 
     public int StopCount { get; private set; }
     public int DisposeCount { get; private set; }
     public bool IsCapturing { get; private set; }
+    public bool IsAudioSuppressed { get; private set; }
+    public void SetAudioSuppressed(bool suppressed) => IsAudioSuppressed = suppressed;
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
