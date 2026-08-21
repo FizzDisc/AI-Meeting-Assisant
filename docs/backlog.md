@@ -111,6 +111,7 @@
 - **Sprint 4.1 planned:** Storage Center inventory, per-session/category size evidence, free-space/capacity reporting and safe cleanup of reproducible processing artifacts.
 - **Sprint 4.1.1 in progress:** Add a storage inventory model that classifies capture masters, transcripts and remaining processing evidence per session and reports drive capacity. Application version advances to v0.4.1; the dedicated workspace and guarded cleanup follow in the next slice.
 - **Sprint 4.1.2 implemented, visual smoke pending:** Add a two-step cleanup workflow that previews exact reclaimable bytes/files/sessions, requires explicit confirmation and reuses the proven incremental-finalization target boundary. Capture masters, canonical/versioned transcripts, speaker names, manifests and retained transcript evidence are never eligible; the inventory refreshes after cleanup.
+- **v0.4.2 parallel usability slice, visual smoke pending:** Add combined transcript text/speaker/source filtering with result counts, an optional avatar-backed `How it works` center, and a read-only FLAC compression planner in Storage. Compression planning accepts only completed manifest-validated RIFF/WAVE masters, protects unsupported/unsafe evidence and exposes conservative potential savings; actual verified transcoding remains a separate guarded implementation.
 - **Sprint 4.2 planned:** Validated lossless audio archival with transparent retranscription support before any optional PCM master removal.
 
 ## Sprint 4 — meeting intelligence

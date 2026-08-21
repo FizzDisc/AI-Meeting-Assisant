@@ -66,6 +66,8 @@ public partial class MainWindow : Window
     private void OnOpenMeetingLibrary(object sender, RoutedEventArgs eventArgs) =>
         new MeetingLibraryWindow(_viewModel) { Owner = this }.ShowDialog();
 
+    private void OnOpenHelp(object sender, RoutedEventArgs eventArgs) => new HelpWindow { Owner = this }.ShowDialog();
+
     private void OnNavigateCapture(object sender, RoutedEventArgs eventArgs) => ShowWorkspace(CaptureWorkspace);
 
     private void OnNavigateRecordings(object sender, RoutedEventArgs eventArgs) => ShowWorkspace(RecordingsWorkspace);
@@ -82,7 +84,7 @@ public partial class MainWindow : Window
     private async Task RefreshStorageAsync()
     {
         StorageRootText.Text = "Scanning local meeting library...";
-        try { var report=await Task.Run(()=>StorageInventory.Scan(AppPreferences.Load().CaptureDirectory));StorageRootText.Text=$"{report.Root} · {report.LibraryLabel} across {report.Sessions.Count} session(s)";StorageFreeText.Text=report.FreeLabel;StorageCapacityText.Text=report.CapacityLabel;StorageCaptureText.Text=report.CaptureLabel;StorageTranscriptText.Text=report.TranscriptLabel;StorageProcessingText.Text=report.ProcessingLabel;StorageSessionsGrid.ItemsSource=report.Sessions; }
+        try { var root=AppPreferences.Load().CaptureDirectory;var result=await Task.Run(()=>(Inventory:StorageInventory.Scan(root),Compression:CaptureCompressionPlanner.AnalyzeLibrary(root)));var report=result.Inventory;StorageRootText.Text=$"{report.Root} · {report.LibraryLabel} across {report.Sessions.Count} session(s) · {result.Compression.CandidateCount} FLAC candidate(s), approx. {result.Compression.EstimatedSavingsLabel} potential savings";StorageFreeText.Text=report.FreeLabel;StorageCapacityText.Text=report.CapacityLabel;StorageCaptureText.Text=report.CaptureLabel;StorageTranscriptText.Text=report.TranscriptLabel;StorageProcessingText.Text=report.ProcessingLabel;StorageSessionsGrid.ItemsSource=report.Sessions; }
         catch(Exception exception){StorageRootText.Text=$"Storage inventory failed: {exception.Message}";}
     }
 

@@ -54,6 +54,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("Teams accessibility labels map to current mute state", TeamsMuteLabelsDescribeCurrentState)
     ,("PCM16 recording gain scales and clips deterministically", Pcm16GainScalesAndClips)
     ,("storage inventory classifies session evidence", StorageInventoryClassifiesEvidence)
+    ,("capture compression planning is evidence based and non destructive", CaptureCompressionPlanningIsSafe)
 };
 
 var failures = 0;
@@ -821,6 +822,47 @@ static Task StorageInventoryClassifiesEvidence()
 {
     var root=Path.Combine(Path.GetTempPath(),$"aima_storage_{Guid.NewGuid():N}");var session=Path.Combine(root,"session_test");var processing=Path.Combine(session,"processing");Directory.CreateDirectory(processing);
     try{File.WriteAllBytes(Path.Combine(session,"microphone.wav"),new byte[11]);File.WriteAllBytes(Path.Combine(processing,"transcript.json"),new byte[7]);File.WriteAllBytes(Path.Combine(processing,"normalized.wav"),new byte[13]);var report=StorageInventory.Scan(root);var item=report.Sessions.Single();if(item.CaptureBytes!=11||item.TranscriptBytes!=7||item.ProcessingBytes!=13||report.LibraryBytes!=31)throw new InvalidOperationException("Storage categories are incorrect.");return Task.CompletedTask;}finally{if(Directory.Exists(root))Directory.Delete(root,true);}
+}
+
+static Task CaptureCompressionPlanningIsSafe()
+{
+    var root = Path.Combine(Path.GetTempPath(), $"aima_compression_{Guid.NewGuid():N}");
+    var complete = Path.Combine(root, "session_complete");
+    var interrupted = Path.Combine(root, "session_interrupted");
+    Directory.CreateDirectory(complete);
+    Directory.CreateDirectory(interrupted);
+    try
+    {
+        var microphone = Path.Combine(complete, "microphone.wav");
+        using (var writer = new Pcm16WavWriter(microphone, 1, 48000)) writer.Write(new byte[96000]);
+        File.WriteAllBytes(Path.Combine(complete, "screen.mp4"), CreateTestMp4(1000));
+        var completedManifest = new CaptureSessionManifest(2, "session_complete", "completed", DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow, 1000, TestPlan(),
+            [new("microphone", "microphone.wav", 0), new("screen", "screen.mp4", 0)]);
+        CaptureSessionManifestStore.WriteAtomic(Path.Combine(complete, "manifest.json"), completedManifest);
+
+        var interruptedAudio = Path.Combine(interrupted, "microphone.wav");
+        using (var writer = new Pcm16WavWriter(interruptedAudio, 1, 48000)) writer.Write(new byte[96000]);
+        var interruptedManifest = completedManifest with { SessionId = "session_interrupted", Status = "interrupted",
+            Streams = [new("microphone", "microphone.wav", 0)] };
+        CaptureSessionManifestStore.WriteAtomic(Path.Combine(interrupted, "manifest.json"), interruptedManifest);
+
+        var report = CaptureCompressionPlanner.AnalyzeLibrary(root);
+        Equal(1, report.CandidateCount);
+        var candidate = report.Sessions.Single(session => session.SessionName == "session_complete").Candidates.Single();
+        Equal("microphone.wav", candidate.SourcePath);
+        if (candidate.EstimatedSavingsBytes <= 0 || candidate.EstimatedArchiveBytes >= candidate.SourceBytes)
+            throw new InvalidOperationException("Compression estimate is not conservative and positive.");
+        if (File.Exists(Path.Combine(complete, "microphone.flac")) || !File.Exists(microphone))
+            throw new InvalidOperationException("Read-only planning modified capture evidence.");
+        var protectedSession = report.Sessions.Single(session => session.SessionName == "session_interrupted");
+        if (protectedSession.ManifestValidated || protectedSession.Candidates.Count != 0)
+            throw new InvalidOperationException("Interrupted capture was offered for archival.");
+        if (!report.RequiredVerification.Any(rule => rule.Contains("retranscription", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Archive plan omits the retranscription acceptance gate.");
+        return Task.CompletedTask;
+    }
+    finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }
 
 static Task Pcm16GainScalesAndClips()
