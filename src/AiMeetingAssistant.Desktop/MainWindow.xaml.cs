@@ -2,6 +2,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Controls;
+using System.Windows.Data;
 using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Transcripts;
 using AiMeetingAssistant.Core.Storage;
@@ -23,6 +25,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        StorageSessionsGrid.Columns.Insert(2, new DataGridTextColumn { Header = "Archive state", Binding = new Binding(nameof(SessionStorageEntry.ArchiveStatus)), Width = new DataGridLength(135) });
+        StorageSessionsGrid.Columns.Insert(3, new DataGridTextColumn { Header = "Reclaimable", Binding = new Binding(nameof(SessionStorageEntry.ReclaimableLabel)), Width = new DataGridLength(105) });
+        StorageSessionsGrid.Columns.Insert(4, new DataGridTextColumn { Header = "Next storage action", Binding = new Binding(nameof(SessionStorageEntry.ArchiveAction)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         var workerPath = Path.Combine(AppContext.BaseDirectory, "worker", "main.py");
         var settings = AppPreferences.Load();
         var pythonExecutable = PythonRuntimeResolver.Resolve();
@@ -33,6 +38,8 @@ public partial class MainWindow : Window
             UIDispatcher = Dispatcher
         };
         _viewModel.ApplyCaptureGains(settings.SystemAudioGain, settings.MicrophoneGain);
+        _viewModel.CaptureSessionCompleted += OnCaptureSessionCompleted;
+        _viewModel.FullTranscriptionCompleted += OnFullTranscriptionCompleted;
         DataContext = _viewModel;
         Loaded += OnLoaded;
         SourceInitialized += OnSourceInitialized;
@@ -54,6 +61,20 @@ public partial class MainWindow : Window
     {
         Loaded -= OnLoaded;
         await _viewModel.InitializeAsync();
+    }
+
+    private async void OnCaptureSessionCompleted(object? sender, string sessionDirectory)
+    {
+        if (!AppPreferences.Load().AutomaticFlacArchival) return;
+        try { await new CaptureFlacCompressor(new FfmpegCaptureCompressionMediaTool(AppContext.BaseDirectory)).CompressSessionAsync(sessionDirectory); }
+        catch (Exception exception) { _viewModel.AddExternalStatus("STORAGE", $"Automatic FLAC archival failed: {exception.Message}"); }
+    }
+
+    private async void OnFullTranscriptionCompleted(object? sender, string sessionDirectory)
+    {
+        if (!AppPreferences.Load().AutomaticProvenWavRemoval) return;
+        try { var plan=PcmMasterRemoval.Preview(sessionDirectory);if(plan.Candidates.Count>0)await Task.Run(()=>PcmMasterRemoval.Execute(sessionDirectory)); }
+        catch (Exception exception) { _viewModel.AddExternalStatus("STORAGE", $"Automatic WAV removal failed: {exception.Message}"); }
     }
 
     private void OnOpenTranscript(object sender, RoutedEventArgs eventArgs)

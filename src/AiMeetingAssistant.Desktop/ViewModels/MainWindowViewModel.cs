@@ -14,6 +14,9 @@ namespace AiMeetingAssistant.Desktop.ViewModels;
 
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
+    public event EventHandler<string>? CaptureSessionCompleted;
+    public event EventHandler<string>? FullTranscriptionCompleted;
+    public void AddExternalStatus(string category, string message) => AddStatus(category, message);
     private readonly ICaptureSourceDiscovery _sourceDiscovery;
     private readonly RecordingSession _recordingSession;
     private readonly ICaptureCoordinator _captureCoordinator;
@@ -744,6 +747,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 {
                     TranscriptPath = job.OutputPath ?? outputPath;
                     CopyAtomic(TranscriptPath, Path.Combine(_latestSessionDirectory, "processing", "transcript.json"));
+                    FullTranscriptionCompleted?.Invoke(this, _latestSessionDirectory);
                     break;
                 }
                 if (job.Status == "failed") throw new InvalidOperationException(job.Error ?? "Local transcription failed.");
@@ -1099,6 +1103,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 _captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator completedCoordinator)
             {
                 _latestSessionDirectory = completedCoordinator.LastCompletedSessionDirectory;
+                if (_latestSessionDirectory is not null) CaptureSessionCompleted?.Invoke(this, _latestSessionDirectory);
                 TranscriptionStatusMessage = _modelPath is null
                     ? "Recording ready, but no local transcription model is installed."
                     : "Recording ready for local transcription.";
