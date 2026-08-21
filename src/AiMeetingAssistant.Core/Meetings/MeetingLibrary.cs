@@ -53,6 +53,8 @@ public static class MeetingLibrary
                     .Where(stream => File.Exists(Path.Combine(directory, stream.RelativePath)) && new FileInfo(Path.Combine(directory, stream.RelativePath)).Length > 0)
                     .Select(stream => stream.Kind)
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var transcriptSources = SessionAudioSourceResolver.Resolve(directory);
+                foreach (var source in transcriptSources) availableStreams.Add(source.Kind);
                 var transcript = Path.Combine(directory, "processing", "transcript.json");
                 var hasTranscript = File.Exists(transcript);
                 // The library overview only needs the number of runs. Parsing every
@@ -62,7 +64,7 @@ public static class MeetingLibrary
                 sessions.Add(new(directory, manifest.SessionId, manifest.StartedAtUtc, manifest.DurationMilliseconds,
                     manifest.Status, FormatSources(availableStreams), manifest.Alignment?.Status ?? "unavailable",
                     manifest.Alignment?.Detail, hasTranscript ? transcript : null,
-                    manifest.Status == "completed" && availableStreams.Contains("microphone") && availableStreams.Contains("system_audio"), transcriptCount));
+                    transcriptSources.Count == 2, transcriptCount));
             }
             catch (Exception exception)
             {

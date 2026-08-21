@@ -7,6 +7,7 @@ using AiMeetingAssistant.Core.Transcripts;
 using AiMeetingAssistant.Core.Storage;
 using AiMeetingAssistant.Desktop.ViewModels;
 using AiMeetingAssistant.Windows.Capture;
+using AiMeetingAssistant.Windows.Storage;
 using AiMeetingAssistant.Windows.Worker;
 using Microsoft.Win32;
 
@@ -74,6 +75,43 @@ public partial class MainWindow : Window
 
     private async void OnNavigateStorage(object sender, RoutedEventArgs eventArgs) { ShowWorkspace(StorageWorkspace); await RefreshStorageAsync(); }
     private async void OnRefreshStorage(object sender, RoutedEventArgs eventArgs) => await RefreshStorageAsync();
+    private async void OnCompressSelectedStorage(object sender, RoutedEventArgs eventArgs)
+    {
+        if (StorageSessionsGrid.SelectedItem is not SessionStorageEntry selected)
+        {
+            MessageBox.Show(this, "Select a meeting session first.", "Verified FLAC", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var sessionDirectory = Path.Combine(AppPreferences.Load().CaptureDirectory, selected.SessionName);
+        var plan = CaptureCompressionPlanner.AnalyzeSession(sessionDirectory);
+        if (plan.Candidates.Count == 0)
+        {
+            MessageBox.Show(this, "This session has no eligible WAV masters. Existing archives and incomplete sessions are skipped.", "Verified FLAC", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (MessageBox.Show(this, $"Create {plan.Candidates.Count} verified FLAC archive(s)?\n\nThe original WAV files will be retained. Each FLAC is decoded and checked before it is published.", "Confirm verified FLAC", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        StorageCompressButton.IsEnabled = false;
+        try
+        {
+            var progress = new Progress<CaptureCompressionProgress>(value => StorageRootText.Text = $"{value.Stage}: {value.StreamKind} · {value.Percent:P0}");
+            var compressor = new CaptureFlacCompressor(new FfmpegCaptureCompressionMediaTool(AppContext.BaseDirectory));
+            var result = await compressor.CompressSessionAsync(sessionDirectory, progress);
+            await RefreshStorageAsync();
+            MessageBox.Show(this, $"Verified FLAC complete: {result.CompletedCount} created, {result.FailedCount} failed.\nSaved archive size versus WAV: {StorageInventory.Format(result.SavedBytes)}.\n\nOriginal WAV files were retained.", "Verified FLAC", MessageBoxButton.OK, result.FailedCount == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception exception) { MessageBox.Show(this, $"FLAC compression failed: {exception.Message}", "Verified FLAC", MessageBoxButton.OK, MessageBoxImage.Error); }
+        finally { StorageCompressButton.IsEnabled = true; }
+    }
+    private async void OnRemoveProvenPcm(object sender, RoutedEventArgs eventArgs)
+    {
+        if (StorageSessionsGrid.SelectedItem is not SessionStorageEntry selected) { MessageBox.Show(this, "Select a meeting session first.", "Remove proven WAV", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        var sessionDirectory = Path.Combine(AppPreferences.Load().CaptureDirectory, selected.SessionName);
+        var plan = PcmMasterRemoval.Preview(sessionDirectory);
+        if (plan.Candidates.Count == 0) { MessageBox.Show(this, plan.BlockReason ?? "No WAV masters are eligible.", "Remove proven WAV", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        if (MessageBox.Show(this, $"Permanently remove {plan.Candidates.Count} WAV master(s) and reclaim {StorageInventory.Format(plan.ReclaimableBytes)}?\n\nThe verified FLAC archives remain. A completed transcript has proven that these exact FLAC files can be processed. This cannot be undone.", "Confirm WAV removal", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        try { var result = await Task.Run(() => PcmMasterRemoval.Execute(sessionDirectory)); await RefreshStorageAsync(); MessageBox.Show(this, $"Removed {result.DeletedFiles} proven WAV master(s) and reclaimed {StorageInventory.Format(result.ReclaimedBytes)}.", "WAV removal complete", MessageBoxButton.OK, MessageBoxImage.Information); }
+        catch (Exception exception) { MessageBox.Show(this, $"WAV removal failed: {exception.Message}", "Remove proven WAV", MessageBoxButton.OK, MessageBoxImage.Error); }
+    }
     private async void OnPreviewStorageCleanup(object sender, RoutedEventArgs eventArgs)
     {
         var root=AppPreferences.Load().CaptureDirectory;var preview=await Task.Run(()=>IncrementalProcessingCleanup.PreviewLibrary(root));
@@ -103,6 +141,8 @@ public partial class MainWindow : Window
         TranscriptWorkspace.Visibility = workspace == TranscriptWorkspace ? Visibility.Visible : Visibility.Collapsed;
         StorageWorkspace.Visibility = workspace == StorageWorkspace ? Visibility.Visible : Visibility.Collapsed;
         StorageCleanupButton.Visibility = workspace == StorageWorkspace ? Visibility.Visible : Visibility.Collapsed;
+        StorageCompressButton.Visibility = workspace == StorageWorkspace ? Visibility.Visible : Visibility.Collapsed;
+        StorageReleasePcmButton.Visibility = workspace == StorageWorkspace ? Visibility.Visible : Visibility.Collapsed;
         CaptureTabButton.Tag = workspace == CaptureWorkspace ? "Active" : null;
         RecordingsTabButton.Tag = workspace == RecordingsWorkspace ? "Active" : null;
         TranscriptTabButton.Tag = workspace == TranscriptWorkspace ? "Active" : null;
@@ -160,6 +200,9 @@ public partial class MainWindow : Window
         SpeakerNameStore.SaveForTranscript(_transcriptViewModel.SourcePath, dialog.SpeakerNames);
         _transcriptViewModel.UpdateSpeakerNames(SpeakerNameStore.LoadForTranscript(_transcriptViewModel.SourcePath));
     }
+
+    private void OnPreviousTranscriptMatch(object sender, RoutedEventArgs eventArgs){_transcriptViewModel?.GoToPreviousMatch();if(_transcriptViewModel?.SelectedSegment is not null)TranscriptSegmentsList.ScrollIntoView(_transcriptViewModel.SelectedSegment);}
+    private void OnNextTranscriptMatch(object sender, RoutedEventArgs eventArgs){_transcriptViewModel?.GoToNextMatch();if(_transcriptViewModel?.SelectedSegment is not null)TranscriptSegmentsList.ScrollIntoView(_transcriptViewModel.SelectedSegment);}
 
     private void OnExportEmbeddedMarkdown(object sender, RoutedEventArgs eventArgs)
     {

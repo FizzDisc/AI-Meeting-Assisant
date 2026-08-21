@@ -711,20 +711,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var modelLoadNoticeLogged = false;
         try
         {
-            var microphone = Directory.GetFiles(_latestSessionDirectory, "microphone_*.wav").SingleOrDefault();
-            var systemAudio = Directory.GetFiles(_latestSessionDirectory, "system_audio_*.wav").SingleOrDefault();
-            if (microphone is null || systemAudio is null)
-                throw new InvalidDataException("The latest session does not contain exactly one microphone and system-audio WAV file.");
+            var audioSources = SessionAudioSourceResolver.Resolve(_latestSessionDirectory);
+            if (audioSources.Count != 2)
+                throw new InvalidDataException("The selected session does not contain one usable microphone and system-audio source (verified FLAC or WAV).");
 
             var selectedModel = SelectedSpeechModel ?? throw new InvalidOperationException("Select an installed speech model.");
             var outputPath = Path.Combine(_latestSessionDirectory, "processing", $"transcript_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{selectedModel.Id}.json");
-            TranscriptionStatusMessage = "Queuing local transcription...";
-            var job = await _workerClient.StartTranscriptionAsync([microphone, systemAudio], selectedModel.ModelPath!, outputPath,
+            var sourceFormat = audioSources.All(source => source.UsesArchive) ? "verified FLAC archives" :
+                audioSources.Any(source => source.UsesArchive) ? "FLAC/WAV sources" : "WAV masters";
+            TranscriptionStatusMessage = $"Queuing local transcription from {sourceFormat}...";
+            var job = await _workerClient.StartTranscriptionAsync(audioSources.Select(source => source.Path).ToArray(), selectedModel.ModelPath!, outputPath,
                 computePreference: _computePreference, diarizationModelPath: _diarizationModelPath, modelId: selectedModel.Id,
                 openVinoModelPath: LocalModelResolver.ResolveOpenVinoSpeechModel(selectedModel.Id),
                 openVinoRuntimePath: LocalModelResolver.ResolveOpenVinoRuntime(),
                 sileroVadPath: LocalModelResolver.ResolveSileroVad(),
-                torchXpuRuntimePath: LocalModelResolver.ResolveTorchXpuRuntime(), cancellationToken: token);
+                torchXpuRuntimePath: LocalModelResolver.ResolveTorchXpuRuntime(), sourceLabels: audioSources.Select(source => source.Kind).ToArray(), cancellationToken: token);
             activeJobId = job.JobId;
             while (true)
             {

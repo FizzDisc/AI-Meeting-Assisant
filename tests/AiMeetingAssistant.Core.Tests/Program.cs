@@ -55,6 +55,8 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("PCM16 recording gain scales and clips deterministically", Pcm16GainScalesAndClips)
     ,("storage inventory classifies session evidence", StorageInventoryClassifiesEvidence)
     ,("capture compression planning is evidence based and non destructive", CaptureCompressionPlanningIsSafe)
+    ,("session audio resolver prefers FLAC and preserves WAV fallback", SessionAudioResolverPrefersArchive)
+    ,("PCM master removal requires proven FLAC transcription", PcmRemovalRequiresTranscriptProof)
 };
 
 var failures = 0;
@@ -863,6 +865,60 @@ static Task CaptureCompressionPlanningIsSafe()
         return Task.CompletedTask;
     }
     finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+}
+
+static Task SessionAudioResolverPrefersArchive()
+{
+    var session = Path.Combine(Path.GetTempPath(), $"session_audio_resolver_{Guid.NewGuid():N}");
+    Directory.CreateDirectory(session);
+    try
+    {
+        foreach (var name in new[] { "microphone.wav", "system_audio.wav" })
+            using (var writer = new Pcm16WavWriter(Path.Combine(session, name), 1, 16000)) writer.Write(new byte[32000]);
+        CaptureSessionManifestStore.WriteAtomic(Path.Combine(session, "manifest.json"),
+            new(2, Path.GetFileName(session), "completed", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1000,
+                TestPlan(), [new("microphone", "microphone.wav", 0), new("system_audio", "system_audio.wav", 0)]));
+
+        var wavSources = SessionAudioSourceResolver.Resolve(session);
+        Equal(2, wavSources.Count);
+        if (wavSources.Any(source => source.UsesArchive)) throw new InvalidOperationException("WAV fallback was not selected.");
+
+        File.WriteAllBytes(Path.Combine(session, "microphone.flac"), "fLaCtest"u8.ToArray());
+        File.WriteAllBytes(Path.Combine(session, "system_audio.flac"), "fLaCtest"u8.ToArray());
+        var archives = SessionAudioSourceResolver.Resolve(session);
+        if (archives.Count != 2 || archives.Any(source => !source.UsesArchive || source.Format != "FLAC"))
+            throw new InvalidOperationException("Verified archive candidates were not preferred.");
+
+        File.Delete(Path.Combine(session, "microphone.wav"));
+        File.Delete(Path.Combine(session, "system_audio.wav"));
+        Equal(2, SessionAudioSourceResolver.Resolve(session).Count);
+        return Task.CompletedTask;
+    }
+    finally { if (Directory.Exists(session)) Directory.Delete(session, true); }
+}
+
+static Task PcmRemovalRequiresTranscriptProof()
+{
+    var session = Path.Combine(Path.GetTempPath(), $"session_pcm_removal_{Guid.NewGuid():N}");
+    var processing = Path.Combine(session, "processing"); Directory.CreateDirectory(processing);
+    try
+    {
+        foreach (var stem in new[] { "microphone", "system_audio" })
+        {
+            using (var writer = new Pcm16WavWriter(Path.Combine(session, stem + ".wav"), 1, 16000)) writer.Write(new byte[32000]);
+            File.WriteAllBytes(Path.Combine(session, stem + ".flac"), "fLaCverified"u8.ToArray());
+        }
+        CaptureSessionManifestStore.WriteAtomic(Path.Combine(session, "manifest.json"), new(2, Path.GetFileName(session), "completed", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1000, TestPlan(), [new("microphone", "microphone.wav", 0), new("system_audio", "system_audio.wav", 0)]));
+        if (PcmMasterRemoval.Preview(session).Candidates.Count != 0) throw new InvalidOperationException("Removal was offered without transcript proof.");
+        var media = new[] { "microphone", "system_audio" }.Select(kind => new { source = kind, path = Path.Combine(session, kind + ".flac"), size = new FileInfo(Path.Combine(session, kind + ".flac")).Length }).ToArray();
+        File.WriteAllText(Path.Combine(processing, "transcript_test.json"), JsonSerializer.Serialize(new { schemaVersion = 3, sourceMedia = media, segments = Array.Empty<object>() }));
+        var plan = PcmMasterRemoval.Preview(session); Equal(2, plan.Candidates.Count);
+        var result = PcmMasterRemoval.Execute(session); Equal(2, result.DeletedFiles);
+        if (File.Exists(Path.Combine(session, "microphone.wav")) || !File.Exists(Path.Combine(session, "microphone.flac"))) throw new InvalidOperationException("Removal did not preserve the archive.");
+        Equal(2, SessionAudioSourceResolver.Resolve(session).Count);
+        return Task.CompletedTask;
+    }
+    finally { if (Directory.Exists(session)) Directory.Delete(session, true); }
 }
 
 static Task Pcm16GainScalesAndClips()

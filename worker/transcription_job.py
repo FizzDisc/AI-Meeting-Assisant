@@ -241,9 +241,12 @@ def run(request_path: Path) -> int:
     cached_raw = load_stage_cache(raw_cache_path, raw_key)
     phase_started = time.monotonic()
     normalized = []
+    source_media = []
     source_labels = request.get("sourceLabels")
     for index, source in enumerate(inputs):
         label = source_labels[index] if source_labels else source_name(source, index)
+        source_media.append({"source": label, "path": str(source), "format": source.suffix.lstrip(".").upper(),
+                             **fingerprint(source)})
         normalized_path = output_path.parent / f"normalized_{label}.wav"
         if cached_raw is None or not normalized_path.is_file():
             write_atomic(status_path, {"status": "normalizing", "progress": 0.1})
@@ -264,7 +267,7 @@ def run(request_path: Path) -> int:
                       "diarizationSkippedReason": "No usable system-audio signal detected.",
                       "speakerCount": 0, "modelId": request.get("modelId") or model_path.name,
                       "processingDurationMilliseconds": int((time.monotonic() - started) * 1000),
-                      "audioEvidence": audio_evidence, "skippedSources": skipped_sources,
+                      "audioEvidence": audio_evidence, "skippedSources": skipped_sources, "sourceMedia": source_media,
                       "performance": {"normalizationSeconds": round(normalization_seconds, 3),
                                       "modelLoadSeconds": 0.0, "diarizationSeconds": 0.0,
                                       "cache": {"rawTranscription": False, "speakerTurns": False}},
@@ -387,7 +390,7 @@ def run(request_path: Path) -> int:
                   "diarizationSkippedReason": diarization_skipped_reason, "speakerCount": speaker_count,
                   "modelId": request.get("modelId") or model_path.name,
                   "processingDurationMilliseconds": int((time.monotonic() - started) * 1000),
-                  "audioEvidence": audio_evidence, "skippedSources": skipped_sources,
+                  "audioEvidence": audio_evidence, "skippedSources": skipped_sources, "sourceMedia": source_media,
                   "performance": performance,
                   "segments": segments}
     write_atomic(output_path, transcript)

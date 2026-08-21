@@ -2,6 +2,7 @@ using AiMeetingAssistant.Core.Capture;
 using AiMeetingAssistant.Core.Recording;
 using AiMeetingAssistant.Windows.Capture;
 using AiMeetingAssistant.Windows.Worker;
+using AiMeetingAssistant.Windows.Storage;
 using System.Text.Json;
 
 var failures = 0;
@@ -695,7 +696,57 @@ catch (Exception ex)
     failures++;
 }
 
+try
+{
+    await VerifySafeFlacCompression();
+    Console.WriteLine("PASS FLAC compression promotes only verified output and preserves WAV masters.");
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Safe FLAC compression: {exception.Message}");
+    failures++;
+}
+
 return failures == 0 ? 0 : 1;
+
+static async Task VerifySafeFlacCompression()
+{
+    static string CreateSession(string root, string name)
+    {
+        var session = Path.Combine(root, $"session_{name}"); Directory.CreateDirectory(session);
+        using (var writer = new Pcm16WavWriter(Path.Combine(session, "microphone.wav"), 1, 48000)) writer.Write(new byte[96000]);
+        CaptureSessionManifestStore.WriteAtomic(Path.Combine(session, "manifest.json"),
+            new(2, $"session_{name}", "completed", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1000,
+                new("screen", "system", "microphone"), [new("microphone", "microphone.wav", 0)]));
+        return session;
+    }
+
+    var root = Path.Combine(Path.GetTempPath(), $"aima_flac_{Guid.NewGuid():N}"); Directory.CreateDirectory(root);
+    try
+    {
+        var success = CreateSession(root, "success");
+        var result = await new CaptureFlacCompressor(new FakeCompressionMediaTool()).CompressSessionAsync(success);
+        if (result.CompletedCount != 1 || !File.Exists(Path.Combine(success, "microphone.flac")) ||
+            !File.Exists(Path.Combine(success, "microphone.wav"))) throw new InvalidOperationException("Verified archive or original master is missing.");
+        if (Directory.EnumerateFiles(success).Any(path => path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".verify.wav", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Successful conversion left temporary files.");
+
+        var invalid = CreateSession(root, "invalid");
+        result = await new CaptureFlacCompressor(new FakeCompressionMediaTool(invalidMetadata: true)).CompressSessionAsync(invalid);
+        if (result.FailedCount != 1 || File.Exists(Path.Combine(invalid, "microphone.flac")) || !File.Exists(Path.Combine(invalid, "microphone.wav")))
+            throw new InvalidOperationException("Invalid output was promoted or its WAV master was removed.");
+        if (Directory.EnumerateFiles(invalid).Any(path => path.Contains(".verify.wav", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Failed verification left temporary files.");
+
+        var cancelled = CreateSession(root, "cancelled");
+        using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        try { await new CaptureFlacCompressor(new FakeCompressionMediaTool()).CompressSessionAsync(cancelled, cancellationToken: cancellation.Token); throw new InvalidOperationException("Cancellation was ignored."); }
+        catch (OperationCanceledException) { }
+        if (File.Exists(Path.Combine(cancelled, "microphone.flac")) || !File.Exists(Path.Combine(cancelled, "microphone.wav")))
+            throw new InvalidOperationException("Cancellation modified capture evidence.");
+    }
+    finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+}
 
 static async Task WaitForState(RecordingSession session, RecordingSessionState expected)
 {
@@ -786,5 +837,28 @@ file sealed class FakeScreenProvider(bool failOnStop = false) : IScreenCapturePr
         DisposeCount++;
         IsCapturing = false;
         return ValueTask.CompletedTask;
+    }
+}
+
+file sealed class FakeCompressionMediaTool(bool invalidMetadata = false) : ICaptureCompressionMediaTool
+{
+    private string? source;
+    public Task EncodeFlacAsync(string sourceWavePath, string temporaryFlacPath, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested(); source = sourceWavePath;
+        File.WriteAllBytes(temporaryFlacPath, "fLaC-test"u8.ToArray());
+        return Task.CompletedTask;
+    }
+    public Task DecodeToWaveAsync(string flacPath, string temporaryWavePath, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (source is null) throw new InvalidOperationException("Encode was not called.");
+        if (!invalidMetadata) File.Copy(source, temporaryWavePath);
+        else
+        {
+            using var writer = new Pcm16WavWriter(temporaryWavePath, 2, 44100);
+            writer.Write(new byte[88200]);
+        }
+        return Task.CompletedTask;
     }
 }
