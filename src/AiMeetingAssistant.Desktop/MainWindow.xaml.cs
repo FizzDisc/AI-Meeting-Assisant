@@ -66,14 +66,14 @@ public partial class MainWindow : Window
     private async void OnCaptureSessionCompleted(object? sender, string sessionDirectory)
     {
         if (!AppPreferences.Load().AutomaticFlacArchival) return;
-        try { await new CaptureFlacCompressor(new FfmpegCaptureCompressionMediaTool(AppContext.BaseDirectory)).CompressSessionAsync(sessionDirectory); }
+        try { await new CaptureFlacCompressor(new FfmpegCaptureCompressionMediaTool(AppContext.BaseDirectory)).CompressSessionAsync(sessionDirectory);if(StorageWorkspace.Visibility==Visibility.Visible)await RefreshStorageAsync(); }
         catch (Exception exception) { _viewModel.AddExternalStatus("STORAGE", $"Automatic FLAC archival failed: {exception.Message}"); }
     }
 
     private async void OnFullTranscriptionCompleted(object? sender, string sessionDirectory)
     {
         if (!AppPreferences.Load().AutomaticProvenWavRemoval) return;
-        try { var plan=PcmMasterRemoval.Preview(sessionDirectory);if(plan.Candidates.Count>0)await Task.Run(()=>PcmMasterRemoval.Execute(sessionDirectory)); }
+        try { var plan=PcmMasterRemoval.Preview(sessionDirectory);if(plan.Candidates.Count>0)await Task.Run(()=>PcmMasterRemoval.Execute(sessionDirectory));if(StorageWorkspace.Visibility==Visibility.Visible)await RefreshStorageAsync(); }
         catch (Exception exception) { _viewModel.AddExternalStatus("STORAGE", $"Automatic WAV removal failed: {exception.Message}"); }
     }
 
@@ -142,8 +142,9 @@ public partial class MainWindow : Window
     }
     private async Task RefreshStorageAsync()
     {
+        var selectedSession = (StorageSessionsGrid.SelectedItem as SessionStorageEntry)?.SessionName;
         StorageRootText.Text = "Scanning local meeting library...";
-        try { var root=AppPreferences.Load().CaptureDirectory;var result=await Task.Run(()=>(Inventory:StorageInventory.Scan(root),Compression:CaptureCompressionPlanner.AnalyzeLibrary(root)));var report=result.Inventory;StorageRootText.Text=$"{report.Root} · {report.LibraryLabel} across {report.Sessions.Count} session(s) · {result.Compression.CandidateCount} FLAC candidate(s), approx. {result.Compression.EstimatedSavingsLabel} potential savings";StorageFreeText.Text=report.FreeLabel;StorageCapacityText.Text=report.CapacityLabel;StorageCaptureText.Text=report.CaptureLabel;StorageTranscriptText.Text=report.TranscriptLabel;StorageProcessingText.Text=report.ProcessingLabel;StorageSessionsGrid.ItemsSource=report.Sessions; }
+        try { var root=AppPreferences.Load().CaptureDirectory;var result=await Task.Run(()=>(Inventory:StorageInventory.Scan(root),Compression:CaptureCompressionPlanner.AnalyzeLibrary(root)));var report=result.Inventory;StorageRootText.Text=$"{report.Root} · {report.LibraryLabel} across {report.Sessions.Count} session(s) · {result.Compression.CandidateCount} FLAC candidate(s), approx. {result.Compression.EstimatedSavingsLabel} potential savings";StorageFreeText.Text=report.FreeLabel;StorageCapacityText.Text=report.CapacityLabel;StorageCaptureText.Text=report.CaptureLabel;StorageTranscriptText.Text=report.TranscriptLabel;StorageProcessingText.Text=report.ProcessingLabel;StorageSessionsGrid.ItemsSource=null;StorageSessionsGrid.ItemsSource=report.Sessions;StorageSessionsGrid.SelectedItem=report.Sessions.FirstOrDefault(item=>item.SessionName==selectedSession);StorageSessionsGrid.Items.Refresh(); }
         catch(Exception exception){StorageRootText.Text=$"Storage inventory failed: {exception.Message}";}
     }
 
