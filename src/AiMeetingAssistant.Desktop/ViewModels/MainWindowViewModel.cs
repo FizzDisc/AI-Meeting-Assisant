@@ -17,6 +17,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ICaptureSourceDiscovery _sourceDiscovery;
     private readonly RecordingSession _recordingSession;
     private readonly ICaptureCoordinator _captureCoordinator;
+    private readonly IAudioEndpointHealthProbe? _audioEndpointHealthProbe;
     private readonly PythonWorkerClient? _workerClient;
     private readonly IncrementalTranscriptionCoordinator? _incrementalTranscription;
     private string? _modelPath;
@@ -42,6 +43,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private double _systemAudioLevel;
     private double _microphoneLevel;
     private string _audioHealthMessage = "";
+    private string _endpointHealthGuidance = "";
+    private DateTimeOffset _lastEndpointProbeAt = DateTimeOffset.MinValue;
+    private bool _endpointProbeInFlight;
     private string? _statusMessage;
     private string? _latestSessionDirectory;
     private CancellationTokenSource? _transcriptionCancellation;
@@ -68,10 +72,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isIncrementalFinalizationQueueRunning;
 
     public MainWindowViewModel(ICaptureSourceDiscovery sourceDiscovery, ICaptureCoordinator captureCoordinator,
-        PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic", string? diarizationModelPath = null, string? modelId = null)
+        PythonWorkerClient? workerClient = null, string? modelPath = null, string captureBaseDirectory = "artifacts/captures", string computePreference = "automatic", string? diarizationModelPath = null, string? modelId = null,
+        IAudioEndpointHealthProbe? audioEndpointHealthProbe = null)
     {
         _sourceDiscovery = sourceDiscovery;
         _captureCoordinator = captureCoordinator;
+        _audioEndpointHealthProbe = audioEndpointHealthProbe;
         _workerClient = workerClient;
         if (workerClient is not null)
         {
@@ -964,6 +970,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             _systemAudioHealth.Stop();
             _microphoneHealth.Stop();
+            _endpointHealthGuidance = "";
             AudioHealthMessage = "";
             _recordingTimer.Stop();
             _recordingStopwatch.Stop();
@@ -1007,11 +1014,48 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void OnRecordingTimerTick(object? sender, EventArgs eventArgs)
     {
         OnPropertyChanged(nameof(RecordingElapsedLabel));
-        var now = DateTimeOffset.UtcNow;
+        RefreshAudioHealthMessage(DateTimeOffset.UtcNow, scheduleProbe: true);
+    }
+
+    private void RefreshAudioHealthMessage(DateTimeOffset now, bool scheduleProbe)
+    {
+        var systemState = _systemAudioHealth.Evaluate(now);
+        var microphoneState = _microphoneHealth.Evaluate(now);
         var warnings = new List<string>();
-        AddAudioHealthWarning(warnings, "System audio", _systemAudioHealth.Evaluate(now), "Verify the selected Teams/output device.");
-        AddAudioHealthWarning(warnings, "Microphone", _microphoneHealth.Evaluate(now), "Verify the selected input or hardware mute.");
-        AudioHealthMessage = string.Join("  ", warnings);
+        AddAudioHealthWarning(warnings, "System audio", systemState, "Verify the selected Teams/output device.");
+        AddAudioHealthWarning(warnings, "Microphone", microphoneState, "Verify the selected input or hardware mute.");
+        if (warnings.Count == 0) _endpointHealthGuidance = "";
+        else if (_endpointHealthGuidance.Length > 0) warnings.Add(_endpointHealthGuidance);
+        AudioHealthMessage = string.Join("  ", warnings.Distinct(StringComparer.Ordinal));
+        if (scheduleProbe && warnings.Count > 0 && _audioEndpointHealthProbe is not null && !_endpointProbeInFlight
+            && now - _lastEndpointProbeAt >= TimeSpan.FromSeconds(1))
+            _ = UpdateEndpointHealthGuidanceAsync(systemState, microphoneState);
+    }
+
+    private async Task UpdateEndpointHealthGuidanceAsync(AudioSignalHealthState systemState,
+        AudioSignalHealthState microphoneState)
+    {
+        _endpointProbeInFlight = true;
+        _lastEndpointProbeAt = DateTimeOffset.UtcNow;
+        try
+        {
+            var sources = SystemAudioSources.Concat(MicrophoneSources).ToArray();
+            var snapshots = await _audioEndpointHealthProbe!.ProbeAsync(sources);
+            if (!IsRecording) return;
+            var guidance = new List<string>();
+            if (SelectedSystemAudio is not null)
+                guidance.Add(AudioEndpointHealthAdvisor.BuildGuidance(SelectedSystemAudio, systemState, snapshots));
+            if (SelectedMicrophone is not null)
+                guidance.Add(AudioEndpointHealthAdvisor.BuildGuidance(SelectedMicrophone, microphoneState, snapshots));
+            _endpointHealthGuidance = string.Join("  ", guidance.Where(value => value.Length > 0));
+            RefreshAudioHealthMessage(DateTimeOffset.UtcNow, scheduleProbe: false);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            AddStatus("WARNING", $"Audio endpoint health probe unavailable: {exception.Message}");
+        }
+        finally { _endpointProbeInFlight = false; }
     }
 
     private static void AddAudioHealthWarning(List<string> warnings, string source, AudioSignalHealthState state, string guidance)

@@ -152,6 +152,19 @@ try
         Console.WriteLine("PASS Source discovery returned unique identifiers and at least one display.");
     }
 
+    var audioSources = sources.Where(source => source.Kind is CaptureSourceKind.SystemAudio or CaptureSourceKind.Microphone).ToArray();
+    var endpointSnapshots = await new WindowsAudioEndpointHealthProbe().ProbeAsync(audioSources);
+    if (endpointSnapshots.Count != audioSources.Length || endpointSnapshots.Any(snapshot =>
+            snapshot.PeakAmplitude is < 0 or > 1))
+    {
+        Console.Error.WriteLine("FAIL Windows endpoint health probe returned incomplete or invalid evidence.");
+        failures++;
+    }
+    else
+    {
+        Console.WriteLine($"PASS Windows endpoint health probe inspected {endpointSnapshots.Count} audio endpoint(s).");
+    }
+
     var ultraWide = ScreenCaptureSizing.FitWithinEncoderLimit(5160, 2160);
     if (ultraWide.Width != 3840 || ultraWide.Height != 1608)
     {

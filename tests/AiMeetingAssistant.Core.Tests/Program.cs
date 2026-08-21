@@ -49,6 +49,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ,("paired incremental transcripts split into source artifacts", PairedIncrementalTranscriptsSplitBySource)
     ,("successful incremental cleanup removes only reproducible processing data", IncrementalCleanupIsSafelyScoped)
     ,("audio signal health distinguishes never-seen silence and recovery", AudioSignalHealthTracksRecovery)
+    ,("audio endpoint guidance reports mute and active alternatives", AudioEndpointGuidanceIsEvidenceBased)
 };
 
 var failures = 0;
@@ -777,6 +778,25 @@ static Task AudioSignalHealthTracksRecovery()
     Equal(AudioSignalHealthState.Healthy, monitor.Evaluate(start.AddSeconds(77)));
     monitor.Stop();
     Equal(AudioSignalHealthState.Inactive, monitor.Evaluate(start.AddMinutes(5)));
+    return Task.CompletedTask;
+}
+
+static Task AudioEndpointGuidanceIsEvidenceBased()
+{
+    var selected = new CaptureSource("microphone:selected", "Selected microphone", CaptureSourceKind.Microphone, true);
+    var snapshots = new AudioEndpointSnapshot[]
+    {
+        new(selected.Id, selected.DisplayName, selected.Kind, 0, true),
+        new("microphone:other", "USB headset", selected.Kind, 0.2, false)
+    };
+    if (!AudioEndpointHealthAdvisor.BuildGuidance(selected, AudioSignalHealthState.NeverDetected, snapshots)
+        .Contains("muted in Windows", StringComparison.Ordinal))
+        throw new InvalidOperationException("Global endpoint mute was not reported.");
+    snapshots[0] = snapshots[0] with { IsGloballyMuted = false };
+    if (!AudioEndpointHealthAdvisor.BuildGuidance(selected, AudioSignalHealthState.CurrentlySilent, snapshots)
+        .Contains("USB headset", StringComparison.Ordinal))
+        throw new InvalidOperationException("Active alternative endpoint was not suggested.");
+    Equal("", AudioEndpointHealthAdvisor.BuildGuidance(selected, AudioSignalHealthState.Healthy, snapshots));
     return Task.CompletedTask;
 }
 
