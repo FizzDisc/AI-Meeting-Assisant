@@ -1,0 +1,1 @@
+<Project Sdk="WixToolset.Sdk/6.0.2"><PropertyGroup><OutputName>AI-Meeting-Assistant-1.0.0-win-x64</OutputName><DefineConstants>PublishDir=$(PublishDir)</DefineConstants></PropertyGroup></Project>

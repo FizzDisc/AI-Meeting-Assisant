@@ -5,6 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <Company>FizzDisc</Company>
+    <Product>AI Meeting Assistant</Product>
+    <Copyright>Copyright © 2026 FizzDisc</Copyright>
   </PropertyGroup>
 </Project>
-
