@@ -45,7 +45,9 @@ public sealed class IncrementalTranscriptionCoordinator : IAsyncDisposable
         {
             SingleReader = true,
             SingleWriter = false,
-            FullMode = BoundedChannelFullMode.DropWrite,
+            // Capture uses TryWrite and leaves overflow chunks on disk. Finalization
+            // uses WriteAsync and must wait for space rather than lose completion work.
+            FullMode = BoundedChannelFullMode.Wait,
             AllowSynchronousContinuations = false
         });
         _pump = PumpAsync();

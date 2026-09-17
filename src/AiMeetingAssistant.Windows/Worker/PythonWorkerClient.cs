@@ -152,14 +152,31 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
             var request = JsonSerializer.Serialize(new { protocolVersion = WorkerProtocol.CurrentVersion, requestId, type, payload });
             await _process!.StandardInput.WriteLineAsync(request).ConfigureAwait(false);
             await _process.StandardInput.FlushAsync(cancellationToken).ConfigureAwait(false);
-            var line = await _process.StandardOutput.ReadLineAsync(cancellationToken).AsTask()
-                .WaitAsync(responseTimeout ?? _requestTimeout, cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidOperationException($"Python worker exited without a response. {GetDiagnostics()}");
+            using var responseCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            responseCancellation.CancelAfter(responseTimeout ?? _requestTimeout);
+            string? line;
+            try
+            {
+                line = await _process.StandardOutput.ReadLineAsync(responseCancellation.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException("Python worker response timed out; the worker and its running jobs are stopped.");
+            }
+            if (line is null) throw new IOException($"Python worker exited without a response. {GetDiagnostics()}");
             var response = JsonSerializer.Deserialize<WorkerResponse>(line) ?? throw new InvalidDataException("Python worker returned an empty response.");
             if (response.ProtocolVersion != WorkerProtocol.CurrentVersion) throw new InvalidDataException($"Worker protocol {response.ProtocolVersion} is incompatible with {WorkerProtocol.CurrentVersion}.");
             if (response.RequestId != requestId) throw new InvalidDataException("Python worker response request ID does not match.");
             if (!response.Ok) throw new InvalidOperationException($"Worker {response.Error?.Code}: {response.Error?.Message}");
             return response;
+        }
+        catch (Exception exception) when (exception is TimeoutException or OperationCanceledException
+            or IOException or JsonException)
+        {
+            // A partially read response cannot safely be reused. Do not replay the
+            // request: it may already have started work. The next call starts fresh.
+            await ResetAsync().ConfigureAwait(false);
+            throw;
         }
         finally { _requestLock.Release(); }
     }
@@ -196,6 +213,23 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
     }
 
     private string GetDiagnostics() { lock (_diagnostics) return string.Join(" | ", _diagnostics); }
+
+    private async Task ResetAsync()
+    {
+        var process = _process;
+        if (process is null) return;
+        // Keep ownership if termination fails; never silently orphan active jobs.
+        if (!process.HasExited) process.Kill(entireProcessTree: true);
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        _process = null;
+        if (_stderrPump is not null)
+        {
+            try { await _stderrPump.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); } catch { }
+            _stderrPump = null;
+        }
+        process.Dispose();
+        lock (_diagnostics) _diagnostics.Clear();
+    }
 
     public async ValueTask DisposeAsync()
     {

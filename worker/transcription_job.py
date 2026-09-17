@@ -224,7 +224,7 @@ def reconcile_without_diarization(segments: list[dict[str, Any]]) -> list[dict[s
         result.append(item)
     return result
 
-def run(request_path: Path) -> int:
+def run(request_path: Path, model_cache: dict | None = None) -> int:
     started = time.monotonic()
     request = json.loads(request_path.read_text(encoding="utf-8"))
     inputs = [Path(item).resolve() for item in request["audioPaths"]]
@@ -287,6 +287,7 @@ def run(request_path: Path) -> int:
         compute = select_compute(torch, preference)
     device, compute_type, batch_size = compute["mode"], compute["computeType"], compute["batchSize"]
     model_seconds, openvino_metrics, raw_cache_hit = 0.0, None, cached_raw is not None
+    model_reused = False
     if cached_raw:
         write_atomic(status_path, {"status": "reusing-transcription", "progress": 0.85})
         results = [(item["source"], item["result"]) for item in cached_raw["results"]]
@@ -294,7 +295,14 @@ def run(request_path: Path) -> int:
     else:
         write_atomic(status_path, {"status": "loading-openvino-model" if preference == "intel-gpu" else "loading-model", "progress": 0.25})
         model_started = time.monotonic()
-        if preference == "intel-gpu":
+        model_key = (str(model_path), device, compute_type, requested_language,
+                     request.get("openVinoModelPath"), request.get("openVinoRuntimePath"), request.get("sileroVadPath"))
+        if model_cache is not None and model_cache.get("key") == model_key:
+            model = model_cache["model"]
+            model_reused = True
+            if preference == "intel-gpu":
+                model.metrics = {**model.metrics, "compileSeconds": 0.0, "vadLoadSeconds": 0.0, "tracks": []}
+        elif preference == "intel-gpu":
             from openvino_backend import OpenVinoTranscriber
             vad_model = Path(sys.executable).resolve().parent.parent / "Lib/site-packages/whisperx/assets/pytorch_model.bin"
             model = OpenVinoTranscriber(Path(request["openVinoRuntimePath"]), Path(request["openVinoModelPath"]),
@@ -304,7 +312,9 @@ def run(request_path: Path) -> int:
             import whisperx
             model = whisperx.load_model(str(model_path), device, compute_type=compute_type,
                                         language=requested_language)
-        model_seconds = time.monotonic()-model_started
+        if model_cache is not None:
+            model_cache.update(key=model_key, model=model)
+        model_seconds = 0.0 if model_reused else time.monotonic()-model_started
         results = []
         for index, (label, normalized_path) in enumerate(normalized):
             base, span = 0.35 + 0.5 * index / len(normalized), 0.5 / len(normalized)
@@ -375,6 +385,7 @@ def run(request_path: Path) -> int:
         segments = reconcile_without_diarization(segments)
     performance = {"normalizationSeconds": round(normalization_seconds, 3),
                    "modelLoadSeconds": round(model_seconds, 3),
+                   "modelReused": model_reused,
                    "diarizationSeconds": round(diarization_seconds, 3),
                    "diarizationDevice": "xpu" if xpu_available else "cpu",
                    "diarizationBatchSizes": diarization_batches,

@@ -14,6 +14,7 @@
   <ItemGroup>
     <Content Include="..\..\worker\main.py" Link="worker\main.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\transcription_jobs.py" Link="worker\transcription_jobs.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\worker\live_transcription.py" Link="worker\live_transcription.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\transcription_job.py" Link="worker\transcription_job.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\xpu_diarization_stage.py" Link="worker\xpu_diarization_stage.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\incremental_finalize_job.py" Link="worker\incremental_finalize_job.py" CopyToOutputDirectory="PreserveNewest" />

@@ -9,6 +9,28 @@ var failures = 0;
 
 try
 {
+    await WorkerRecoveryRegression.RunAsync();
+    Console.WriteLine("PASS Worker recovers after timeout and request cancellation.");
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Worker recovery: {exception.Message}");
+    failures++;
+}
+
+try
+{
+    await IncrementalQueueRegression.RunAsync();
+    Console.WriteLine("PASS Live queue overflow preserves catch-up jobs and finalization.");
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Live queue overflow: {exception.Message}");
+    failures++;
+}
+
+try
+{
     var workerPath = Path.Combine(Environment.CurrentDirectory, "worker", "main.py");
     await using var worker = new PythonWorkerClient("python", workerPath);
     var firstHealth = await worker.CheckHealthAsync();

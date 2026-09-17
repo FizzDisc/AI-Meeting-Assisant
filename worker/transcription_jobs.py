@@ -2,6 +2,7 @@ from __future__ import annotations
 import json, subprocess, sys, threading, uuid
 from pathlib import Path
 from typing import Any
+from live_transcription import LiveProcess, stop_tree
 
 class TranscriptionJobManager:
     def __init__(self, job_script: Path | None = None) -> None:
@@ -9,6 +10,7 @@ class TranscriptionJobManager:
         self._finalization_script = Path(__file__).with_name("incremental_finalize_job.py").resolve()
         self._jobs: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
+        self._live = LiveProcess()
 
     def start(self, payload: dict[str, Any]) -> dict[str, Any]:
         audio_paths = [Path(item).resolve() for item in payload.get("audioPaths", [])]
@@ -62,12 +64,26 @@ class TranscriptionJobManager:
                    "sourceLabels": source_labels}
         request_path.write_text(json.dumps(request), encoding="utf-8")
         log_path = output_path.parent / f"transcription-{job_id}.worker.log"
+        if payload.get("lowPriority") and diarization_path is None and self._job_script.name == "transcription_job.py":
+            # Share only within a session and identical runtime/model configuration.
+            session = next((p.parent for p in output_path.parents if p.name == "processing"), output_path.parent)
+            key = json.dumps({name: request.get(name) for name in (
+                "modelPath", "modelId", "language", "computePreference", "openVinoModelPath",
+                "openVinoRuntimePath", "sileroVadPath", "torchXpuRuntimePath")}, sort_keys=True) + str(session)
+            process = self._live.submit(key, request_path, log_path)
+            with self._lock:
+                self._jobs[job_id] = {"process": process, "statusPath": status_path,
+                    "logPath": log_path, "logHandle": None, "liveRequest": request_path}
+            return {"jobId": job_id, "status": "queued", "progress": 0.0}
+        if self._live.active is None:
+            self._live.close()
         log_handle = log_path.open("w", encoding="utf-8")
         try:
             creationflags = 0x00004000 if sys.platform == "win32" and payload.get("lowPriority") else 0
             process = subprocess.Popen([sys.executable, "-u", str(self._job_script), str(request_path)],
                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                       stderr=log_handle, text=True, creationflags=creationflags)
+                                       stderr=log_handle, text=True, creationflags=creationflags,
+                                       start_new_session=sys.platform != "win32")
         except Exception:
             log_handle.close()
             raise
@@ -77,6 +93,9 @@ class TranscriptionJobManager:
         return {"jobId": job_id, "status": "queued", "progress": 0.0}
 
     def start_incremental_finalize(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if self._live.active is not None:
+            raise ValueError("Wait for the live transcription batch before finalization.")
+        self._live.close()
         required = ("mergedTranscriptPath", "systemAudioPath", "outputPath")
         values = {name: Path(str(payload.get(name, ""))).resolve() for name in required}
         for name in ("mergedTranscriptPath", "systemAudioPath"):
@@ -100,7 +119,7 @@ class TranscriptionJobManager:
         try:
             process = subprocess.Popen([sys.executable, "-u", str(self._finalization_script), str(request_path)],
                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                       stderr=log_handle, text=True)
+                                       stderr=log_handle, text=True, start_new_session=sys.platform != "win32")
         except Exception:
             log_handle.close(); raise
         with self._lock:
@@ -110,12 +129,29 @@ class TranscriptionJobManager:
 
     def status(self, job_id: str) -> dict[str, Any]:
         job, result = self._get(job_id), {"status": "queued", "progress": 0.0}
+        if "finalResult" in job:
+            return dict(job["finalResult"])
         process, status_path = job["process"], Path(job["statusPath"])
         if status_path.is_file():
             try: result = json.loads(status_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError): pass
         result["jobId"] = job_id
         exit_code = process.poll()
+        if "liveRequest" in job:
+            done = status_path.with_suffix(".done")
+            if done.exists() or exit_code is not None:
+                if result.get("status") not in ("completed", "failed", "cancelled"):
+                    result.update(status="failed", error="Live model process exited before completing the batch.")
+                job["finalResult"] = dict(result)
+                if result["status"] != "completed":
+                    self._live.close()
+                else:
+                    self._live.finished(job["liveRequest"])
+                done.unlink(missing_ok=True)
+                return result
+            if result.get("status") in ("completed", "failed"):
+                result["status"] = "finishing"
+            return result
         if result.get("status") in ("completed", "failed", "cancelled") and exit_code is None:
             # A job writes its terminal status atomically immediately before
             # exiting. Wait briefly so its inherited diagnostic-log handle is
@@ -138,12 +174,17 @@ class TranscriptionJobManager:
     def cancel(self, job_id: str) -> dict[str, Any]:
         job, status = self._get(job_id), {"jobId": job_id, "status": "cancelled", "progress": 0.0}
         process = job["process"]
+        if "liveRequest" in job:
+            current = self.status(job_id)
+            if current["status"] in ("completed", "failed", "cancelled"):
+                return current
+            self._live.close()
+            job["finalResult"] = dict(status)
+            Path(job["statusPath"]).write_text(json.dumps(status), encoding="utf-8")
+            return status
         if process.poll() is not None:
             return self.status(job_id)
-        process.terminate()
-        try: process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill(); process.wait(timeout=5)
+        stop_tree(process)
         self._close_log(job)
         Path(job["statusPath"]).write_text(json.dumps(status), encoding="utf-8")
         return status
@@ -153,6 +194,7 @@ class TranscriptionJobManager:
         for job_id in ids:
             try: self.cancel(job_id)
             except Exception: pass
+        self._live.close()
 
     def _get(self, job_id: str) -> dict[str, Any]:
         with self._lock: job = self._jobs.get(job_id)
