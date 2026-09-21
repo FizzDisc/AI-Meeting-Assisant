@@ -10,7 +10,7 @@ Run the MSI, then use the Welcome screen to download the AI components and a spe
 
 [Release notes and downloads](https://github.com/FizzDisc/AI-Meeting-Assisant/releases/tag/v1.0.8)
 
-This repository is private: sign in to GitHub with an account that has access to download the installer.
+The repository and installer downloads are public. No GitHub account is required.
 
 ## Implemented
 
