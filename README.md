@@ -2,6 +2,16 @@
 
 Local-first Windows desktop app for synchronized screen, system/Teams audio and microphone recording, followed by local source-aware transcription. This greenfield repository contains no Marvin prototype code.
 
+## Download for Windows
+
+**[Download the Windows x64 installer (v1.0.8)](https://github.com/FizzDisc/AI-Meeting-Assisant/releases/download/v1.0.8/AI-Meeting-Assistant-1.0.8-win-x64.msi)**
+
+Run the MSI, then use the Welcome screen to download the AI components and a speech model. No separate Python or .NET SDK installation is needed. Close the app before updating.
+
+[Release notes and downloads](https://github.com/FizzDisc/AI-Meeting-Assisant/releases/tag/v1.0.8)
+
+This repository is private: sign in to GitHub with an account that has access to download the installer.
+
 ## Implemented
 
 - .NET 8 WPF desktop app and native Windows capture
@@ -13,7 +23,7 @@ Local-first Windows desktop app for synchronized screen, system/Teams audio and 
 
 No AI model is bundled or downloaded automatically.
 
-## Setup
+## Development setup
 
 Requires Windows 10 2004+, .NET 8 SDK, Python 3.10–3.13 and FFmpeg.
 
