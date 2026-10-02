@@ -41,3 +41,9 @@ The complete Python suite has 48 passing tests and two environment errors
 (missing NumPy and FFmpeg); it has not fully passed here.
 Bundled ScreenRecorderLib and .NET license notices are included under licenses/.
 The separately downloaded runtime/model dependency license review remains open.
+
+Runtime metadata inventory: [runtime-license-inventory.json](runtime-license-inventory.json).
+All 102 pinned PyPI packages were queried; eight lack usable license metadata.
+Inspect their distributed license files and the licenses of embedded native
+binaries (especially FFmpeg), PyTorch packages and model weights before claiming
+complete SignPath eligibility. Package metadata alone does not prove compliance.

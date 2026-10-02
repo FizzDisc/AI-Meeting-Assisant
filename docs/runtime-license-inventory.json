@@ -1,0 +1,706 @@
+{
+  "status": "Metadata inventory only; not a completed license or bundled-binary audit. Excludes separately installed Python, pip, torch/torchaudio/torchvision and model weights.",
+  "packages": [
+    {
+      "package": "aiohappyeyeballs",
+      "version": "2.7.1",
+      "reported_license": [
+        "License :: OSI Approved :: Python Software Foundation License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/aiohappyeyeballs/2.7.1/json"
+    },
+    {
+      "package": "aiohttp",
+      "version": "3.14.3",
+      "reported_license": "Apache-2.0 AND MIT",
+      "metadata_source": "https://pypi.org/pypi/aiohttp/3.14.3/json"
+    },
+    {
+      "package": "aiosignal",
+      "version": "1.4.0",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/aiosignal/1.4.0/json"
+    },
+    {
+      "package": "alembic",
+      "version": "1.20.0",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/alembic/1.20.0/json"
+    },
+    {
+      "package": "antlr4-python3-runtime",
+      "version": "4.9.3",
+      "reported_license": "BSD",
+      "metadata_source": "https://pypi.org/pypi/antlr4-python3-runtime/4.9.3/json"
+    },
+    {
+      "package": "asteroid-filterbanks",
+      "version": "0.4.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/asteroid-filterbanks/0.4.0/json"
+    },
+    {
+      "package": "attrs",
+      "version": "26.1.0",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/attrs/26.1.0/json"
+    },
+    {
+      "package": "av",
+      "version": "18.1.0",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/av/18.1.0/json"
+    },
+    {
+      "package": "certifi",
+      "version": "2026.7.22",
+      "reported_license": [
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+      ],
+      "metadata_source": "https://pypi.org/pypi/certifi/2026.7.22/json"
+    },
+    {
+      "package": "charset-normalizer",
+      "version": "3.5.1",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/charset-normalizer/3.5.1/json"
+    },
+    {
+      "package": "click",
+      "version": "8.5.0",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/click/8.5.0/json"
+    },
+    {
+      "package": "cloudpickle",
+      "version": "3.1.2",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/cloudpickle/3.1.2/json"
+    },
+    {
+      "package": "colorama",
+      "version": "0.4.6",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/colorama/0.4.6/json"
+    },
+    {
+      "package": "colorlog",
+      "version": "6.12.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/colorlog/6.12.0/json"
+    },
+    {
+      "package": "contourpy",
+      "version": "1.4.0",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/contourpy/1.4.0/json"
+    },
+    {
+      "package": "ctranslate2",
+      "version": "4.8.2",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/ctranslate2/4.8.2/json"
+    },
+    {
+      "package": "cycler",
+      "version": "0.12.1",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/cycler/0.12.1/json"
+    },
+    {
+      "package": "defusedxml",
+      "version": "0.7.1",
+      "reported_license": [
+        "License :: OSI Approved :: Python Software Foundation License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/defusedxml/0.7.1/json"
+    },
+    {
+      "package": "einops",
+      "version": "0.8.2",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/einops/0.8.2/json"
+    },
+    {
+      "package": "faster-whisper",
+      "version": "1.2.1",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/faster-whisper/1.2.1/json"
+    },
+    {
+      "package": "filelock",
+      "version": "4.0.0",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/filelock/4.0.0/json"
+    },
+    {
+      "package": "flatbuffers",
+      "version": "25.12.19",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/flatbuffers/25.12.19/json"
+    },
+    {
+      "package": "fonttools",
+      "version": "4.65.0",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/fonttools/4.65.0/json"
+    },
+    {
+      "package": "frozenlist",
+      "version": "1.8.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/frozenlist/1.8.0/json"
+    },
+    {
+      "package": "fsspec",
+      "version": "2026.7.0",
+      "reported_license": null,
+      "metadata_source": "https://pypi.org/pypi/fsspec/2026.7.0/json"
+    },
+    {
+      "package": "googleapis-common-protos",
+      "version": "1.75.3",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/googleapis-common-protos/1.75.3/json"
+    },
+    {
+      "package": "greenlet",
+      "version": "3.5.6",
+      "reported_license": "MIT AND PSF-2.0",
+      "metadata_source": "https://pypi.org/pypi/greenlet/3.5.6/json"
+    },
+    {
+      "package": "grpcio",
+      "version": "1.84.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/grpcio/1.84.0/json"
+    },
+    {
+      "package": "huggingface_hub",
+      "version": "0.36.2",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/huggingface_hub/0.36.2/json"
+    },
+    {
+      "package": "idna",
+      "version": "3.20",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/idna/3.20/json"
+    },
+    {
+      "package": "imageio-ffmpeg",
+      "version": "0.6.0",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/imageio-ffmpeg/0.6.0/json"
+    },
+    {
+      "package": "Jinja2",
+      "version": "3.1.6",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/Jinja2/3.1.6/json"
+    },
+    {
+      "package": "joblib",
+      "version": "1.6.0",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/joblib/1.6.0/json"
+    },
+    {
+      "package": "julius",
+      "version": "0.2.8",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/julius/0.2.8/json"
+    },
+    {
+      "package": "kiwisolver",
+      "version": "1.5.1",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/kiwisolver/1.5.1/json"
+    },
+    {
+      "package": "lightning",
+      "version": "2.6.6",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/lightning/2.6.6/json"
+    },
+    {
+      "package": "lightning-utilities",
+      "version": "0.15.3",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/lightning-utilities/0.15.3/json"
+    },
+    {
+      "package": "Mako",
+      "version": "1.4.1",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/Mako/1.4.1/json"
+    },
+    {
+      "package": "markdown-it-py",
+      "version": "4.2.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/markdown-it-py/4.2.0/json"
+    },
+    {
+      "package": "MarkupSafe",
+      "version": "3.0.3",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/MarkupSafe/3.0.3/json"
+    },
+    {
+      "package": "matplotlib",
+      "version": "3.11.2",
+      "reported_license": [
+        "License :: OSI Approved :: Python Software Foundation License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/matplotlib/3.11.2/json"
+    },
+    {
+      "package": "mdurl",
+      "version": "0.1.2",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/mdurl/0.1.2/json"
+    },
+    {
+      "package": "mpmath",
+      "version": "1.3.0",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/mpmath/1.3.0/json"
+    },
+    {
+      "package": "multidict",
+      "version": "6.8.0",
+      "reported_license": "Apache License 2.0",
+      "metadata_source": "https://pypi.org/pypi/multidict/6.8.0/json"
+    },
+    {
+      "package": "narwhals",
+      "version": "2.26.0",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/narwhals/2.26.0/json"
+    },
+    {
+      "package": "networkx",
+      "version": "3.6.1",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/networkx/3.6.1/json"
+    },
+    {
+      "package": "nltk",
+      "version": "3.10.3",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/nltk/3.10.3/json"
+    },
+    {
+      "package": "numpy",
+      "version": "2.5.3",
+      "reported_license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "metadata_source": "https://pypi.org/pypi/numpy/2.5.3/json"
+    },
+    {
+      "package": "omegaconf",
+      "version": "2.3.1",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/omegaconf/2.3.1/json"
+    },
+    {
+      "package": "onnxruntime",
+      "version": "1.30.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/onnxruntime/1.30.0/json"
+    },
+    {
+      "package": "opentelemetry-api",
+      "version": "1.44.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/opentelemetry-api/1.44.0/json"
+    },
+    {
+      "package": "opentelemetry-exporter-otlp",
+      "version": "1.44.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/opentelemetry-exporter-otlp/1.44.0/json"
+    },
+    {
+      "package": "opentelemetry-exporter-otlp-proto-common",
+      "version": "1.44.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/opentelemetry-exporter-otlp-proto-common/1.44.0/json"
+    },
+    {
+      "package": "opentelemetry-exporter-otlp-proto-grpc",
+      "version": "1.44.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/opentelemetry-exporter-otlp-proto-grpc/1.44.0/json"
+    },
+    {
+      "package": "opentelemetry-exporter-otlp-proto-http",
+      "version": "1.44.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/opentelemetry-exporter-otlp-proto-http/1.44.0/json"
+    },
+    {
+      "package": "opentelemetry-proto",
+      "version": "1.44.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/opentelemetry-proto/1.44.0/json"
+    },
+    {
+      "package": "opentelemetry-sdk",
+      "version": "1.44.0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/opentelemetry-sdk/1.44.0/json"
+    },
+    {
+      "package": "opentelemetry-semantic-conventions",
+      "version": "0.65b0",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/opentelemetry-semantic-conventions/0.65b0/json"
+    },
+    {
+      "package": "optuna",
+      "version": "5.0.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/optuna/5.0.0/json"
+    },
+    {
+      "package": "packaging",
+      "version": "26.3",
+      "reported_license": "Apache-2.0 OR BSD-2-Clause",
+      "metadata_source": "https://pypi.org/pypi/packaging/26.3/json"
+    },
+    {
+      "package": "pandas",
+      "version": "3.0.5",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/pandas/3.0.5/json"
+    },
+    {
+      "package": "pillow",
+      "version": "12.3.0",
+      "reported_license": "MIT-CMU",
+      "metadata_source": "https://pypi.org/pypi/pillow/12.3.0/json"
+    },
+    {
+      "package": "primePy",
+      "version": "1.3",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/primePy/1.3/json"
+    },
+    {
+      "package": "propcache",
+      "version": "0.5.4",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/propcache/0.5.4/json"
+    },
+    {
+      "package": "protobuf",
+      "version": "7.36.2",
+      "reported_license": "3-Clause BSD License",
+      "metadata_source": "https://pypi.org/pypi/protobuf/7.36.2/json"
+    },
+    {
+      "package": "pyannote-audio",
+      "version": "4.0.7",
+      "reported_license": null,
+      "metadata_source": "https://pypi.org/pypi/pyannote-audio/4.0.7/json"
+    },
+    {
+      "package": "pyannote-core",
+      "version": "6.0.1",
+      "reported_license": null,
+      "metadata_source": "https://pypi.org/pypi/pyannote-core/6.0.1/json"
+    },
+    {
+      "package": "pyannote-database",
+      "version": "6.1.1",
+      "reported_license": null,
+      "metadata_source": "https://pypi.org/pypi/pyannote-database/6.1.1/json"
+    },
+    {
+      "package": "pyannote-metrics",
+      "version": "4.1",
+      "reported_license": null,
+      "metadata_source": "https://pypi.org/pypi/pyannote-metrics/4.1/json"
+    },
+    {
+      "package": "pyannote-pipeline",
+      "version": "4.0.0",
+      "reported_license": null,
+      "metadata_source": "https://pypi.org/pypi/pyannote-pipeline/4.0.0/json"
+    },
+    {
+      "package": "pyannoteai-sdk",
+      "version": "0.4.0",
+      "reported_license": null,
+      "metadata_source": "https://pypi.org/pypi/pyannoteai-sdk/0.4.0/json"
+    },
+    {
+      "package": "Pygments",
+      "version": "2.21.0",
+      "reported_license": "BSD-2-Clause",
+      "metadata_source": "https://pypi.org/pypi/Pygments/2.21.0/json"
+    },
+    {
+      "package": "pyparsing",
+      "version": "3.3.2",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/pyparsing/3.3.2/json"
+    },
+    {
+      "package": "python-dateutil",
+      "version": "2.9.0.post0",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/python-dateutil/2.9.0.post0/json"
+    },
+    {
+      "package": "pytorch-lightning",
+      "version": "2.6.6",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/pytorch-lightning/2.6.6/json"
+    },
+    {
+      "package": "pytorch-metric-learning",
+      "version": "2.9.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/pytorch-metric-learning/2.9.0/json"
+    },
+    {
+      "package": "PyYAML",
+      "version": "6.0.3",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/PyYAML/6.0.3/json"
+    },
+    {
+      "package": "regex",
+      "version": "2026.9.10",
+      "reported_license": "Apache-2.0 AND CNRI-Python",
+      "metadata_source": "https://pypi.org/pypi/regex/2026.9.10/json"
+    },
+    {
+      "package": "requests",
+      "version": "2.34.2",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/requests/2.34.2/json"
+    },
+    {
+      "package": "rich",
+      "version": "15.0.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/rich/15.0.0/json"
+    },
+    {
+      "package": "safetensors",
+      "version": "0.8.0",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/safetensors/0.8.0/json"
+    },
+    {
+      "package": "scikit-learn",
+      "version": "1.9.1",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/scikit-learn/1.9.1/json"
+    },
+    {
+      "package": "scipy",
+      "version": "1.18.1",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/scipy/1.18.1/json"
+    },
+    {
+      "package": "six",
+      "version": "1.17.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/six/1.17.0/json"
+    },
+    {
+      "package": "sortedcontainers",
+      "version": "2.4.0",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/sortedcontainers/2.4.0/json"
+    },
+    {
+      "package": "SQLAlchemy",
+      "version": "2.0.54",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/SQLAlchemy/2.0.54/json"
+    },
+    {
+      "package": "sympy",
+      "version": "1.14.0",
+      "reported_license": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/sympy/1.14.0/json"
+    },
+    {
+      "package": "threadpoolctl",
+      "version": "3.7.0",
+      "reported_license": "BSD-3-Clause",
+      "metadata_source": "https://pypi.org/pypi/threadpoolctl/3.7.0/json"
+    },
+    {
+      "package": "tokenizers",
+      "version": "0.22.2",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/tokenizers/0.22.2/json"
+    },
+    {
+      "package": "torch-audiomentations",
+      "version": "0.12.0",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/torch-audiomentations/0.12.0/json"
+    },
+    {
+      "package": "torch_pitch_shift",
+      "version": "1.2.5",
+      "reported_license": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/torch_pitch_shift/1.2.5/json"
+    },
+    {
+      "package": "torchcodec",
+      "version": "0.7.0",
+      "reported_license": null,
+      "metadata_source": "https://pypi.org/pypi/torchcodec/0.7.0/json"
+    },
+    {
+      "package": "torchmetrics",
+      "version": "1.9.0",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/torchmetrics/1.9.0/json"
+    },
+    {
+      "package": "tqdm",
+      "version": "4.70.1",
+      "reported_license": "MPL-2.0 AND MIT",
+      "metadata_source": "https://pypi.org/pypi/tqdm/4.70.1/json"
+    },
+    {
+      "package": "transformers",
+      "version": "4.57.6",
+      "reported_license": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "metadata_source": "https://pypi.org/pypi/transformers/4.57.6/json"
+    },
+    {
+      "package": "truststore",
+      "version": "0.10.4",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/truststore/0.10.4/json"
+    },
+    {
+      "package": "typing_extensions",
+      "version": "4.16.0",
+      "reported_license": "PSF-2.0",
+      "metadata_source": "https://pypi.org/pypi/typing_extensions/4.16.0/json"
+    },
+    {
+      "package": "tzdata",
+      "version": "2026.4",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/tzdata/2026.4/json"
+    },
+    {
+      "package": "urllib3",
+      "version": "2.8.0",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/urllib3/2.8.0/json"
+    },
+    {
+      "package": "whisperx",
+      "version": "3.8.6",
+      "reported_license": "BSD-2-Clause",
+      "metadata_source": "https://pypi.org/pypi/whisperx/3.8.6/json"
+    },
+    {
+      "package": "yarl",
+      "version": "1.25.1",
+      "reported_license": "Apache-2.0",
+      "metadata_source": "https://pypi.org/pypi/yarl/1.25.1/json"
+    },
+    {
+      "package": "setuptools",
+      "version": "84.0.0",
+      "reported_license": "MIT",
+      "metadata_source": "https://pypi.org/pypi/setuptools/84.0.0/json"
+    }
+  ]
+}
