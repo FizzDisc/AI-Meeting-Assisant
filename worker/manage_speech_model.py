@@ -25,10 +25,48 @@ def validate(path: Path) -> None:
     if missing: raise ValueError(f"Downloaded model is incomplete: missing {', '.join(missing)}")
     if (path / "model.bin").stat().st_size < 1_000_000: raise ValueError("Downloaded model weights are unexpectedly small.")
 
+def local_download_bytes(directory: Path) -> int:
+    """Count payload and unfinished transfers, excluding Hub bookkeeping."""
+    total = 0
+    for path in directory.rglob("*"):
+        try:
+            if not path.is_file() or path.is_symlink(): continue
+            relative = path.relative_to(directory)
+            if ".cache" in relative.parts and path.suffix != ".incomplete": continue
+            total += path.stat().st_size
+        except OSError:
+            pass  # Downloads atomically rename files while we inspect them.
+    return total
+
+
+class DownloadProgress:
+    def __init__(self, directory: Path, model_id: str, total: int):
+        self.directory, self.model_id, self.total = directory, model_id, total
+        self.stop = threading.Event()
+        self.thread = threading.Thread(target=self._monitor, daemon=True)
+
+    def report(self):
+        done = local_download_bytes(self.directory)
+        emit("progress", modelId=self.model_id, downloadedBytes=min(done, self.total) if self.total else done,
+             totalBytes=self.total, bytesPerSecond=0, measurement="local-file-size")
+
+    def _monitor(self):
+        while not self.stop.wait(.5): self.report()
+
+    def __enter__(self):
+        self.report()
+        self.thread.start()
+        return self
+
+    def __exit__(self, *args):
+        self.stop.set()
+        self.thread.join()
+        self.report()
+
+
 def install(root: Path, model_id: str) -> None:
     import truststore
     from huggingface_hub import HfApi, snapshot_download
-    from tqdm.auto import tqdm
     truststore.inject_into_ssl()
     root.mkdir(parents=True, exist_ok=True)
     target = target_for(root, model_id)
@@ -38,19 +76,9 @@ def install(root: Path, model_id: str) -> None:
         repo_id=CATALOG[model_id][0]
         info=HfApi().model_info(repo_id,files_metadata=True)
         total=sum(int(sibling.size or 0) for sibling in info.siblings)
-        class ReportingTqdm(tqdm):
-            lock=threading.Lock();downloaded=0;started=time.monotonic();last_emit=0.0
-            def update(self,n=1):
-                changed=super().update(n)
-                now=time.monotonic()
-                with self.lock:
-                    type(self).downloaded+=n
-                    if now-type(self).last_emit>=.25:
-                        elapsed=max(now-type(self).started,.001);done=min(type(self).downloaded,total)
-                        emit("progress",modelId=model_id,downloadedBytes=done,totalBytes=total,bytesPerSecond=int(done/elapsed),file=str(getattr(self,"desc","") or ""));type(self).last_emit=now
-                return changed
         emit("downloading", modelId=model_id,totalBytes=total)
-        snapshot_download(repo_id=repo_id, local_dir=temporary,tqdm_class=ReportingTqdm)
+        with DownloadProgress(temporary, model_id, total):
+            snapshot_download(repo_id=repo_id, revision=info.sha, local_dir=temporary)
         emit("validating", modelId=model_id)
         validate(temporary)
         os.replace(temporary, target)

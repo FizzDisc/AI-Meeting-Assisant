@@ -24,6 +24,7 @@ public static class SessionAudioSourceResolver
         foreach (var kind in RequiredKinds)
         {
             var streams = manifest.Streams.Where(item => string.Equals(item.Kind, kind, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (kind == "microphone" && streams.Length == 0 && string.IsNullOrWhiteSpace(manifest.Sources.MicrophoneSourceId)) continue;
             if (streams.Length != 1) return [];
             var wave = ResolveInsideSession(session, streams[0].RelativePath);
             if (wave is null) return [];

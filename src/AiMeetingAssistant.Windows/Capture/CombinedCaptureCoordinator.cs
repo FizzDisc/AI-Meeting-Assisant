@@ -74,8 +74,8 @@ public sealed class CombinedCaptureCoordinator : ICaptureCoordinator
         {
             if (_manifest is not null) throw new InvalidOperationException("Capture session is already active.");
             LastAlignment = null;
-            if (string.IsNullOrWhiteSpace(plan.SystemAudioSourceId) || string.IsNullOrWhiteSpace(plan.MicrophoneSourceId))
-                throw new ArgumentException("System audio and microphone source IDs are required.");
+            if (string.IsNullOrWhiteSpace(plan.SystemAudioSourceId))
+                throw new ArgumentException("A system audio source ID is required.");
             CaptureStorageGuard.EnsureAvailable(_baseDirectory);
 
             var startedAt = DateTimeOffset.UtcNow;

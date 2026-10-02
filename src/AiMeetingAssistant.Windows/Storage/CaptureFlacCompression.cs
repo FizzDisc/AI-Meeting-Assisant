@@ -135,6 +135,7 @@ public static class FfmpegRuntimeResolver
     {
         var configured = Environment.GetEnvironmentVariable(OverrideVariable);
         if (!string.IsNullOrWhiteSpace(configured)) return RequireFile(configured, "configured FFmpeg runtime");
+        if (File.Exists(AiMeetingAssistant.Windows.Worker.UserAiPaths.Ffmpeg)) return AiMeetingAssistant.Windows.Worker.UserAiPaths.Ffmpeg;
         var directory = new DirectoryInfo(baseDirectory ?? AppContext.BaseDirectory);
         while (directory is not null)
         {

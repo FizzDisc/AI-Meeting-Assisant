@@ -1,0 +1,19 @@
+<Window x:Class="AiMeetingAssistant.Desktop.UninstallAiWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI Meeting Assistant deinstallieren" Icon="Assets/assistant.ico"
+        Width="660" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+        Background="{StaticResource CanvasBrush}">
+    <StackPanel Margin="28">
+        <TextBlock Text="KI-Komponenten ebenfalls entfernen?" FontSize="23" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        <TextBlock Text="Die App wird deinstalliert. Wähle aus, welche zusätzlich heruntergeladenen Komponenten dieses Windows-Kontos entfernt werden sollen." TextWrapping="Wrap" Margin="0,14,0,20"/>
+        <CheckBox x:Name="RemoveModels" Content="Heruntergeladene Whisper- und weitere KI-Modelle entfernen" Foreground="{StaticResource TextBrush}" Margin="0,0,0,14"/>
+        <CheckBox x:Name="RemoveRuntime" Content="Private Python-Laufzeit und KI-Bibliotheken entfernen" Foreground="{StaticResource TextBrush}" Margin="0,0,0,20"/>
+        <TextBlock Text="Aufnahmen, Transkripte und Einstellungen bleiben erhalten. Eine separat installierte Python-Version und Modelle außerhalb des App-Datenordners werden nicht entfernt." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+        <TextBlock x:Name="FolderHint" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,12,0,0"/>
+        <TextBlock Text="Ohne Auswahl bleiben alle KI-Komponenten erhalten und können nach einer Neuinstallation wiederverwendet werden. Schließen dieses Fensters behält sie ebenfalls bei." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,12,0,0"/>
+        <ProgressBar x:Name="Busy" IsIndeterminate="True" Height="6" Visibility="Collapsed" Margin="0,18,0,0"/>
+        <TextBlock x:Name="Status" TextWrapping="Wrap" Foreground="{StaticResource AccentBrush}" Margin="0,10,0,0"/>
+        <Button x:Name="ContinueButton" Content="Deinstallation fortsetzen" Click="Continue" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Right" Margin="0,22,0,0"/>
+    </StackPanel>
+</Window>

@@ -1,0 +1,65 @@
+name: Release build
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Check release version
+        run: |
+          [xml]$props = Get-Content Directory.Build.props -Raw
+          $version = [string]$props.Project.PropertyGroup.Version
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
+            throw "Tag does not match project version $version."
+          }
+      - name: Build and test without recording devices
+        run: |
+          dotnet build AI-Meeting-Assistant.sln -c Release
+          if ($LASTEXITCODE) { throw 'Build failed.' }
+          dotnet run --project tests/AiMeetingAssistant.Core.Tests -c Release --no-build
+          if ($LASTEXITCODE) { throw 'Core tests failed.' }
+          dotnet run --project tests/AiMeetingAssistant.Windows.SmokeTests -c Release --no-build -- --system-only-regression
+          if ($LASTEXITCODE) { throw 'Windows regression tests failed.' }
+      - name: Test model management
+        working-directory: worker
+        run: |
+          python -m unittest discover tests -p 'test_manage_speech_model_unittest.py'
+          if ($LASTEXITCODE) { throw 'Model management tests failed.' }
+      - name: Build unsigned packages
+        run: ./scripts/build-release.ps1 -SkipTests
+      - name: Record source and checksums
+        run: |
+          $package = 'artifacts/release/package'
+          [ordered]@{
+            repository = $env:GITHUB_REPOSITORY
+            commit = $env:GITHUB_SHA
+            ref = $env:GITHUB_REF
+            run = "https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            signing = 'unsigned'
+          } | ConvertTo-Json | Set-Content "$package/build-source.json" -Encoding utf8
+          Get-ChildItem $package -File | Sort-Object Name | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
+          } | Set-Content "$package/SHA256SUMS.txt" -Encoding utf8
+      - name: Upload unsigned build for review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unsigned-windows-x64-${{ github.sha }}
+          path: |
+            artifacts/release/package/*
+            artifacts/release/release-manifest.json
+          if-no-files-found: error
+          retention-days: 14

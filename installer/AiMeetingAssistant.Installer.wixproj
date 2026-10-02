@@ -1,1 +1,10 @@
-<Project Sdk="WixToolset.Sdk/6.0.2"><PropertyGroup><OutputName>AI-Meeting-Assistant-1.0.0-win-x64</OutputName><DefineConstants>PublishDir=$(PublishDir)</DefineConstants></PropertyGroup></Project>
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputName>AI-Meeting-Assistant-$(Version)-win-x64</OutputName>
+    <DefineConstants>PublishDir=$(PublishDir);AppVersion=$(Version)</DefineConstants>
+    <InstallerPlatform>x64</InstallerPlatform>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+  </ItemGroup>
+</Project>

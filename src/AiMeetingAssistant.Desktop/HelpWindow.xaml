@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="How it works · AI Meeting Assistant"
-        Icon="Assets/assistant-avatar.png"
+        Icon="Assets/assistant.ico"
         Width="920" Height="700" MinWidth="760" MinHeight="560"
         Background="{StaticResource CanvasBrush}"
         WindowStartupLocation="CenterOwner">

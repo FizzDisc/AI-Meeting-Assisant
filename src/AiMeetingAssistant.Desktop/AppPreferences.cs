@@ -3,8 +3,9 @@ using System.Text.Json;
 namespace AiMeetingAssistant.Desktop;
 internal sealed record AppSettings(int SchemaVersion, bool ScreenCaptureEnabled, string CaptureDirectory, string? ModelDirectory,
     string ComputePreference, string SpeechModelId = "tiny", double SystemAudioGain = 1.0, double MicrophoneGain = 1.0,
-    bool LiveTranscriptionEnabled = true, bool AutomaticFlacArchival = false, bool AutomaticProvenWavRemoval = false)
-{ public static AppSettings Defaults => new(1, true, Path.GetFullPath("artifacts/captures"), null, "automatic", "tiny", 1.0, 1.0, true, false, false); }
+    bool LiveTranscriptionEnabled = true, bool AutomaticFlacArchival = false, bool AutomaticProvenWavRemoval = false,
+    bool SetupCompleted = false)
+{ public static AppSettings Defaults => new(1, true, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI Meeting Assistant", "Recordings"), null, "automatic", "tiny", 1.0, 1.0, true, false, false); }
 internal static class AppPreferences
 {
     private static readonly string DirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI Meeting Assistant");
@@ -12,6 +13,17 @@ internal static class AppPreferences
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
     public static AppSettings Load() { try { if (!File.Exists(FilePath)) return AppSettings.Defaults; var v=JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath),Options)??AppSettings.Defaults; return v with { SchemaVersion=1, CaptureDirectory=Path.GetFullPath(string.IsNullOrWhiteSpace(v.CaptureDirectory)?AppSettings.Defaults.CaptureDirectory:v.CaptureDirectory), ComputePreference=Normalize(v.ComputePreference), SpeechModelId=NormalizeModel(v.SpeechModelId), SystemAudioGain=NormalizeGain(v.SystemAudioGain), MicrophoneGain=NormalizeGain(v.MicrophoneGain)}; } catch { return AppSettings.Defaults; } }
     public static bool LoadScreenCaptureEnabled()=>Load().ScreenCaptureEnabled;
+    internal static void RequireSetupAfterReinstall()
+    {
+        if (!File.Exists(FilePath)) return;
+        if (System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(FilePath)) is not System.Text.Json.Nodes.JsonObject settings) return;
+        foreach (var key in settings.Select(item => item.Key).Where(key => key.Equals("SetupCompleted", StringComparison.OrdinalIgnoreCase)).ToArray())
+            settings.Remove(key);
+        settings["SetupCompleted"] = false;
+        var temporary = FilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try { File.WriteAllText(temporary, settings.ToJsonString(Options)); File.Move(temporary, FilePath, true); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
     public static void SaveScreenCaptureEnabled(bool enabled)=>Save(Load() with { ScreenCaptureEnabled=enabled });
     public static void Save(AppSettings value)
     {

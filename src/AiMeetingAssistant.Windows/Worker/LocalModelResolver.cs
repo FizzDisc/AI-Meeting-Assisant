@@ -73,6 +73,8 @@ public static class LocalModelResolver
 
     private static string? ResolveModel(string directoryName, string? overrideVariable, string? baseDirectory)
     {
+        var userModel = Path.Combine(UserAiPaths.Models, directoryName);
+        if (baseDirectory is null && Directory.Exists(userModel)) return userModel;
         var configured = overrideVariable is null ? null : Environment.GetEnvironmentVariable(overrideVariable);
         if (!string.IsNullOrWhiteSpace(configured) && Directory.Exists(configured))
             return Path.GetFullPath(configured);

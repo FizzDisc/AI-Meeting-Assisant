@@ -195,6 +195,7 @@ public sealed class PythonWorkerClient(string pythonExecutable, string scriptPat
             CreateNoWindow = true
         };
         startInfo.ArgumentList.Add("-u");
+        UserAiPaths.ConfigureProcess(startInfo);
         startInfo.ArgumentList.Add(scriptPath);
         _process = Process.Start(startInfo) ?? throw new InvalidOperationException("Python worker process could not be started.");
         _stderrPump = PumpDiagnosticsAsync(_process.StandardError);

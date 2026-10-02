@@ -57,8 +57,8 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
         {
             if (_isCapturing || _systemAudioCapture is not null || _microphoneCapture is not null)
                 throw new InvalidOperationException("Capture session is already active.");
-            if (string.IsNullOrWhiteSpace(plan.SystemAudioSourceId) || string.IsNullOrWhiteSpace(plan.MicrophoneSourceId))
-                throw new ArgumentException("System audio and microphone source IDs are required.");
+            if (string.IsNullOrWhiteSpace(plan.SystemAudioSourceId))
+                throw new ArgumentException("A system audio source ID is required.");
 
             Directory.CreateDirectory(_captureBaseDirectory);
             var timestamp = _timestampFactory();
@@ -70,12 +70,15 @@ public sealed class DualAudioCaptureCoordinator : ICaptureCoordinator
             SubscribeSystemAudio(_systemAudioCapture);
             await _systemAudioCapture.StartAsync(cancellationToken).ConfigureAwait(false);
 
-            _microphoneCapture = _providerFactory(plan.MicrophoneSourceId, microphonePath, WasapiCaptureMode.Input);
-            if (_microphoneCapture is IAudioCaptureGain microphoneGain) microphoneGain.SetCaptureGain(_microphoneGain);
-            if (_microphoneCapture is IAudioCaptureSuppression suppression)
-                suppression.SetAudioSuppressed(_isMicrophoneSuppressed);
-            SubscribeMicrophone(_microphoneCapture);
-            await _microphoneCapture.StartAsync(cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(plan.MicrophoneSourceId))
+            {
+                _microphoneCapture = _providerFactory(plan.MicrophoneSourceId, microphonePath, WasapiCaptureMode.Input);
+                if (_microphoneCapture is IAudioCaptureGain microphoneGain) microphoneGain.SetCaptureGain(_microphoneGain);
+                if (_microphoneCapture is IAudioCaptureSuppression suppression)
+                    suppression.SetAudioSuppressed(_isMicrophoneSuppressed);
+                SubscribeMicrophone(_microphoneCapture);
+                await _microphoneCapture.StartAsync(cancellationToken).ConfigureAwait(false);
+            }
 
             _isCapturing = true;
         }

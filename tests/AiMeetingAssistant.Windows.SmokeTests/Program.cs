@@ -9,6 +9,81 @@ var failures = 0;
 
 try
 {
+    AiComponentCleanupRegression.Run();
+    Console.WriteLine("PASS Optional AI cleanup respects selections, recordings, settings and junction boundaries.");
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL AI cleanup: {exception}");
+    failures++;
+}
+if (args.Contains("--cleanup-regression")) return failures == 0 ? 0 : 1;
+
+
+try
+{
+    await RuntimePackageRegression.RunAsync();
+    Console.WriteLine("PASS Runtime download progress, activation, reuse, cancellation, integrity and extraction guards.");
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL Runtime package: {exception}");
+    failures++;
+}
+if (args.Contains("--runtime-regression")) return failures == 0 ? 0 : 1;
+
+
+try
+{
+    var directory = Path.Combine(Path.GetTempPath(), $"aima_system_only_{Guid.NewGuid():N}");
+    try
+    {
+        var providers = new List<FakeAudioProvider>();
+        var coordinator = new CombinedCaptureCoordinator(directory, audioProviderFactory: (_, _, mode) =>
+        {
+            if (mode != WasapiCaptureMode.Loopback) throw new Exception("Unexpected microphone access.");
+            var provider = new FakeAudioProvider();
+            providers.Add(provider);
+            return provider;
+        }) { IncrementalCaptureEnabled = false };
+        await coordinator.StartAsync(new("", "fake-output", ""));
+        await coordinator.StopAsync();
+        if (providers.Count != 1 || providers[0].StartCount != 1 || providers[0].StopCount != 1 || providers[0].DisposeCount != 1)
+            throw new Exception("System-only capture lifecycle failed.");
+        var manifest = File.ReadAllText(Directory.GetFiles(directory, "manifest.json", SearchOption.AllDirectories).Single());
+        using var json = JsonDocument.Parse(manifest);
+        if (json.RootElement.GetProperty("Streams").GetArrayLength() != 1)
+            throw new Exception("System-only manifest contains unexpected streams.");
+        var session = coordinator.LastCompletedSessionDirectory!;
+        var streamPath = json.RootElement.GetProperty("Streams")[0].GetProperty("RelativePath").GetString()!;
+        File.WriteAllBytes(Path.Combine(session, streamPath), new byte[] { 1 });
+        var sources = AiMeetingAssistant.Core.Transcripts.SessionAudioSourceResolver.Resolve(session);
+        if (sources.Count != 1 || sources[0].Kind != "system_audio")
+            throw new Exception("System-only session cannot be resolved for transcription.");
+        Console.WriteLine("PASS System-only capture needs no microphone, finalizes one stream and resolves for transcription.");
+    }
+    finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL System-only capture: {exception.Message}");
+    failures++;
+}
+if (args.Contains("--system-only-regression")) return failures == 0 ? 0 : 1;
+
+try
+{
+    await FirstRunSetupRegression.RunAsync();
+    Console.WriteLine("PASS First-run setup validates storage/models and cancels child processes.");
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"FAIL First-run setup: {exception.Message}");
+    failures++;
+}
+
+try
+{
     await WorkerRecoveryRegression.RunAsync();
     Console.WriteLine("PASS Worker recovers after timeout and request cancellation.");
 }

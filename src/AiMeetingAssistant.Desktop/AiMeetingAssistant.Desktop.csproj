@@ -2,16 +2,21 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\assistant.ico</ApplicationIcon>
     <AssemblyName>AiMeetingAssistant</AssemblyName>
     <RootNamespace>AiMeetingAssistant.Desktop</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\assistant-avatar.png" />
+    <Resource Include="Assets\assistant.ico" />
     <ProjectReference Include="..\AiMeetingAssistant.Core\AiMeetingAssistant.Core.csproj" />
     <ProjectReference Include="..\AiMeetingAssistant.Contracts\AiMeetingAssistant.Contracts.csproj" />
     <ProjectReference Include="..\AiMeetingAssistant.Windows\AiMeetingAssistant.Windows.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="..\..\licenses\**\*" Link="licenses\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\worker\runtime-requirements-win-x64.txt" Link="worker\runtime-requirements-win-x64.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\main.py" Link="worker\main.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\transcription_jobs.py" Link="worker\transcription_jobs.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\live_transcription.py" Link="worker\live_transcription.py" CopyToOutputDirectory="PreserveNewest" />

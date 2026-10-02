@@ -53,3 +53,13 @@ dotnet run --project .\tests\AiMeetingAssistant.Windows.SmokeTests
 ```
 
 See [architecture](docs/architecture.md), [backlog](docs/backlog.md), and [decisions](docs/decisions/).
+
+## Code signing policy
+
+Current releases are unsigned. See the [Code signing policy](docs/code-signing-policy.md)
+and [privacy and download information](docs/privacy.md).
+
+## License
+
+Project source is available under the [MIT License](LICENSE). Third-party
+libraries, tools and models retain their own licenses.

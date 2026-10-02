@@ -8,6 +8,7 @@ public static class PythonRuntimeResolver
     {
         var configured = Environment.GetEnvironmentVariable(OverrideVariable);
         if (!string.IsNullOrWhiteSpace(configured)) return configured;
+        if (baseDirectory is null && File.Exists(UserAiPaths.Python)) return UserAiPaths.Python;
 
         var directory = new DirectoryInfo(baseDirectory ?? AppContext.BaseDirectory);
         while (directory is not null)

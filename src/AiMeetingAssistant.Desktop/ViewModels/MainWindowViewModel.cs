@@ -32,6 +32,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly Stopwatch _transcriptionStopwatch = new();
     private readonly DispatcherTimer _recordingTimer;
     private readonly DispatcherTimer _processingTimer;
+    private readonly DispatcherTimer _previewTimer;
+    private bool _previewInFlight;
+    private bool _isMicrophoneCaptureEnabled;
     private readonly AudioSignalHealthMonitor _systemAudioHealth = new();
     private readonly AudioSignalHealthMonitor _microphoneHealth = new();
     private string _processingPhase = "Worker active";
@@ -114,6 +117,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _recordingTimer.Tick += OnRecordingTimerTick;
         _processingTimer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
         _processingTimer.Tick += OnProcessingTimerTick;
+        _previewTimer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(300) };
+        _previewTimer.Tick += OnPreviewTimerTick;
+        _previewTimer.Start();
         ToggleRecordingCommand = new AsyncRelayCommand(ToggleRecordingAsync, CanToggleRecording);
         RefreshSourcesCommand = new AsyncRelayCommand(RefreshSourcesAsync, () => CanChangeSources);
         TranscribeLatestCommand = new AsyncRelayCommand(TranscribeLatestAsync, () => CanTranscribeLatest);
@@ -293,11 +299,52 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _selectedMicrophone = value;
             OnPropertyChanged();
             ToggleRecordingCommand.RaiseCanExecuteChanged();
-            if (IsRecording && value is not null && previous?.Id != value.Id) _ = SwitchMicrophoneAsync(value, previous);
+            if (IsRecording && IsMicrophoneCaptureEnabled && value is not null && previous?.Id != value.Id) _ = SwitchMicrophoneAsync(value, previous);
         }
     }
 
-    public bool MicrophoneSelectionEnabled => CanChangeSources || IsRecording;
+    public bool IsMicrophoneCaptureEnabled
+    {
+        get => _isMicrophoneCaptureEnabled;
+        set
+        {
+            if (!CanChangeSources) return;
+            _isMicrophoneCaptureEnabled = value;
+            MicrophoneLevel = 0;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(MicrophoneSelectionEnabled));
+            ToggleRecordingCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    public bool MicrophoneSelectionEnabled => IsMicrophoneCaptureEnabled && (CanChangeSources || IsRecording);
+
+    private async void OnPreviewTimerTick(object? sender, EventArgs e)
+    {
+        if (_isShuttingDown || !CanChangeSources || _previewInFlight || _audioEndpointHealthProbe is null) return;
+        _previewInFlight = true;
+        var system = SelectedSystemAudio;
+        var microphone = IsMicrophoneCaptureEnabled ? SelectedMicrophone : null;
+        try
+        {
+            var sources = new[] { system, microphone }.OfType<CaptureSource>().ToArray();
+            var snapshots = await _audioEndpointHealthProbe.ProbeAsync(sources);
+            if (_isShuttingDown || !CanChangeSources || system != SelectedSystemAudio ||
+                microphone != (IsMicrophoneCaptureEnabled ? SelectedMicrophone : null)) return;
+            double Level(CaptureSource? source)
+            {
+                var peak = snapshots.FirstOrDefault(item => item.SourceId == source?.Id)?.PeakAmplitude ?? 0;
+                return peak > 0 ? NormalizeLevel(20 * Math.Log10(peak)) : 0;
+            }
+            SystemAudioLevel = Level(system);
+            MicrophoneLevel = Level(microphone);
+        }
+        catch
+        {
+            if (!_isShuttingDown && CanChangeSources) { SystemAudioLevel = 0; MicrophoneLevel = 0; }
+        }
+        finally { _previewInFlight = false; }
+    }
 
     private async Task SwitchMicrophoneAsync(CaptureSource replacement, CaptureSource? previous)
     {
@@ -527,6 +574,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public async Task ShutdownAsync()
     {
         _isShuttingDown = true;
+        _previewTimer.Stop();
         _transcriptionCancellation?.Cancel();
         if (_transcriptionCompletion is not null)
         {
@@ -652,7 +700,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private bool CanToggleRecording() => IsRecording ||
-        (CanChangeSources && (!IsScreenCaptureEnabled || SelectedScreen is not null) && SelectedSystemAudio is not null && SelectedMicrophone is not null);
+        (CanChangeSources && (!IsScreenCaptureEnabled || SelectedScreen is not null) && SelectedSystemAudio is not null && (!IsMicrophoneCaptureEnabled || SelectedMicrophone is not null));
 
     private async Task RefreshMeetingLibraryAsync()
     {
@@ -715,8 +763,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         try
         {
             var audioSources = SessionAudioSourceResolver.Resolve(_latestSessionDirectory);
-            if (audioSources.Count != 2)
-                throw new InvalidDataException("The selected session does not contain one usable microphone and system-audio source (verified FLAC or WAV).");
+            if (audioSources.Count == 0)
+                throw new InvalidDataException("The selected session does not contain usable audio sources (verified FLAC or WAV).");
 
             var selectedModel = SelectedSpeechModel ?? throw new InvalidOperationException("Select an installed speech model.");
             var outputPath = Path.Combine(_latestSessionDirectory, "processing", $"transcript_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{selectedModel.Id}.json");
@@ -865,7 +913,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 return;
             }
 
-            if ((IsScreenCaptureEnabled && SelectedScreen is null) || SelectedSystemAudio is null || SelectedMicrophone is null)
+            if ((IsScreenCaptureEnabled && SelectedScreen is null) || SelectedSystemAudio is null || (IsMicrophoneCaptureEnabled && SelectedMicrophone is null))
                 throw new InvalidOperationException("Select the required capture sources first.");
 
             if (_captureCoordinator is AiMeetingAssistant.Windows.Capture.CombinedCaptureCoordinator combinedCoordinator)
@@ -876,7 +924,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 combinedCoordinator.MicrophoneFaulted += OnMicrophoneFaulted;
             }
 
-            var plan = new CapturePlan(IsScreenCaptureEnabled ? SelectedScreen!.Id : string.Empty, SelectedSystemAudio.Id, SelectedMicrophone.Id);
+            var plan = new CapturePlan(IsScreenCaptureEnabled ? SelectedScreen!.Id : string.Empty, SelectedSystemAudio.Id, IsMicrophoneCaptureEnabled ? SelectedMicrophone!.Id : string.Empty);
             await _recordingSession.StartAsync(plan);
         }
         catch (Exception exception)
@@ -1182,7 +1230,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var microphoneState = _microphoneHealth.Evaluate(now);
         var warnings = new List<string>();
         AddAudioHealthWarning(warnings, "System audio", systemState, "Verify the selected Teams/output device.");
-        AddAudioHealthWarning(warnings, "Microphone", microphoneState, "Verify the selected input or hardware mute.");
+        if (IsMicrophoneCaptureEnabled) AddAudioHealthWarning(warnings, "Microphone", microphoneState, "Verify the selected input or hardware mute.");
         if (warnings.Count == 0) _endpointHealthGuidance = "";
         else if (_endpointHealthGuidance.Length > 0) warnings.Add(_endpointHealthGuidance);
         AudioHealthMessage = string.Join("  ", warnings.Distinct(StringComparer.Ordinal));
@@ -1204,7 +1252,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var guidance = new List<string>();
             if (SelectedSystemAudio is not null)
                 guidance.Add(AudioEndpointHealthAdvisor.BuildGuidance(SelectedSystemAudio, systemState, snapshots));
-            if (SelectedMicrophone is not null)
+            if (IsMicrophoneCaptureEnabled && SelectedMicrophone is not null)
                 guidance.Add(AudioEndpointHealthAdvisor.BuildGuidance(SelectedMicrophone, microphoneState, snapshots));
             _endpointHealthGuidance = string.Join("  ", guidance.Where(value => value.Length > 0));
             RefreshAudioHealthMessage(DateTimeOffset.UtcNow, scheduleProbe: false);

@@ -1,1 +1,40 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"><Package Name="AI Meeting Assistant" Manufacturer="FizzDisc" Version="1.0.0" UpgradeCode="D73A764B-05D0-49D2-9EDF-B8A978E610D2" Scope="perMachine"><MajorUpgrade DowngradeErrorMessage="A newer version of AI Meeting Assistant is already installed."/><MediaTemplate EmbedCab="yes"/><StandardDirectory Id="ProgramFiles6432Folder"><Directory Id="INSTALLFOLDER" Name="AI Meeting Assistant"><Files Include="$(PublishDir)\**"/></Directory></StandardDirectory></Package></Wix>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="AI Meeting Assistant" Manufacturer="FizzDisc" Version="$(var.AppVersion)" UpgradeCode="D73A764B-05D0-49D2-9EDF-B8A978E610D2" Scope="perMachine">
+    <!-- Skip only this installation's system restore point; MSI rollback stays enabled. -->
+    <Property Id="MSIFASTINSTALL" Value="1" />
+    <Icon Id="ApplicationIcon.exe" SourceFile="$(PublishDir)\AiMeetingAssistant.exe" />
+    <Property Id="ARPPRODUCTICON" Value="ApplicationIcon.exe" />
+    <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="A newer version of AI Meeting Assistant is already installed." />
+    <!-- Run before removing the executable. Immediate execution uses the invoking user,
+         and the UI-level guard also covers Add/Remove Programs' basic-UI uninstall.
+         Optional user data is never removed silently or during a major upgrade. -->
+    <CustomAction Id="AskRemoveAiComponents" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]AiMeetingAssistant.exe&quot; --uninstall-ai-components"
+                  Execute="immediate" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="AskRemoveAiComponents" Before="InstallInitialize"
+              Condition="Installed AND REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND UILevel &gt;= 3" />
+    </InstallExecuteSequence>
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <!-- No product license is supplied: do not display WiX's placeholder license. -->
+    <UI>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="10" Condition="NOT Installed" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="10" />
+    </UI>
+    <MediaTemplate EmbedCab="yes" />
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="AI Meeting Assistant">
+        <Files Include="$(PublishDir)\**" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="AI Meeting Assistant">
+        <Component Id="StartMenuShortcut" Guid="*">
+          <Shortcut Id="ApplicationShortcut" Name="AI Meeting Assistant" Target="[INSTALLFOLDER]AiMeetingAssistant.exe" WorkingDirectory="INSTALLFOLDER" Icon="ApplicationIcon.exe" IconIndex="0" />
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\FizzDisc\AI Meeting Assistant" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+  </Package>
+</Wix>
