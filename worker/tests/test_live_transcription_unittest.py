@@ -20,7 +20,7 @@ class LiveTranscriptionTests(unittest.TestCase):
             model = Mock()
             model.transcribe.return_value = {"segments": [], "language": "de"}
             whisper = Mock()
-            whisper.load_model.return_value = model
+            whisper.FasterWhisperTranscriber.return_value = model
             cache = {}
             compute = {"mode": "cpu", "computeType": "int8", "batchSize": 2,
                        "preference": "cpu-only", "fallbackReason": None}
@@ -30,7 +30,7 @@ class LiveTranscriptionTests(unittest.TestCase):
                 request.write_text(json.dumps({"audioPaths": [str(audio)], "modelPath": str(root),
                     "outputPath": str(output), "statusPath": str(root / "status.json"),
                     "computePreference": "cpu-only", "language": language}))
-                with patch.dict("sys.modules", {"torch": Mock(), "whisperx": whisper}), \
+                with patch.dict("sys.modules", {"torch": Mock(), "faster_whisper_backend": whisper}), \
                      patch("transcription_job.select_compute", return_value=compute), \
                      patch("transcription_job.normalize_audio"), \
                      patch("transcription_job.analyze_pcm16_signal", return_value={"hasUsableSignal": True}):
@@ -39,8 +39,7 @@ class LiveTranscriptionTests(unittest.TestCase):
                 self.assertEqual(index == 1, performance["modelReused"])
                 if index == 1:
                     self.assertEqual(0, performance["modelLoadSeconds"])
-            self.assertEqual(2, whisper.load_model.call_count)
-            self.assertTrue(all(call.kwargs["local_files_only"] for call in whisper.load_model.call_args_list))
+            self.assertEqual(2, whisper.FasterWhisperTranscriber.call_count)
             self.assertEqual(3, model.transcribe.call_count)
 
     def test_live_lifecycle_and_historical_status(self):

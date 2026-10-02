@@ -18,6 +18,7 @@
     <Content Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\runtime-requirements-win-x64.txt" Link="worker\runtime-requirements-win-x64.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\inference_policy.py" Link="worker\inference_policy.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\worker\faster_whisper_backend.py" Link="worker\faster_whisper_backend.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\main.py" Link="worker\main.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\transcription_jobs.py" Link="worker\transcription_jobs.py" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\worker\live_transcription.py" Link="worker\live_transcription.py" CopyToOutputDirectory="PreserveNewest" />

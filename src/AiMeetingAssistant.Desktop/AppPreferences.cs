@@ -4,7 +4,7 @@ namespace AiMeetingAssistant.Desktop;
 internal sealed record AppSettings(int SchemaVersion, bool ScreenCaptureEnabled, string CaptureDirectory, string? ModelDirectory,
     string ComputePreference, string SpeechModelId = "tiny", double SystemAudioGain = 1.0, double MicrophoneGain = 1.0,
     bool LiveTranscriptionEnabled = true, bool AutomaticFlacArchival = false, bool AutomaticProvenWavRemoval = false,
-    bool SetupCompleted = false)
+    bool SetupCompleted = false, int AiRuntimeGeneration = 0)
 { public static AppSettings Defaults => new(1, true, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI Meeting Assistant", "Recordings"), null, "automatic", "tiny", 1.0, 1.0, true, false, false); }
 internal static class AppPreferences
 {

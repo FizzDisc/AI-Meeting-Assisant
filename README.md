@@ -16,7 +16,7 @@ The repository and installer downloads are public. No GitHub account is required
 
 - .NET 8 WPF desktop app and native Windows capture
 - optional screen capture, recoverable session workspaces and alignment diagnostics
-- local WhisperX transcription of separate microphone and system-audio tracks
+- local Faster-Whisper transcription of separate microphone and system-audio tracks
 - transcript viewer/export and meeting library
 - operational status center and versioned settings
 - offline pyannote speaker-diarization foundation

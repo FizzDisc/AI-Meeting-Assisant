@@ -17,7 +17,7 @@ from transcription_jobs import TranscriptionJobManager
 from hardware import detect_hardware
 
 PROTOCOL_VERSION = "1.0"
-WORKER_VERSION = "0.5.0"
+WORKER_VERSION = "0.6.0"
 SUPPORTED_PYTHON = (3, 10) <= sys.version_info[:2] < (3, 14)
 JOBS = TranscriptionJobManager()
 
@@ -48,7 +48,7 @@ def package_status(distribution: str, module: str | None = None) -> dict[str, An
 
 def runtime_diagnostics() -> dict[str, Any]:
     packages = {
-        "whisperx": package_status("whisperx"),
+        "fasterWhisper": package_status("faster-whisper", "faster_whisper"),
         "torch": package_status("torch"),
         "pyannoteAudio": package_status("pyannote-audio", "pyannote.audio"),
     }

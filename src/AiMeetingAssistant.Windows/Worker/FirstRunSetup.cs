@@ -20,7 +20,7 @@ public sealed class FirstRunSetup
     {
         await RunAsync(python, ["-I", "-m", "pip", "check"], _ => { }, token).ConfigureAwait(false);
         await RunAsync(python,
-        ["-I", "-c", "import sys,struct,subprocess; from pathlib import Path; assert (3,10)<=sys.version_info[:2]<(3,14) and struct.calcsize('P')==8; assert Path(sys.prefix).resolve()==Path(sys.executable).resolve().parent; import torch,whisperx,ctranslate2,pyannote.audio,truststore; from whisperx.asr import load_model; subprocess.run([str(Path(sys.executable).parent/'ffmpeg.exe'),'-version'],check=True,stdout=subprocess.DEVNULL); print('AI components ready')"],
+        ["-I", "-c", "import sys,struct,subprocess,importlib.util; assert not any(importlib.util.find_spec(n) for n in ('whisperx','transformers','nltk')), 'Outdated AI runtime. Download the new AI components.'; from pathlib import Path; assert (3,10)<=sys.version_info[:2]<(3,14) and struct.calcsize('P')==8; assert Path(sys.prefix).resolve()==Path(sys.executable).resolve().parent; import torch,ctranslate2,pyannote.audio,truststore; from faster_whisper import WhisperModel, BatchedInferencePipeline; subprocess.run([str(Path(sys.executable).parent/'ffmpeg.exe'),'-version'],check=True,stdout=subprocess.DEVNULL); print('AI components ready')"],
         _ => { }, token).ConfigureAwait(false);
     }
 
@@ -31,7 +31,7 @@ public sealed class FirstRunSetup
         try
         {
             await RunAsync(python, ["-I", "-c",
-                "import shutil,subprocess; from whisperx.asr import load_model; import pyannote.audio; ffmpeg=shutil.which('ffmpeg'); assert ffmpeg, 'FFmpeg is missing'; subprocess.run([ffmpeg,'-version'],check=True,stdout=subprocess.DEVNULL)"],
+                "import shutil,subprocess,importlib.util; assert not any(importlib.util.find_spec(n) for n in ('whisperx','transformers','nltk')), 'Outdated AI runtime. Download the new AI components.'; from faster_whisper import WhisperModel, BatchedInferencePipeline; import pyannote.audio; ffmpeg=shutil.which('ffmpeg'); assert ffmpeg, 'FFmpeg is missing'; subprocess.run([ffmpeg,'-version'],check=True,stdout=subprocess.DEVNULL)"],
                 _ => { }, timeout.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)

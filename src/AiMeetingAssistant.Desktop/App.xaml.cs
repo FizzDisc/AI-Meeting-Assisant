@@ -11,7 +11,8 @@ public partial class App : Application
             Shutdown();
             return;
         }
-        if (!AppPreferences.Load().SetupCompleted)
+        var settings = AppPreferences.Load();
+        if (!settings.SetupCompleted || settings.AiRuntimeGeneration < 1)
         {
             var setup = new WelcomeWindow();
             setup.ShowDialog();

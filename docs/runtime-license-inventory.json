@@ -328,14 +328,6 @@
       "metadata_source": "https://pypi.org/pypi/networkx/3.6.1/json"
     },
     {
-      "package": "nltk",
-      "version": "3.10.3",
-      "reported_license": [
-        "License :: OSI Approved :: Apache Software License"
-      ],
-      "metadata_source": "https://pypi.org/pypi/nltk/3.10.3/json"
-    },
-    {
       "package": "numpy",
       "version": "2.5.3",
       "reported_license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
@@ -701,14 +693,6 @@
       "metadata_source": "https://pypi.org/pypi/tqdm/4.70.1/json"
     },
     {
-      "package": "transformers",
-      "version": "4.57.6",
-      "reported_license": [
-        "License :: OSI Approved :: Apache Software License"
-      ],
-      "metadata_source": "https://pypi.org/pypi/transformers/4.57.6/json"
-    },
-    {
       "package": "truststore",
       "version": "0.10.4",
       "reported_license": "MIT",
@@ -731,12 +715,6 @@
       "version": "2.8.0",
       "reported_license": "MIT",
       "metadata_source": "https://pypi.org/pypi/urllib3/2.8.0/json"
-    },
-    {
-      "package": "whisperx",
-      "version": "3.8.6",
-      "reported_license": "BSD-2-Clause",
-      "metadata_source": "https://pypi.org/pypi/whisperx/3.8.6/json"
     },
     {
       "package": "yarl",

@@ -9,7 +9,7 @@ def test_health_check_reports_ready() -> None:
     assert result["payload"]["capabilities"][:3] == ["health.check", "runtime.diagnostics", "transcription.jobs"]
     assert isinstance(result["payload"]["runtimeSupported"], bool)
     diagnostics = result["payload"]["diagnostics"]
-    assert set(diagnostics["packages"]) == {"whisperx", "torch", "pyannoteAudio"}
+    assert set(diagnostics["packages"]) == {"fasterWhisper", "torch", "pyannoteAudio"}
     assert diagnostics["compute"]["mode"] in ("cpu", "cuda")
     assert isinstance(diagnostics["missingRequirements"], list)
 

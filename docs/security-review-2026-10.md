@@ -1,6 +1,23 @@
 # Dependency security review — 2026-10-02
 
-## Result
+## Update for 1.0.10
+
+The default runtime no longer installs WhisperX, Transformers or NLTK. The app
+calls Faster-Whisper 1.2.1 directly with local models, batched CTranslate2 decoding
+and the package's local Silero ONNX VAD. Existing model files remain compatible;
+VAD segmentation can differ from WhisperX's previous Pyannote VAD.
+
+The six reviewed alerts are addressed by removing the affected packages from the
+new standard runtime, not by suppressing alerts or forcing incompatible upgrades.
+Legacy optional research scripts may still refer to WhisperX; they are not the
+standard application path and their old environments are not declared safe.
+
+A runtime generation migration reopens setup once. Validation rejects the retired
+packages, and a new requirements identity activates a separate clean runtime.
+Old runtime directories may remain on disk but are no longer selected after the
+new installation. This does not remove unrelated system Python installations.
+
+## Historical assessment for 1.0.9
 
 Six dependency alerts remain open. This change does not patch the libraries or
 claim the application is free of these vulnerabilities. No alerts were dismissed.

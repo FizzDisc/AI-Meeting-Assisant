@@ -1,4 +1,4 @@
-"""Isolated WhisperX job; process isolation makes native inference cancellable."""
+"""Isolated local transcription job; process isolation makes native inference cancellable."""
 from __future__ import annotations
 import hashlib, json, math, os, subprocess, sys, threading, time, wave
 from array import array
@@ -235,7 +235,7 @@ def run(request_path: Path, model_cache: dict | None = None) -> int:
     preference = request.get("computePreference", "automatic")
     requested_language = normalize_requested_language(request.get("language"))
     cache_directory = output_path.parent / "cache"
-    raw_key = stage_key({"version": 3, "sources": [fingerprint(path) for path in inputs],
+    raw_key = stage_key({"version": 4, "sources": [fingerprint(path) for path in inputs],
                          "model": fingerprint(model_path), "modelId": request.get("modelId"),
                          "language": requested_language, "preference": preference,
                          "openVinoModelPath": request.get("openVinoModelPath")})
@@ -311,9 +311,8 @@ def run(request_path: Path, model_cache: dict | None = None) -> int:
                                         vad_model, requested_language,
                                         silero_repository=Path(request["sileroVadPath"]))
         else:
-            import whisperx
-            model = whisperx.load_model(str(model_path), device, compute_type=compute_type,
-                                        language=requested_language, local_files_only=True)
+            from faster_whisper_backend import FasterWhisperTranscriber
+            model = FasterWhisperTranscriber(model_path, device, compute_type, requested_language)
         if model_cache is not None:
             model_cache.update(key=model_key, model=model)
         model_seconds = 0.0 if model_reused else time.monotonic()-model_started
@@ -333,9 +332,7 @@ def run(request_path: Path, model_cache: dict | None = None) -> int:
                 write_atomic(status_path, {"status": "transcribing", "progress": base,
                                            "source": label, "device": device, "computeType": compute_type,
                                            "batchSize": batch_size, "fallbackReason": compute["fallbackReason"]})
-                import whisperx
-                audio = whisperx.load_audio(str(normalized_path))
-                results.append((label, model.transcribe(audio, batch_size=batch_size)))
+                results.append((label, model.transcribe(normalized_path, batch_size=batch_size)))
         openvino_metrics = model.metrics if preference == "intel-gpu" else None
         write_stage_cache(raw_cache_path, raw_key,
                           results=[{"source": source, "result": result} for source, result in results],

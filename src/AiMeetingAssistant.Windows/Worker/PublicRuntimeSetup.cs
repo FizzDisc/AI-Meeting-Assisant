@@ -64,7 +64,7 @@ public static class PublicRuntimeSetup
                 await FirstRunSetup.RunAsync(python, ["-c", "import imageio_ffmpeg,shutil,sys; from pathlib import Path; shutil.copyfile(imageio_ffmpeg.get_ffmpeg_exe(),Path(sys.executable).parent/'ffmpeg.exe')"],
                     _ => { }, cancellation).ConfigureAwait(false);
                 await FirstRunSetup.ValidateRuntimeAsync(python, cancellation).ConfigureAwait(false);
-                await File.WriteAllTextAsync(marker, "Python 3.12.10 / WhisperX 3.8.6 / CPU", cancellation).ConfigureAwait(false);
+                await File.WriteAllTextAsync(marker, "Python 3.12.10 / Faster-Whisper 1.2.1 / CPU", cancellation).ConfigureAwait(false);
             }, token, installationId).ConfigureAwait(false);
     }
 

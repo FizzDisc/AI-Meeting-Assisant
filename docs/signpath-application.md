@@ -55,3 +55,7 @@ Update: the eight missing package license declarations were resolved from
 SHA-256-verified wheels (six MIT, two BSD-3-Clause); evidence is recorded in
 the inventory and license texts are in licenses/runtime/. Embedded native
 binaries and separately downloaded models remain a separate review scope.
+
+1.0.10 update: the standard runtime removes WhisperX, Transformers and NLTK
+to address the six reviewed alerts. See the updated security review. SignPath
+approval and credentials are still pending; no signed release is claimed.

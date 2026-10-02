@@ -14,8 +14,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Creating the AI virtual environment failed.' }
 & $runtimePython -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw 'Updating pip failed.' }
 
-& $runtimePython -m pip install "whisperx==3.8.6" "truststore==0.10.4"
-if ($LASTEXITCODE -ne 0) { throw 'Installing the WhisperX runtime failed.' }
+& $runtimePython -m pip install "torch==2.8.0+cpu" "torchaudio==2.8.0+cpu" "torchvision==0.23.0+cpu" --index-url https://download.pytorch.org/whl/cpu
+if ($LASTEXITCODE -ne 0) { throw 'Installing the CPU engine failed.' }
+& $runtimePython -m pip install -r (Join-Path $workerDirectory 'runtime-requirements-win-x64.txt')
+if ($LASTEXITCODE -ne 0) { throw 'Installing the local AI runtime failed.' }
 
 Write-Host "AI runtime installed at $virtualEnvironment"
 Write-Host 'No speech or diarization model weights were downloaded.'

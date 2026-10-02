@@ -7,7 +7,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-ml = ["whisperx==3.8.6", "truststore==0.10.4"]
+ml = ["faster-whisper==1.2.1", "pyannote-audio==4.0.7", "torch==2.8.0", "torchaudio==2.8.0", "torchvision==0.23.0", "truststore==0.10.4"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -111,7 +111,7 @@ public partial class WelcomeWindow : Window
         {
             FirstRunSetup.CheckWritableDirectory(RecordingFolder.Text.Trim());
             AppPreferences.Save(_original with { CaptureDirectory = RecordingFolder.Text.Trim(),
-                ScreenCaptureEnabled = ScreenCapture.IsChecked == true, SetupCompleted = completed,
+                ScreenCaptureEnabled = ScreenCapture.IsChecked == true, SetupCompleted = completed, AiRuntimeGeneration = 1,
                 LiveTranscriptionEnabled = !recordingOnly,
                 SpeechModelId = recordingOnly ? _original.SpeechModelId : (string)Models.SelectedValue,
                 ModelDirectory = recordingOnly ? _original.ModelDirectory : null,
