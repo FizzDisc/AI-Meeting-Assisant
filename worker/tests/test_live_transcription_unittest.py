@@ -40,6 +40,7 @@ class LiveTranscriptionTests(unittest.TestCase):
                 if index == 1:
                     self.assertEqual(0, performance["modelLoadSeconds"])
             self.assertEqual(2, whisper.load_model.call_count)
+            self.assertTrue(all(call.kwargs["local_files_only"] for call in whisper.load_model.call_args_list))
             self.assertEqual(3, model.transcribe.call_count)
 
     def test_live_lifecycle_and_historical_status(self):

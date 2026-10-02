@@ -15,6 +15,8 @@ def load_pcm16(path):
   channels,rate=source.getnchannels(),source.getframerate();samples=np.frombuffer(source.readframes(source.getnframes()),dtype="<i2").astype("float32")/32768.0
  return {"waveform":torch.from_numpy(samples.reshape(-1,channels).T.copy()),"sample_rate":rate}
 def run(request_path):
+ from inference_policy import configure_local_inference
+ configure_local_inference()
  r=json.loads(request_path.read_text());audio=Path(r["audioPath"]).resolve();model=Path(r["modelPath"]).resolve();out=Path(r["outputPath"]).resolve();status=Path(r["statusPath"]).resolve()
  if not audio.is_file():raise FileNotFoundError(f"System audio not found: {audio}")
  if not(model/"config.yaml").is_file():raise FileNotFoundError(f"Offline diarization model is invalid: {model}")

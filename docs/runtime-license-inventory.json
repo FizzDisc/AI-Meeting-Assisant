@@ -1,5 +1,5 @@
 {
-  "status": "Metadata inventory only; not a completed license or bundled-binary audit. Excludes separately installed Python, pip, torch/torchaudio/torchvision and model weights.",
+  "status": "Package metadata inventory with verified wheel license evidence for eight previously unspecified packages. Embedded native binaries, separately installed Python/pip/PyTorch and model weights still require separate review.",
   "packages": [
     {
       "package": "aiohappyeyeballs",
@@ -173,7 +173,13 @@
       "package": "fsspec",
       "version": "2026.7.0",
       "reported_license": null,
-      "metadata_source": "https://pypi.org/pypi/fsspec/2026.7.0/json"
+      "metadata_source": "https://pypi.org/pypi/fsspec/2026.7.0/json",
+      "wheel_license_files": [
+        "fsspec-2026.7.0.dist-info/licenses/LICENSE"
+      ],
+      "reviewed_wheel_sha256": "b57ddbafedfaef7018c1ecab32aa200a9d7ca26b77965f64e48b70061249d279",
+      "reviewed_wheel_url": "https://files.pythonhosted.org/packages/fd/3c/6a2bf344106328fd04963664a60b9bb6496fc25df8e962fcdc1367285fb9/fsspec-2026.7.0-py3-none-any.whl",
+      "reviewed_license": "BSD-3-Clause"
     },
     {
       "package": "googleapis-common-protos",
@@ -451,37 +457,73 @@
       "package": "pyannote-audio",
       "version": "4.0.7",
       "reported_license": null,
-      "metadata_source": "https://pypi.org/pypi/pyannote-audio/4.0.7/json"
+      "metadata_source": "https://pypi.org/pypi/pyannote-audio/4.0.7/json",
+      "wheel_license_files": [
+        "pyannote_audio-4.0.7.dist-info/licenses/LICENSE"
+      ],
+      "reviewed_wheel_sha256": "852ea15c4d85bc34773e618267603ffca6a521669a74d33742692cc67fc700d6",
+      "reviewed_wheel_url": "https://files.pythonhosted.org/packages/66/a3/1d03ed6c7669f7b94ce4a7ebe3b21f5c3b6331999a5680837e371e0a0537/pyannote_audio-4.0.7-py3-none-any.whl",
+      "reviewed_license": "MIT"
     },
     {
       "package": "pyannote-core",
       "version": "6.0.1",
       "reported_license": null,
-      "metadata_source": "https://pypi.org/pypi/pyannote-core/6.0.1/json"
+      "metadata_source": "https://pypi.org/pypi/pyannote-core/6.0.1/json",
+      "wheel_license_files": [
+        "pyannote_core-6.0.1.dist-info/licenses/LICENSE"
+      ],
+      "reviewed_wheel_sha256": "924550d6ecf6b05ad13bf3f66f59c29fc740cf1c62a6fca860ac2e66908203e5",
+      "reviewed_wheel_url": "https://files.pythonhosted.org/packages/ea/57/ecf62344b9b81debd0ca95ed987135e93d1b039507f8174f52d1d19d8c6b/pyannote_core-6.0.1-py3-none-any.whl",
+      "reviewed_license": "MIT"
     },
     {
       "package": "pyannote-database",
       "version": "6.1.1",
       "reported_license": null,
-      "metadata_source": "https://pypi.org/pypi/pyannote-database/6.1.1/json"
+      "metadata_source": "https://pypi.org/pypi/pyannote-database/6.1.1/json",
+      "wheel_license_files": [
+        "pyannote_database-6.1.1.dist-info/licenses/LICENSE"
+      ],
+      "reviewed_wheel_sha256": "36460c70ce9f50ff25c9ea365bc83ad625bb6b2494deccf6bd3fc750686ae684",
+      "reviewed_wheel_url": "https://files.pythonhosted.org/packages/04/bf/6a6f5abaa4d9f803f34c9883ef5e316624eac6be0eaa87720216be9bba12/pyannote_database-6.1.1-py3-none-any.whl",
+      "reviewed_license": "MIT"
     },
     {
       "package": "pyannote-metrics",
       "version": "4.1",
       "reported_license": null,
-      "metadata_source": "https://pypi.org/pypi/pyannote-metrics/4.1/json"
+      "metadata_source": "https://pypi.org/pypi/pyannote-metrics/4.1/json",
+      "wheel_license_files": [
+        "pyannote_metrics-4.1.dist-info/licenses/LICENSE"
+      ],
+      "reviewed_wheel_sha256": "34a54b7671f61709c1865d0484843e5b46ea3c4e4e5260ab065e5b3156c733d3",
+      "reviewed_wheel_url": "https://files.pythonhosted.org/packages/ca/d3/9cd1df66aa9be47a36df46f007e198bbdec3ddebc1bd8833c7a9e8a554a9/pyannote_metrics-4.1-py3-none-any.whl",
+      "reviewed_license": "MIT"
     },
     {
       "package": "pyannote-pipeline",
       "version": "4.0.0",
       "reported_license": null,
-      "metadata_source": "https://pypi.org/pypi/pyannote-pipeline/4.0.0/json"
+      "metadata_source": "https://pypi.org/pypi/pyannote-pipeline/4.0.0/json",
+      "wheel_license_files": [
+        "pyannote_pipeline-4.0.0.dist-info/licenses/LICENSE"
+      ],
+      "reviewed_wheel_sha256": "6b0bfc19e684d89cc1608bb39448e15ff1231d4a87e99fc7e812e7891b8cd555",
+      "reviewed_wheel_url": "https://files.pythonhosted.org/packages/d8/83/51290b8a17a3007bc4e4a5ea897f0765f30a6598d58670ba12d35ac0cc36/pyannote_pipeline-4.0.0-py3-none-any.whl",
+      "reviewed_license": "MIT"
     },
     {
       "package": "pyannoteai-sdk",
       "version": "0.4.0",
       "reported_license": null,
-      "metadata_source": "https://pypi.org/pypi/pyannoteai-sdk/0.4.0/json"
+      "metadata_source": "https://pypi.org/pypi/pyannoteai-sdk/0.4.0/json",
+      "wheel_license_files": [
+        "pyannoteai_sdk-0.4.0.dist-info/licenses/LICENSE"
+      ],
+      "reviewed_wheel_sha256": "36a0175978e0427f27843d690eb4d1e8ec839009ea540516d6dfcdce749cd883",
+      "reviewed_wheel_url": "https://files.pythonhosted.org/packages/f9/8d/16e62133ff748931e923c2d29a150a710c85283f533a4148adc42addb6a8/pyannoteai_sdk-0.4.0-py3-none-any.whl",
+      "reviewed_license": "MIT"
     },
     {
       "package": "Pygments",
@@ -636,7 +678,13 @@
       "package": "torchcodec",
       "version": "0.7.0",
       "reported_license": null,
-      "metadata_source": "https://pypi.org/pypi/torchcodec/0.7.0/json"
+      "metadata_source": "https://pypi.org/pypi/torchcodec/0.7.0/json",
+      "wheel_license_files": [
+        "torchcodec-0.7.0.dist-info/licenses/LICENSE"
+      ],
+      "reviewed_wheel_sha256": "737da9212594bf2f205582512a7a4f56d39591b357bf5a30e72e858cfcedc2ac",
+      "reviewed_wheel_url": "https://files.pythonhosted.org/packages/ad/b9/7f03bf7d42e0f7ab5598d400cb1133d3f227b52aad15d88b2ab9c97fe1ff/torchcodec-0.7.0-cp310-cp310-win_amd64.whl",
+      "reviewed_license": "BSD-3-Clause"
     },
     {
       "package": "torchmetrics",

@@ -1,11 +1,11 @@
-from main import handle
+from main import handle, WORKER_VERSION
 
 
 def test_health_check_reports_ready() -> None:
     result = handle({"protocolVersion": "1.0", "requestId": "test-1", "type": "health.check", "payload": {}})
     assert result["ok"] is True
     assert result["payload"]["status"] in ("ready", "setup-required")
-    assert result["payload"]["workerVersion"] == "0.3.0"
+    assert result["payload"]["workerVersion"] == WORKER_VERSION
     assert result["payload"]["capabilities"][:3] == ["health.check", "runtime.diagnostics", "transcription.jobs"]
     assert isinstance(result["payload"]["runtimeSupported"], bool)
     diagnostics = result["payload"]["diagnostics"]

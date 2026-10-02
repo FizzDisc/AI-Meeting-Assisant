@@ -9,6 +9,7 @@ CATALOG = {
     "medium": ("Systran/faster-whisper-medium", "faster-whisper-medium"),
 }
 REQUIRED = ("config.json", "model.bin", "tokenizer.json")
+PAYLOAD = (*REQUIRED, "vocabulary.json", "vocabulary.txt", "preprocessor_config.json", "LICENSE", "LICENSE.txt", "NOTICE")
 
 def emit(status: str, **values: object) -> None:
     print(json.dumps({"status": status, **values}), flush=True)
@@ -75,10 +76,10 @@ def install(root: Path, model_id: str) -> None:
     try:
         repo_id=CATALOG[model_id][0]
         info=HfApi().model_info(repo_id,files_metadata=True)
-        total=sum(int(sibling.size or 0) for sibling in info.siblings)
+        total=sum(int(sibling.size or 0) for sibling in info.siblings if sibling.rfilename in PAYLOAD)
         emit("downloading", modelId=model_id,totalBytes=total)
         with DownloadProgress(temporary, model_id, total):
-            snapshot_download(repo_id=repo_id, revision=info.sha, local_dir=temporary)
+            snapshot_download(repo_id=repo_id, revision=info.sha, local_dir=temporary, allow_patterns=list(PAYLOAD))
         emit("validating", modelId=model_id)
         validate(temporary)
         os.replace(temporary, target)

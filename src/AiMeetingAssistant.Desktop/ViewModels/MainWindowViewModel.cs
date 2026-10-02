@@ -168,7 +168,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             AppPreferences.SaveScreenCaptureEnabled(value);
             OnPropertyChanged();
             OnPropertyChanged(nameof(ScreenSelectionEnabled));
-            ToggleRecordingCommand.RaiseCanExecuteChanged();
+            OnPropertyChanged(nameof(RecordingReadiness)); ToggleRecordingCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -281,13 +281,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public CaptureSource? SelectedScreen
     {
         get => _selectedScreen;
-        set { _selectedScreen = value; OnPropertyChanged(); ToggleRecordingCommand.RaiseCanExecuteChanged(); }
+        set { _selectedScreen = value; OnPropertyChanged(); OnPropertyChanged(nameof(RecordingReadiness)); ToggleRecordingCommand.RaiseCanExecuteChanged(); }
     }
 
     public CaptureSource? SelectedSystemAudio
     {
         get => _selectedSystemAudio;
-        set { _selectedSystemAudio = value; OnPropertyChanged(); ToggleRecordingCommand.RaiseCanExecuteChanged(); }
+        set { _selectedSystemAudio = value; OnPropertyChanged(); OnPropertyChanged(nameof(RecordingReadiness)); ToggleRecordingCommand.RaiseCanExecuteChanged(); }
     }
 
     public CaptureSource? SelectedMicrophone
@@ -298,7 +298,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var previous = _selectedMicrophone;
             _selectedMicrophone = value;
             OnPropertyChanged();
-            ToggleRecordingCommand.RaiseCanExecuteChanged();
+            OnPropertyChanged(nameof(RecordingReadiness)); ToggleRecordingCommand.RaiseCanExecuteChanged();
             if (IsRecording && IsMicrophoneCaptureEnabled && value is not null && previous?.Id != value.Id) _ = SwitchMicrophoneAsync(value, previous);
         }
     }
@@ -313,7 +313,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             MicrophoneLevel = 0;
             OnPropertyChanged();
             OnPropertyChanged(nameof(MicrophoneSelectionEnabled));
-            ToggleRecordingCommand.RaiseCanExecuteChanged();
+            OnPropertyChanged(nameof(RecordingReadiness)); ToggleRecordingCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -696,6 +696,24 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         finally
         {
             IsDiscoveringSources = false;
+        }
+    }
+
+    public string RecordingReadiness
+    {
+        get
+        {
+            if (IsRecording) return "Recording is running. Click Stop recording to finish.";
+            if (IsDiscoveringSources) return "Checking available recording devices...";
+            if (!CanChangeSources) return "Preparing or finishing the recording. Please wait.";
+            if (SelectedSystemAudio is null) return "Choose a System / Teams audio output before starting.";
+            if (IsMicrophoneCaptureEnabled && SelectedMicrophone is null)
+                return "Choose a microphone or turn off microphone recording to capture system audio only.";
+            if (IsScreenCaptureEnabled && SelectedScreen is null)
+                return "Choose a screen or turn off screen recording before starting.";
+            return IsMicrophoneCaptureEnabled
+                ? "Ready: system audio and microphone selected. Check the meters before starting."
+                : "Ready: system audio only. A microphone is not required. Check the system audio meter.";
         }
     }
 
@@ -1286,7 +1304,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void RaiseCommandStates()
     {
-        ToggleRecordingCommand.RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(RecordingReadiness)); ToggleRecordingCommand.RaiseCanExecuteChanged();
         RefreshSourcesCommand.RaiseCanExecuteChanged();
         TranscribeLatestCommand.RaiseCanExecuteChanged();
         CancelTranscriptionCommand.RaiseCanExecuteChanged();

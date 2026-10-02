@@ -1,7 +1,9 @@
 import tempfile,unittest
 from pathlib import Path
 from manage_speech_model import target_for,validate,local_download_bytes,DownloadProgress
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+from types import SimpleNamespace
+import manage_speech_model
 import threading
 class ModelManagerTests(unittest.TestCase):
  def test_catalog_target_is_scoped(self):
@@ -38,4 +40,21 @@ class ModelManagerTests(unittest.TestCase):
       raise ValueError("network")
    self.assertFalse(progress.thread.is_alive())
    self.assertTrue(all(event["downloadedBytes"]==1024 for event in events))
+ def test_download_pins_revision_and_excludes_repository_code(self):
+  with tempfile.TemporaryDirectory() as value:
+   root=Path(value)
+   files=[SimpleNamespace(rfilename=n,size=100) for n in manage_speech_model.PAYLOAD]
+   files.append(SimpleNamespace(rfilename="custom_generate/generate.py",size=999999))
+   hub=Mock();hub.HfApi.return_value.model_info.return_value=SimpleNamespace(sha="fixed-revision",siblings=files)
+   def download(**kwargs):
+    target=kwargs["local_dir"];target.mkdir()
+    for name in manage_speech_model.REQUIRED:(target/name).write_bytes(bytes(1000000) if name=="model.bin" else b"{}")
+   hub.snapshot_download.side_effect=download
+   with patch.dict("sys.modules", {"truststore":Mock(),"huggingface_hub":hub}), patch("manage_speech_model.emit") as emit:
+    manage_speech_model.install(root,"tiny")
+   kwargs=hub.snapshot_download.call_args.kwargs
+   self.assertEqual("fixed-revision",kwargs["revision"])
+   self.assertEqual(list(manage_speech_model.PAYLOAD),kwargs["allow_patterns"])
+   self.assertNotIn("custom_generate/generate.py",kwargs["allow_patterns"])
+   self.assertEqual(len(manage_speech_model.PAYLOAD)*100,emit.call_args_list[0].kwargs["totalBytes"])
 if __name__=="__main__":unittest.main()

@@ -1,6 +1,6 @@
 # SignPath application preparation
 
-Status: draft; not submitted.
+Status: submitted on 2026-10-02; website confirmed receipt. Acceptance pending.
 
 - Project: AI Meeting Assistant
 - Repository: https://github.com/FizzDisc/AI-Meeting-Assisant
@@ -47,3 +47,11 @@ All 102 pinned PyPI packages were queried; eight lack usable license metadata.
 Inspect their distributed license files and the licenses of embedded native
 binaries (especially FFmpeg), PyTorch packages and model weights before claiming
 complete SignPath eligibility. Package metadata alone does not prove compliance.
+
+Security assessment: [dependency review](security-review-2026-10.md).
+Six dependency alerts remain open; mitigations are not upstream patches.
+
+Update: the eight missing package license declarations were resolved from
+SHA-256-verified wheels (six MIT, two BSD-3-Clause); evidence is recorded in
+the inventory and license texts are in licenses/runtime/. Embedded native
+binaries and separately downloaded models remain a separate review scope.

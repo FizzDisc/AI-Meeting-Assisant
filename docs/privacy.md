@@ -26,3 +26,7 @@ Downloaded packages and models are subject to their respective licenses and term
 Managed AI components are stored under `%LOCALAPPDATA%\AI Meeting Assistant`.
 Interactive uninstallation offers optional removal of managed models and Python
 components for the current Windows user. Recordings and settings are retained.
+
+From version 1.0.9, application-launched Python processes explicitly disable
+pyannote usage metrics and Hugging Face telemetry. Inference also enables the
+Hugging Face/Transformers offline flags; explicit setup downloads remain online.

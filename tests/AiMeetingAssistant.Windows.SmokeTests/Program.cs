@@ -82,6 +82,8 @@ catch (Exception exception)
     failures++;
 }
 
+if (args.Contains("--setup-regression")) return failures == 0 ? 0 : 1;
+
 try
 {
     await WorkerRecoveryRegression.RunAsync();

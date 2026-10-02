@@ -225,6 +225,8 @@ def reconcile_without_diarization(segments: list[dict[str, Any]]) -> list[dict[s
     return result
 
 def run(request_path: Path, model_cache: dict | None = None) -> int:
+    from inference_policy import configure_local_inference
+    configure_local_inference()
     started = time.monotonic()
     request = json.loads(request_path.read_text(encoding="utf-8"))
     inputs = [Path(item).resolve() for item in request["audioPaths"]]
@@ -311,7 +313,7 @@ def run(request_path: Path, model_cache: dict | None = None) -> int:
         else:
             import whisperx
             model = whisperx.load_model(str(model_path), device, compute_type=compute_type,
-                                        language=requested_language)
+                                        language=requested_language, local_files_only=True)
         if model_cache is not None:
             model_cache.update(key=model_key, model=model)
         model_seconds = 0.0 if model_reused else time.monotonic()-model_started

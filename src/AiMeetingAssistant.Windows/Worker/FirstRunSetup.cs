@@ -16,9 +16,27 @@ public sealed class FirstRunSetup
         stream.WriteByte(0);
     }
 
-    public static Task ValidateRuntimeAsync(string python, CancellationToken token) => RunAsync(python,
-        ["-I", "-c", "import sys,struct,subprocess; from pathlib import Path; assert (3,10)<=sys.version_info[:2]<(3,14) and struct.calcsize('P')==8; assert Path(sys.prefix).resolve()==Path(sys.executable).resolve().parent; import torch,whisperx,ctranslate2,pyannote.audio,truststore; subprocess.run([str(Path(sys.executable).parent/'ffmpeg.exe'),'-version'],check=True,stdout=subprocess.DEVNULL); print('AI components ready')"],
-        _ => { }, token);
+    public static async Task ValidateRuntimeAsync(string python, CancellationToken token)
+    {
+        await RunAsync(python, ["-I", "-m", "pip", "check"], _ => { }, token).ConfigureAwait(false);
+        await RunAsync(python,
+        ["-I", "-c", "import sys,struct,subprocess; from pathlib import Path; assert (3,10)<=sys.version_info[:2]<(3,14) and struct.calcsize('P')==8; assert Path(sys.prefix).resolve()==Path(sys.executable).resolve().parent; import torch,whisperx,ctranslate2,pyannote.audio,truststore; from whisperx.asr import load_model; subprocess.run([str(Path(sys.executable).parent/'ffmpeg.exe'),'-version'],check=True,stdout=subprocess.DEVNULL); print('AI components ready')"],
+        _ => { }, token).ConfigureAwait(false);
+    }
+
+    public static async Task ValidateInferenceAsync(string python, CancellationToken token)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromMinutes(2));
+        try
+        {
+            await RunAsync(python, ["-I", "-c",
+                "import shutil,subprocess; from whisperx.asr import load_model; import pyannote.audio; ffmpeg=shutil.which('ffmpeg'); assert ffmpeg, 'FFmpeg is missing'; subprocess.run([ffmpeg,'-version'],check=True,stdout=subprocess.DEVNULL)"],
+                _ => { }, timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        { throw new IOException("AI component validation timed out. Retry or reinstall the AI components."); }
+    }
 
     public static Task InstallModelAsync(string script, string modelId, Action<string> report, CancellationToken token)
         => RunAsync(PythonRuntimeResolver.Resolve(), ["-u", script, "install", "--model-id", modelId, "--models-root", UserAiPaths.Models], report, token);

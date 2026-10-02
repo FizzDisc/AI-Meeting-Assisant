@@ -31,7 +31,12 @@ public static class UserAiPaths
         start.Environment.Remove("PYTHONHOME");
         start.Environment.Remove("PYTHONPATH");
         start.Environment["PYTHONNOUSERSITE"] = "1";
+        start.Environment["PYANNOTE_METRICS_ENABLED"] = "0";
+        start.Environment["HF_HUB_DISABLE_TELEMETRY"] = "1";
         start.Environment.TryGetValue("PATH", out var currentPath);
-        start.Environment["PATH"] = Tools + Path.PathSeparator + currentPath;
+        var executableDirectory = Path.IsPathFullyQualified(start.FileName) ? Path.GetDirectoryName(start.FileName) : null;
+        var tools = executableDirectory is not null && File.Exists(Path.Combine(executableDirectory, "ffmpeg.exe"))
+            ? executableDirectory : Tools;
+        start.Environment["PATH"] = tools + Path.PathSeparator + currentPath;
     }
 }

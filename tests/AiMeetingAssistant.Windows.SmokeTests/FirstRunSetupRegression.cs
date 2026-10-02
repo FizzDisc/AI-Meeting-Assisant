@@ -17,9 +17,16 @@ internal static class FirstRunSetupRegression
             File.WriteAllBytes(Path.Combine(root, "model.bin"), new byte[1_000_000]);
             if (!FirstRunSetup.HasModel(root)) throw new InvalidOperationException("Complete model was rejected.");
             var start = new ProcessStartInfo("python");
+            start.Environment["PYANNOTE_METRICS_ENABLED"] = "1";
             UserAiPaths.ConfigureProcess(start);
+            if (start.Environment["PYANNOTE_METRICS_ENABLED"] != "0") throw new Exception("Pyannote telemetry remained enabled.");
             if (start.Environment["PATH"]?.StartsWith(UserAiPaths.Tools + Path.PathSeparator) != true)
                 throw new InvalidOperationException("User FFmpeg directory was not exposed to child processes.");
+            File.WriteAllText(Path.Combine(root, "ffmpeg.exe"), "test fixture");
+            var portable = new ProcessStartInfo(Path.Combine(root, "python.exe"));
+            UserAiPaths.ConfigureProcess(portable);
+            if (portable.Environment["PATH"]?.StartsWith(root + Path.PathSeparator) != true)
+                throw new InvalidOperationException("Explicit portable runtime did not use its own FFmpeg directory.");
             var pidFile = Path.Combine(root, "pid.txt");
             using var cancellation = new CancellationTokenSource();
             var task = FirstRunSetup.RunAsync("python", ["-c",

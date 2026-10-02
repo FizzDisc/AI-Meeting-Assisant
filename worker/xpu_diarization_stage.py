@@ -12,6 +12,8 @@ from transcription_job import (activate_torch_xpu, compress_speech_audio,
                                restore_turn_timestamps, write_atomic)
 
 def run(request_path: Path) -> int:
+    from inference_policy import configure_local_inference
+    configure_local_inference()
     request = json.loads(request_path.read_text(encoding="utf-8"))
     activate_torch_xpu(Path(request["runtimePath"]).resolve())
     import torch
