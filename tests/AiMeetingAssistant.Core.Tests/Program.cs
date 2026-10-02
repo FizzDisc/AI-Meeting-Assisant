@@ -10,6 +10,8 @@ using System.Text.Json;
 
 var tests = new (string Name, Func<Task> Run)[]
 {
+    ("update versions and download links are validated", UpdateRegression.VersionsAndLinks),
+    ("update HTTP failures and cancellation are handled", UpdateRegression.HttpFailuresAndCancellation),
     ("happy path follows all transitions", HappyPathFollowsAllTransitions),
     ("stop from idle is rejected", StopFromIdleIsRejected),
     ("capture start failure moves session to failed", StartFailureMovesSessionToFailed),

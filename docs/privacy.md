@@ -30,3 +30,10 @@ components for the current Windows user. Recordings and settings are retained.
 From version 1.0.9, application-launched Python processes explicitly disable
 pyannote usage metrics and Hugging Face telemetry. Inference also enables the
 Hugging Face/Transformers offline flags; explicit setup downloads remain online.
+
+From version 1.0.11, a manual update check contacts the public GitHub Releases API.
+An optional startup check is disabled by default and can be enabled in Settings.
+These requests contain no recordings, transcripts, credentials or device identifiers;
+GitHub receives normal connection metadata such as the IP address. Release notes
+are displayed as plain text. Downloads open in the browser only on request; the
+application does not automatically download or execute installers.

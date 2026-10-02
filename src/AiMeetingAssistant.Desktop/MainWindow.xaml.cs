@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeUpdates();
         StorageSessionsGrid.Columns.Insert(2, new DataGridTextColumn { Header = "Archive state", Binding = new Binding(nameof(SessionStorageEntry.ArchiveStatus)), Width = new DataGridLength(135) });
         StorageSessionsGrid.Columns.Insert(3, new DataGridTextColumn { Header = "Reclaimable", Binding = new Binding(nameof(SessionStorageEntry.ReclaimableLabel)), Width = new DataGridLength(105) });
         StorageSessionsGrid.Columns.Insert(4, new DataGridTextColumn { Header = "Next storage action", Binding = new Binding(nameof(SessionStorageEntry.ArchiveAction)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
@@ -60,6 +61,7 @@ public partial class MainWindow : Window
     private async void OnLoaded(object sender, RoutedEventArgs eventArgs)
     {
         Loaded -= OnLoaded;
+        _ = CheckStartupUpdatesAsync();
         await _viewModel.InitializeAsync();
     }
 
