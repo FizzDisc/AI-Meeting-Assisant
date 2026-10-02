@@ -4,11 +4,15 @@ Local-first Windows desktop app for synchronized screen, system/Teams audio and 
 
 ## Download for Windows
 
-**[Download the Windows x64 installer (v1.0.8)](https://github.com/FizzDisc/AI-Meeting-Assisant/releases/download/v1.0.8/AI-Meeting-Assistant-1.0.8-win-x64.msi)**
+**[Download the Windows x64 installer (v1.0.10)](https://github.com/FizzDisc/AI-Meeting-Assisant/releases/download/v1.0.10/AI-Meeting-Assistant-1.0.10-win-x64.msi)**
 
 Run the MSI, then use the Welcome screen to download the AI components and a speech model. No separate Python or .NET SDK installation is needed. Close the app before updating.
 
-[Release notes and downloads](https://github.com/FizzDisc/AI-Meeting-Assisant/releases/tag/v1.0.8)
+[Release notes, ZIP and SHA-256 checksums](https://github.com/FizzDisc/AI-Meeting-Assisant/releases/tag/v1.0.10)
+
+When upgrading to 1.0.10, the Welcome screen opens once to install the updated AI runtime. Existing speech models are reused; old runtime files are retained. The ZIP is an application archive, not an installer.
+
+**This release is unsigned.** Windows SmartScreen may warn about an unknown publisher. Code signing is awaiting SignPath approval.
 
 The repository and installer downloads are public. No GitHub account is required.
 

@@ -30,5 +30,7 @@ with valid timestamps. Model reuse is covered by regression tests.
 
 This is CPU validation on the development Windows machine, not a clean-OS MSI
 lifecycle test. GPU accuracy/performance and optional speaker models were not
-revalidated. The two temporary runtime-validation directories are disposable
-and were kept because automated deletion was previously blocked.
+revalidated. The user subsequently confirmed successful installation, system-only
+recording, transcription and export on their Windows machine. This does not
+replace a clean-OS lifecycle test. The two temporary runtime-validation
+directories have been manually removed after testing.
