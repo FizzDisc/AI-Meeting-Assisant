@@ -10,6 +10,8 @@ using System.Text.Json;
 
 var tests = new (string Name, Func<Task> Run)[]
 {
+    ("failure guidance identifies actionable categories", DiagnosisRegression.Guidance),
+    ("diagnosis export excludes private input and bounds history", DiagnosisRegression.ExportExcludesPrivateContent),
     ("update versions and download links are validated", UpdateRegression.VersionsAndLinks),
     ("update HTTP failures and cancellation are handled", UpdateRegression.HttpFailuresAndCancellation),
     ("happy path follows all transitions", HappyPathFollowsAllTransitions),

@@ -22,7 +22,7 @@ public partial class SettingsWindow
             ShowUpdateResult(checkedNow: true);
         }
         catch (OperationCanceledException) { UpdateStatusText.Text = "Update check timed out. Please try again."; }
-        catch (Exception) { UpdateStatusText.Text = "Could not check for updates. Check your connection or try again later (GitHub may limit requests)."; }
+        catch (Exception error) { AppDiagnosis.Describe(error, AiMeetingAssistant.Core.Status.DiagnosisArea.Updates); UpdateStatusText.Text = "Could not check for updates. Check your connection or try again later (GitHub may limit requests)."; }
         finally { CheckUpdatesButton.IsEnabled = true; }
     }
 

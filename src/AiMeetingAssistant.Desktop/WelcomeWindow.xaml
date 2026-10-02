@@ -67,6 +67,7 @@
         </StackPanel>
         <DockPanel Grid.Row="3">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                <Button Content="Export diagnosis" Click="OnExportDiagnosis" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
                 <Button x:Name="LaterButton" Content="Set up later" Click="Later" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"/>
                 <Button x:Name="RecordingOnlyButton" Content="Recording only" Click="RecordingOnly" Style="{StaticResource SecondaryButtonStyle}"/>
             </StackPanel>

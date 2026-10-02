@@ -37,3 +37,10 @@ These requests contain no recordings, transcripts, credentials or device identif
 GitHub receives normal connection metadata such as the IP address. Release notes
 are displayed as plain text. Downloads open in the browser only on request; the
 application does not automatically download or execute installers.
+
+From version 1.0.12, diagnosis reports are explicitly exported to a local file
+chosen by the user. They contain only version numbers, component-presence flags,
+the latest session runtime check state and up to 50 timestamped error categories.
+Raw logs, recordings, transcripts, access tokens, device names and personal paths
+are excluded. Error categories are held in memory until the application closes;
+there is no automatic report upload or persistent diagnostic log collection.

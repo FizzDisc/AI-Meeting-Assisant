@@ -229,7 +229,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set { _runtimeStatus = value; OnPropertyChanged(); }
     }
 
-    public string OperationalStatusMessage => ErrorMessage ?? StatusMessage ?? StateLabel;
+    public string? FriendlyErrorMessage => string.IsNullOrWhiteSpace(ErrorMessage) ? null : FailureGuidance.FromMessage(ErrorMessage).Message;
+
+    public string OperationalStatusMessage => string.IsNullOrWhiteSpace(ErrorMessage) ? StatusMessage ?? StateLabel : FailureGuidance.FromMessage(ErrorMessage).Message;
 
     public IReadOnlyList<OperationalStatusEntry> StatusLogEntries
     {
@@ -372,6 +374,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _errorMessage = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(OperationalStatusMessage));
+            OnPropertyChanged(nameof(FriendlyErrorMessage));
             if (!string.IsNullOrWhiteSpace(value)) AddStatus("ERROR", value);
         }
     }
@@ -551,6 +554,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             try
             {
                 var health = await _workerClient.CheckHealthAsync();
+                AppDiagnosis.RuntimeState = health.MlReady && health.RuntimeSupported ? RuntimeCheckState.Ready : RuntimeCheckState.NeedsSetup;
                 StatusMessage = health.MlReady
                     ? $"AI runtime ready · {health.Diagnostics.Compute.Mode.ToUpperInvariant()}/{health.Diagnostics.Compute.ComputeType} · Python {health.PythonVersion}"
                     : health.RuntimeSupported
@@ -561,10 +565,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     : health.RuntimeSupported ? "Worker connected · setup required" : $"Unsupported Python {health.PythonVersion}";
                 AddStatus(health.MlReady ? "READY" : "WARNING", RuntimeStatus);
                 if (_modelPath is null)
-                    TranscriptionStatusMessage = "No local model installed. Use the future Model Manager or development installer.";
+                    TranscriptionStatusMessage = "No local model installed. Open Settings > Models and install a speech model.";
             }
             catch (Exception exception)
             {
+                AppDiagnosis.RuntimeState = RuntimeCheckState.NeedsSetup;
                 RuntimeStatus = "AI runtime unavailable";
                 ErrorMessage = $"AI worker unavailable: {exception.Message}";
             }
@@ -1321,6 +1326,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void AddStatus(string level, string message)
     {
         StatusLogEntries = _statusLog.Add(level, message);
+        if (level is "ERROR" or "WARNING") AppDiagnosis.Record(message, DiagnosisArea.CaptureOrProcessing);
     }
 
     private static CaptureSource? PreserveSelection(CaptureSource? current, IReadOnlyList<CaptureSource> sources) =>

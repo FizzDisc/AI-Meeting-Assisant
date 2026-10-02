@@ -1,3 +1,4 @@
+using AiMeetingAssistant.Core.Status;
 using System.Net.Http;
 using System.IO;
 using System.Text.Json;
@@ -94,14 +95,14 @@ public partial class WelcomeWindow : Window
             Status.Text = "";
             ShowStep();
         }
-        catch (Exception error) { Status.Text = error.Message; }
+        catch (Exception error) { Status.Text = AppDiagnosis.Describe(error, DiagnosisArea.Setup); }
     }
 
     private void Back(object sender, RoutedEventArgs e) { if (_step > 0) _step--; Status.Text = ""; ShowStep(); }
     private void RecordingOnly(object sender, RoutedEventArgs e)
     {
         try { FirstRunSetup.CheckWritableDirectory(RecordingFolder.Text.Trim()); _recordingOnly = true; _step = 3; Status.Text = ""; ShowStep(); }
-        catch (Exception error) { Status.Text = error.Message; }
+        catch (Exception error) { Status.Text = AppDiagnosis.Describe(error, DiagnosisArea.Setup); }
     }
     private void Later(object sender, RoutedEventArgs e) => SaveAndOpen(true, false);
 
@@ -122,7 +123,7 @@ public partial class WelcomeWindow : Window
             _operation = null;
             DialogResult = true;
         }
-        catch (Exception error) { Status.Text = error.Message; }
+        catch (Exception error) { Status.Text = AppDiagnosis.Describe(error, DiagnosisArea.Setup); }
     }
 
     private void BrowseStorage(object sender, RoutedEventArgs e)
@@ -181,6 +182,7 @@ public partial class WelcomeWindow : Window
     private async Task CheckRuntimeAsync(CancellationToken token)
     {
         _runtimeReady = false;
+        AppDiagnosis.RuntimeState = RuntimeCheckState.NeedsSetup;
         if (!File.Exists(PythonRuntimeResolver.Resolve()))
         {
             RuntimeStatus.Text = "Download the AI components first.";
@@ -197,6 +199,7 @@ public partial class WelcomeWindow : Window
                 if (_validatedPython != python) await FirstRunSetup.ValidateInferenceAsync(python, token);
                 _validatedPython = python;
                 _runtimeReady = true;
+                AppDiagnosis.RuntimeState = RuntimeCheckState.Ready;
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception)
@@ -255,7 +258,7 @@ public partial class WelcomeWindow : Window
         Status.Text = "Working...";
         try { await action(_operation.Token); }
         catch (OperationCanceledException) { Status.Text = "Cancelled. You can retry or continue with recording only."; }
-        catch (Exception error) { Status.Text = error.Message.Length > 700 ? error.Message[^700..] : error.Message; RuntimeStatus.Text = "Setup needs attention. Check the message below and retry."; }
+        catch (Exception error) { Status.Text = AppDiagnosis.Describe(error, DiagnosisArea.Setup); RuntimeStatus.Text = "Setup needs attention. Check the message below and retry."; }
         finally { _operation?.Dispose(); _operation = null; SetBusy(false); }
     }
     private void SetBusy(bool busy)
@@ -265,5 +268,7 @@ public partial class WelcomeWindow : Window
         BackButton.IsEnabled = !busy && _step > 0;
         BusyProgress.Visibility = CancelOperation.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }
+    private void OnExportDiagnosis(object sender, RoutedEventArgs e) => AppDiagnosis.Export(this);
+
     private void CancelSetup(object sender, RoutedEventArgs e) => _operation?.Cancel();
 }
